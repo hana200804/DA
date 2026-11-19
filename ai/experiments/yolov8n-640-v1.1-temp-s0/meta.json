@@ -1,0 +1,37 @@
+{
+  "repo_commit": "ef46f19f1a6924486426dfa180e88fcea022267a",
+  "dataset_version": "v1.1",
+  "label_map_version": 1,
+  "sessions": [
+    {
+      "started_at": "2026-11-19T13:08:31.628725+00:00",
+      "gpu": "NVIDIA L4",
+      "torch": "2.14.1+cu130",
+      "ultralytics": "8.3.203",
+      "gpu_hours": 1.32026620242,
+      "epoch": 100
+    }
+  ],
+  "status": "temporary",
+  "stopped_epoch": 100,
+  "gpu_hours": 1.32026620242,
+  "gpu_hours_scope": "Thời gian track_session của phiên train, gồm callback/validation cuối phiên; không gồm smoke, xuất dự đoán hoặc toàn bộ thời gian cấp phát Colab.",
+  "weights_path": "My Drive/Signa/experiments/yolov8n-640-v1.1-temp-s0/weights/best.pt",
+  "weights_url": "https://drive.google.com/file/d/1MBrCM4aET1NcXTJ-wm4o4wkuA-fzohzl/view",
+  "source_drive_url": "https://drive.google.com/drive/u/2/folders/1puwNFIjOZgRlzB2q439KRFn724OFLpxw",
+  "reference_ultralytics_val": {
+    "status": "reference_only",
+    "note": "Chỉ số tham khảo từ Ultralytics 8.3.203 trên val; chưa qua bộ đánh giá chung evaluate.py, không dùng làm kết quả so sánh chính thức.",
+    "epoch": 71,
+    "metrics": {
+      "metrics/precision(B)": 0.8879,
+      "metrics/recall(B)": 0.79773,
+      "metrics/mAP50(B)": 0.86789,
+      "metrics/mAP50-95(B)": 0.70177
+    }
+  },
+  "limitations": [
+    "Mô hình tạm để tích hợp backend/app; chưa so sánh chính thức ba kiến trúc.",
+    "Chưa xuất TFLite hoặc đo FPS trên điện thoại."
+  ]
+}

@@ -32,7 +32,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 1–2 | Danh mục nhãn nháp; khảo sát và kiểm tra giấy phép dữ liệu | Rà soát tài liệu; hợp đồng API; khung backend một khối | Rà soát tài liệu; khung ứng dụng; màn hình mẫu |
 | 3 | Gán nhãn dữ liệu công khai; quay video đợt 1 | Tài khoản, phân quyền, danh mục | Tài khoản, tra cứu offline |
-| 4 | Gán nhãn; mô hình tạm YOLOv8n | Dịch vụ nhận diện (mô hình tạm), API nhận diện | Nhận diện ảnh qua server |
+| 4 | Gán nhãn; mô hình tạm YOLOv8n **đã huấn luyện** ([hồ sơ](../ai/experiments/yolov8n-640-v1.1-temp-s0/)) | Dịch vụ nhận diện (mô hình tạm), API nhận diện | Nhận diện ảnh qua server |
 | 5 | **Dữ liệu v1.0**; bắt đầu huấn luyện DETR | API biển theo vùng, bản đồ trên web | Màn hình bản đồ, chi tiết biển |
 | 6 | Huấn luyện YOLOv5, YOLOv8 | Đề xuất, worker gom cụm, điểm tin cậy | Tích hợp TFLite, FrameAnalyzer |
 | 7 | Bộ đánh giá chung; **baseline cả 3 mô hình** | Hàng đợi phê duyệt, lịch sử xử lý | Tracker, đề xuất từ camera |
