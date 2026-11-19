@@ -32,7 +32,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 1–2 | Danh mục nhãn nháp; khảo sát và kiểm tra giấy phép dữ liệu | Rà soát tài liệu; hợp đồng API; khung backend một khối | Rà soát tài liệu; khung ứng dụng; màn hình mẫu |
 | 3 | Gán nhãn dữ liệu công khai; quay video đợt 1 | Tài khoản, phân quyền, danh mục | Tài khoản, tra cứu offline |
-| 4 | Gán nhãn; mô hình tạm YOLOv8n | Dịch vụ nhận diện (mô hình tạm), API nhận diện | Nhận diện ảnh qua server |
+| 4 | Gán nhãn; mô hình tạm YOLOv8n **đã huấn luyện** ([hồ sơ](../ai/experiments/yolov8n-640-v1.1-temp-s0/)) | Dịch vụ nhận diện (mô hình tạm), API nhận diện | Nhận diện ảnh qua server |
 | 5 | **Dữ liệu v1.0**; bắt đầu huấn luyện DETR | API biển theo vùng, bản đồ trên web | Màn hình bản đồ, chi tiết biển |
 | 6 | Huấn luyện YOLOv5, YOLOv8 | Đề xuất, worker gom cụm, điểm tin cậy | Tích hợp TFLite, FrameAnalyzer |
 | 7 | Bộ đánh giá chung; **baseline cả 3 mô hình** | Hàng đợi phê duyệt, lịch sử xử lý | Tracker, đề xuất từ camera |
@@ -78,7 +78,7 @@ Cuối tuần 12 **đóng băng tính năng**.
 **Mục tiêu:** YOLOv5, YOLOv8, DETR được huấn luyện và so sánh theo cùng giao thức; chọn được mô hình triển khai. Thiết kế: [Thiết kế AI §2–4, §8](04-thiet-ke-ai.md#2-ba-mô-hình).
 
 - [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
-- [ ] Bộ đánh giá chung bằng `pycocotools` (AI-03)
+- [x] Bộ đánh giá chung bằng `pycocotools` (AI-03)
 - [ ] Bảng so sánh và phân tích lỗi ([Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình))
 - [ ] Bản TFLite INT8/FP16 của các ứng viên điện thoại (AI-05)
 - [ ] Thí nghiệm 960 px, dữ liệu tổng hợp (AI-07)
