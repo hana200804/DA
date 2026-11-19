@@ -36,15 +36,15 @@ Ba mô hình đại diện cho ba hướng thiết kế bộ phát hiện, nên 
 | | YOLOv5 | YOLOv8 | DETR |
 | --- | --- | --- | --- |
 | Hướng thiết kế | CNN một giai đoạn, **dùng anchor box** | CNN một giai đoạn, **không dùng anchor**, đầu tách phân loại / hồi quy | **Transformer**, dự đoán tập đối tượng, ghép cặp Hungary, **không cần NMS** |
-| Mã nguồn | `ultralytics/yolov5` (bản gốc dùng anchor) | Gói `ultralytics` | RT-DETR trong gói `ultralytics`; DETR-R50 gốc qua `transformers` nếu cần — chốt theo [Đặc tả · Q2](02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ) |
-| Biến thể so sánh | `n`, `s` | `n`, `s` | DETR-R50 hoặc RT-DETR-L theo Q2 |
+| Mã nguồn | `ultralytics/yolov5` (bản gốc dùng anchor) | Gói `ultralytics` | DETR-R50 gốc qua `transformers`; RT-DETR trong gói `ultralytics` làm thử nghiệm bổ sung ([Đặc tả · Q2](02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)) |
+| Biến thể so sánh | `n`, `s` | `n`, `s` | DETR-R50, bổ sung RT-DETR-L |
 | Khởi tạo | Trọng số COCO | Trọng số COCO | Trọng số COCO |
 | Chạy trên điện thoại | Được | Được | Không — quá nặng cho 15 FPS |
 | Giả thuyết cần kiểm chứng | Ổn định, nhẹ, nhưng anchor cố định kém với biển rất nhỏ | Chính xác hơn v5 cùng cỡ, nhất là biển nhỏ | Mạnh với ngữ cảnh toàn ảnh, nhưng yếu với biển nhỏ và hội tụ chậm |
 
 **Vì sao dùng `yolov5` bản gốc thay vì `yolov5u`:** `yolov5u` trong gói `ultralytics` đã đổi sang đầu không dùng anchor của YOLOv8, nên so sánh với YOLOv8 sẽ chỉ còn khác ở backbone. Bản gốc giữ đúng đặc trưng "dùng anchor" của YOLOv5.
 
-RT-DETR là phương án xin duyệt vì có thể dùng chung công cụ với YOLOv8 và giảm chi phí huấn luyện. Chỉ dùng RT-DETR-L làm đại diện bắt buộc nếu giảng viên đồng ý ở Q2. Nếu đề tài yêu cầu DETR gốc, dùng DETR-R50 làm mô hình bắt buộc và báo cáo RT-DETR riêng nếu có thử nghiệm bổ sung.
+Đề tài ghi đích danh DETR, nên DETR-R50 gốc là mô hình bắt buộc. Nhóm chấp nhận chi phí GPU của DETR gốc trên Colab. RT-DETR-L được báo cáo riêng như thử nghiệm bổ sung, vì dùng chung công cụ với YOLOv8 và hội tụ nhanh hơn.
 
 ## 3. Giao thức huấn luyện
 
