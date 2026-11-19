@@ -1,0 +1,201 @@
+# Danh mục nhãn — nguồn duy nhất (AI-01, docs/05 §2).
+#
+# v1: 42 mã QCVN 41:2024/BGTVT đủ 100 box train trong VN82 và 4 lớp gộp other_<nhóm>.
+# Mã không có hậu tố chữ (W.202, W.205, W.207, I.423) gộp các biến thể vì nhãn nguồn
+# không phân biệt. Ánh xạ từ VN82: sources/vn82-to-signa.csv.
+version: 1
+categories:
+  prohibitory: { name: Biển cấm }
+  mandatory: { name: Biển hiệu lệnh }
+  warning: { name: Biển nguy hiểm và cảnh báo }
+  auxiliary: { name: Biển phụ }
+  other: { name: Biển chỉ dẫn và biển khác }
+classes:
+  - id: 0
+    code: P.102
+    category: prohibitory
+    name: Cấm đi ngược chiều
+  - id: 1
+    code: P.103a
+    category: prohibitory
+    name: Cấm xe ô tô
+  - id: 2
+    code: P.103c
+    category: prohibitory
+    name: Cấm xe ô tô rẽ trái
+  - id: 3
+    code: P.104
+    category: prohibitory
+    name: Cấm xe máy
+  - id: 4
+    code: P.105
+    category: prohibitory
+    name: Cấm xe ô tô và xe máy
+  - id: 5
+    code: P.106a
+    category: prohibitory
+    name: Cấm xe ô tô tải
+  - id: 6
+    code: P.117
+    category: prohibitory
+    name: Hạn chế chiều cao
+  - id: 7
+    code: P.123a
+    category: prohibitory
+    name: Cấm rẽ trái
+  - id: 8
+    code: P.123b
+    category: prohibitory
+    name: Cấm rẽ phải
+  - id: 9
+    code: P.124a
+    category: prohibitory
+    name: Cấm quay đầu xe
+  - id: 10
+    code: P.124c
+    category: prohibitory
+    name: Cấm rẽ trái và quay đầu xe
+  - id: 11
+    code: P.124d
+    category: prohibitory
+    name: Cấm rẽ phải và quay đầu xe
+  - id: 12
+    code: P.127_40
+    category: prohibitory
+    name: Tốc độ tối đa cho phép 40 km/h
+    speed_kmh: 40
+  - id: 13
+    code: P.127_50
+    category: prohibitory
+    name: Tốc độ tối đa cho phép 50 km/h
+    speed_kmh: 50
+  - id: 14
+    code: P.127_60
+    category: prohibitory
+    name: Tốc độ tối đa cho phép 60 km/h
+    speed_kmh: 60
+  - id: 15
+    code: P.127_80
+    category: prohibitory
+    name: Tốc độ tối đa cho phép 80 km/h
+    speed_kmh: 80
+  - id: 16
+    code: P.130
+    category: prohibitory
+    name: Cấm dừng xe và đỗ xe
+  - id: 17
+    code: P.131a
+    category: prohibitory
+    name: Cấm đỗ xe
+  - id: 18
+    code: P.135
+    category: prohibitory
+    name: Hết tất cả các lệnh cấm
+  - id: 19
+    code: P.137
+    category: prohibitory
+    name: Cấm rẽ trái, rẽ phải
+  - id: 20
+    code: other_prohibitory
+    category: prohibitory
+    name: Biển cấm khác
+  - id: 21
+    code: R.302a
+    category: mandatory
+    name: Hướng phải đi vòng chướng ngại vật sang phải
+  - id: 22
+    code: R.303
+    category: mandatory
+    name: Nơi giao nhau chạy theo vòng xuyến
+  - id: 23
+    code: R.415a
+    category: mandatory
+    name: Biển gộp làn đường theo phương tiện
+  - id: 24
+    code: R.420
+    category: mandatory
+    name: Bắt đầu khu đông dân cư
+  - id: 25
+    code: other_mandatory
+    category: mandatory
+    name: Biển hiệu lệnh khác
+  - id: 26
+    code: W.201a
+    category: warning
+    name: Chỗ ngoặt nguy hiểm vòng bên trái
+  - id: 27
+    code: W.201b
+    category: warning
+    name: Chỗ ngoặt nguy hiểm vòng bên phải
+  - id: 28
+    code: W.202
+    category: warning
+    name: Nhiều chỗ ngoặt nguy hiểm liên tiếp
+  - id: 29
+    code: W.203a
+    category: warning
+    name: Đường bị thu hẹp cả hai bên
+  - id: 30
+    code: W.203c
+    category: warning
+    name: Đường bị thu hẹp về phía phải
+  - id: 31
+    code: W.205
+    category: warning
+    name: Đường giao nhau
+  - id: 32
+    code: W.207
+    category: warning
+    name: Giao nhau với đường không ưu tiên
+  - id: 33
+    code: W.208
+    category: warning
+    name: Giao nhau với đường ưu tiên
+  - id: 34
+    code: W.210
+    category: warning
+    name: Giao nhau với đường sắt có rào chắn
+  - id: 35
+    code: W.220
+    category: warning
+    name: Dốc lên nguy hiểm
+  - id: 36
+    code: W.224
+    category: warning
+    name: Đường người đi bộ cắt ngang
+  - id: 37
+    code: W.225
+    category: warning
+    name: Trẻ em
+  - id: 38
+    code: W.239b
+    category: warning
+    name: Chiều cao tĩnh không thực tế
+  - id: 39
+    code: W.245a
+    category: warning
+    name: Đi chậm
+  - id: 40
+    code: other_warning
+    category: warning
+    name: Biển cảnh báo khác
+  - id: 41
+    code: I.407a
+    category: other
+    name: Đường một chiều
+  - id: 42
+    code: I.409
+    category: other
+    name: Chỗ quay xe
+  - id: 43
+    code: I.423
+    category: other
+    name: Vị trí người đi bộ sang ngang
+  - id: 44
+    code: I.434a
+    category: other
+    name: Bến xe buýt
+  - id: 45
+    code: other_indication
+    category: other
+    name: Biển chỉ dẫn khác

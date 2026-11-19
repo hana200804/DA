@@ -64,12 +64,12 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 **Mục tiêu:** dữ liệu đủ và đúng để huấn luyện và so sánh công bằng. Thiết kế: [Dữ liệu và gán nhãn](05-du-lieu.md).
 
-- [ ] `labels.yaml` v1 đối chiếu QCVN 41 (AI-01)
+- [x] [`labels.yaml` v1 đối chiếu QCVN 41](../ai/data/labels.yaml) (AI-01)
 - [ ] Dữ liệu công khai đã kiểm tra giấy phép, gán nhãn lại
 - [ ] Video thực địa ngày, đêm, mưa kèm GPS và nhãn chuẩn của tuyến
 - [ ] Tập thực địa đã gán nhãn
 - [ ] Dữ liệu tổng hợp cho lớp hiếm
-- [ ] Script kiểm tra dữ liệu, chuyển YOLO ↔ COCO, sinh manifest có hash
+- [x] [Script kiểm tra dữ liệu, chuyển YOLO ↔ COCO, sinh manifest có hash](../ai/data/README.md)
 
 **Hoàn thành khi:** dữ liệu v1.0 có manifest và chia tập cố định; kiểm soát chất lượng gán nhãn đạt; thống kê dữ liệu đã lập.
 
@@ -77,7 +77,7 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 **Mục tiêu:** YOLOv5, YOLOv8, DETR được huấn luyện và so sánh theo cùng giao thức; chọn được mô hình triển khai. Thiết kế: [Thiết kế AI §2–4, §8](04-thiet-ke-ai.md#2-ba-mô-hình).
 
-- [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và biến thể DETR được duyệt ở Q2 (AI-02)
+- [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
 - [ ] Bộ đánh giá chung bằng `pycocotools` (AI-03)
 - [ ] Bảng so sánh và phân tích lỗi ([Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình))
 - [ ] Bản TFLite INT8/FP16 của các ứng viên điện thoại (AI-05)

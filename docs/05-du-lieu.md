@@ -172,6 +172,8 @@ Cùng một danh sách cho cả ba mô hình. Mỗi bộ công cụ cấu hình 
 
 **Định dạng:** nhãn gốc ở định dạng YOLO (`class cx cy w h`, chuẩn hoá). Script `ai/src/signa_ai/dataset.py` sinh thêm COCO JSON cho DETR và cho bộ đánh giá chung ([Thiết kế AI §4](04-thiet-ke-ai.md#4-giao-thức-đánh-giá-và-chọn-mô-hình)).
 
+[Hướng dẫn tạo dữ liệu](../ai/data/README.md) có lệnh xuất YOLO và COCO, bộ chạy thử v0.1, nguồn công khai và mẫu nhập dữ liệu thực địa.
+
 | Thành phần | Nơi lưu | Có trong Git |
 | --- | --- | --- |
 | Ảnh, video | MinIO bucket `datasets` (riêng tư) hoặc ổ chung của nhóm | Không |

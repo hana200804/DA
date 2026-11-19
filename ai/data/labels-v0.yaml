@@ -1,0 +1,39 @@
+# Danh mục mẫu v0, chỉ dùng để dựng lại bộ chạy thử v0.1 từ VNTS.
+# Danh mục dùng cho huấn luyện là labels.yaml.
+version: 0
+categories:
+  prohibitory: { name: Biển cấm }
+  mandatory: { name: Biển hiệu lệnh }
+  warning: { name: Biển nguy hiểm và cảnh báo }
+  auxiliary: { name: Biển phụ }
+  other: { name: Biển khác }
+classes:
+  - id: 0
+    code: P.102
+    category: prohibitory
+    name: Cấm đi ngược chiều
+  - id: 1
+    code: P.123a
+    category: prohibitory
+    name: Cấm rẽ trái
+  - id: 2
+    code: P.127_50
+    category: prohibitory
+    name: Tốc độ tối đa cho phép 50 km/h
+    speed_kmh: 50
+  - id: 3
+    code: R.303
+    category: mandatory
+    name: Nơi giao nhau chạy theo vòng xuyến
+  - id: 4
+    code: W.207a
+    category: warning
+    name: Giao nhau với đường không ưu tiên
+  - id: 5
+    code: S
+    category: auxiliary
+    name: Biển phụ
+  - id: 6
+    code: other_prohibitory
+    category: prohibitory
+    name: Biển cấm khác

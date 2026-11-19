@@ -1,0 +1,83 @@
+source_id,name_vi,name_en,signa_code,note
+0,Cấm đi ngược chiều,No Entry,P.102,
+1,Đi về bên phải,Turn Right Only,R.302a,Ảnh mẫu là mũi tên chéo xuống phải trên nền xanh
+2,Giới hạn tốc độ 40km/h,Speed limit 40hm/h,P.127_40,
+3,Cấm xe tải và buýt,No Trucks and Bus,other_prohibitory,
+4,Cấm xe tải,No Trucks,P.106a,
+5,Cảnh báo giới hạn chiều cao,Low Clearance,W.239b,"Ảnh mẫu là tam giác ghi chiều cao, ví dụ 4.75m"
+6,Cấm ô tô,No Cars,P.103a,
+7,Cảnh báo nguy hiểm,Danger,other_warning,
+8,Giảm tốc độ,Slown Down,W.245a,Ảnh mẫu ghi chữ ĐI CHẬM
+9,Nhiều chỗ ngoặc liên tiếp,Double curve first to right,W.202,"Gộp W.202a và W.202b. Có ảnh mẫu là biển tốc độ 60, cần rà nhãn"
+10,Cảnh báo chướng ngại vật phía trước,Obstacle on the Road,other_warning,
+11,Đường có camera giám sát,Road with Surveillance Camera,other_indication,
+12,Giới hạn tốc độ 60km/h,Speed limit 60hm/h,P.127_60,
+13,Cấm mô tô xe máy,No Moto,P.104,
+14,Biển phân làn,Lane Allocation,R.415a,Biển gộp làn theo phương tiện
+15,Biển Cấm Hạn chế chiều cao,Height Limit,P.117,
+16,Cấm còi,No Horns,other_prohibitory,
+17,Cấm rẽ trái,No Left Turn,P.123a,
+18,Cấm rẽ phải,No Right Turn,P.123b,
+19,Cấm quay đầu,No U-Turn,P.124a,
+20,Cấm quay đầu và rẽ trái,No U-Turn and No Left Turn,P.124c,
+21,Cấm quay đầu và rẽ phải,No U-Turn and No Right Turn,P.124d,
+22,Giao nhau với đèn giao thông,Traffic light ahead,other_warning,
+23,"Cấm dừng, đỗ xe",No Stopping & No Parking,P.130,
+24,Cấm đỗ xe,No Parking,P.131a,
+25,Cấm đi thẳng và rẽ phải,No Straight and Right Turn,other_prohibitory,
+26,Cấm rẽ trái và phải,No Left or Right Turn,P.137,
+27,Cua gấp trái,Sharp Left Turn,W.201a,
+28,Cua gấp phải,Sharp Right Turn,W.201b,
+29,Giao nhau với đường không ưu tiên,Intersection with a Minor Road,W.207,Gộp W.207 các biến thể vì box val và test chưa được rà
+30,Giao nhau cùng cấp,Intersection with Equal Roads,W.205,"Gộp W.205a–e, ảnh mẫu chủ yếu là W.205a"
+31,Cấm xe máy rẻ phải,No Moto Turn Left,other_prohibitory,Tên tiếng Việt và tiếng Anh lệch hướng rẽ
+32,Giao nhau với đường ưu tiên,Intersection with a Priority Road,W.208,
+33,Đường dành cho người đi bộ,Pedestrian Lane,I.423,Gộp I.423a và I.423b
+34,Đường hẹp bên trái,Narrow Road Left Side,other_warning,
+35,Đường hẹp bên phải,Narrow Road Right Side,W.203c,
+36,Đường hẹp hai bên,Narrow road both sides,W.203a,
+37,Cấm xe hai và ba bánh,No Two or Three-wheeled Vehicles,P.105,Tên nguồn là cấm xe hai và ba bánh; ảnh mẫu là ô tô và xe máy
+38,Đoạn đường có gờ giảm tốc,Speed Bump,other_warning,
+39,Giới hạn tốc độ 50km/h,Speed limit 50hm/h,P.127_50,
+40,Giới hạn tốc độ 70km/h,Speed limit 70hm/h,other_prohibitory,
+41,Giới hạn tốc độ 80km/h,Speed limit 80hm/h,P.127_80,
+42,Giao nhau với đường sắt có rào chắn,Level Crossing with Barriers,W.210,
+43,Cấm ô tô quay đầu,No U-Turn for Cars,other_prohibitory,
+44,Cấm xe buýt,No bus,other_prohibitory,
+45,Cấm vượt,No Overtaking,other_prohibitory,
+46,Cảnh báo Khu vực có trẻ em,Children Crossing,W.225,
+47,Cảnh báo Người đi bộ cắt ngang,Pedestrian Crossing,W.224,
+48,Hết tất cả các lệnh cấm,End of all prohibition,P.135,
+49,Đi về bên trái,Keep left,other_mandatory,
+50,Công trường đang thi công,Road Work Ahead,other_warning,
+51,Đường một chiều,One way street,I.407a,
+52,Rẽ trái,Turn Left,other_mandatory,
+53,Rẽ phải,Turn Right,other_mandatory,
+54,Đèn xanh,Green Light,,"Đèn tín hiệu, bỏ box và giữ ảnh"
+55,Đèn đỏ,Red Light,,"Đèn tín hiệu, bỏ box và giữ ảnh"
+56,Đi theo vòng xuyến,Roundabout,R.303,
+57,Giới hạn tốc độ 10km/h,Speed limit 10km/h,other_prohibitory,
+58,Giới hạn tốc độ 100km/h,Speed limit 100km/h,other_prohibitory,
+59,Giới hạn tốc độ 110km/h,Speed limit 110km/h,other_prohibitory,
+60,Giới hạn tốc độ 120km/h,Speed limit 120km/h,other_prohibitory,
+61,Giới hạn tốc độ 20km/h,Speed limit 20km/h,other_prohibitory,
+62,Giới hạn tốc độ 30km/h,Speed limit 30km/h,other_prohibitory,
+63,Giới hạn tốc độ 90km/h,Speed limit 90km/h,other_prohibitory,
+64,Dừng lại,Stop,other_mandatory,
+65,Nơi quay đầu xe,U-Turn Area,I.409,Ảnh mẫu là mũi tên quay đầu trên nền xanh
+66,Cấm đỗ xe vào ngày lẽ,No Parking on Odd Days,other_prohibitory,
+67,Cấm đỗ xe vào ngày chẵn,No Parking on Even Days,other_prohibitory,
+68,Chỗ đỗ xe,Parking,other_indication,
+69,Bến xe buýt,Bus Stop,I.434a,
+70,Bệnh Viện,Hospital,other_indication,
+71,Cấm ô tô quay đầu và rẽ trái,No U-Turn and Left Turn for Cars,other_prohibitory,
+72,Đoạn đường hay xảy ra tai nạn,Accident area,other_warning,
+73,Đường đôi,Dual carriageway,other_warning,
+74,Cấm ô tô rẻ trái,No left turn for cars,P.103c,Cấm xe ô tô rẽ trái
+75,lên dốc nguy hiểm,Steep ascent,W.220,
+76,Cầu hẹp,Narrow bridge,other_warning,
+77,đường không bằng phẳng,Uneven road,other_warning,
+78,hết giới hạn tốc độ 50km/h,End of 50km/h speed limit,other_prohibitory,
+79,Khu dân cư,Residential area,R.420,
+80,Khu ít dân cư,sparsely populated area,other_mandatory,Có thể là R.421 hết khu đông dân cư
+81,Đường trơn,Slippery Road,other_warning,
