@@ -10,6 +10,8 @@ data/images/
 data/labels/
 data/videos/
 data/coco/
+data/raw/
+data/processed/
 runs/
 experiments/*/weights/
 *.pt

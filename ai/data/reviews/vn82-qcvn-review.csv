@@ -1,0 +1,639 @@
+image,box_index,source_id,signa_code,status,note
+images/train/0123.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0124.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0125.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0126.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0127.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0128.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0129.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0130.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0131.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0133.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0134.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0155.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0156.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0157.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0159.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0160.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0161.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0162.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0163.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0164.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0165.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0166.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0167.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0168.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0169.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0171.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0172.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0173.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0174.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0175.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0176.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0177.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0178.jpg,5,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0179.jpg,5,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0256.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0257.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0258.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0259.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0261.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0263.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0265.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0267.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0279.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0280.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0281.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0282.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0283.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0284.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0285.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0286.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0288.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0289.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0290.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0301.jpg,1,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0302.jpg,2,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0303.jpg,1,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0306.jpg,1,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0307.jpg,2,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0308.jpg,2,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0309.jpg,1,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0310.jpg,1,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0311.jpg,2,31,,needs_review,"Ảnh mờ, cần xem chuỗi và xác minh biển có ký hiệu xe máy"
+images/train/0313.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0314.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0315.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0318.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0320.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0321.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0323.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0325.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0326.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0327.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0328.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0329.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0330.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0332.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0333.jpg,2,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0337.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0338.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0339.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0340.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0341.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0342.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0343.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0344.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0345.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0346.jpg,1,31,,needs_review,"Mũi tên trái kèm hình xe máy, cần xác minh mã biển kết hợp"
+images/train/0846.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0847.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0848.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0849.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0850.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0852.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0854.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0855.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0856.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0858.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0860.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0861.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/0920.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0921.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0923.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0924.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0925.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0926.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0927.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0929.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0930.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0931.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0932.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0934.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0936.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0937.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0939.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0940.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0942.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0943.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0944.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0945.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0946.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0947.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0948.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/0949.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0950.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0951.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0952.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0954.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0955.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0956.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0957.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0958.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/0964.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1103.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1105.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1107.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1108.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1109.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1178.jpg,7,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1179.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1180.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1181.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1183.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1184.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1185.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1186.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1187.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1188.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1191.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1193.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1194.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1195.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1196.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1197.jpg,4,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1199.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/1200.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/1201.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/1202.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/1204.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/1205.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/1206.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/1362.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1363.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1364.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1365.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1367.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1368.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1369.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1371.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1372.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1374.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1375.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1376.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1377.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1378.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1380.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1381.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1382.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1384.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1739.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1741.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1742.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1743.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1745.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1746.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1747.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1748.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1749.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1750.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1751.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1752.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1753.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1754.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1755.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1756.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1757.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1759.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1760.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1761.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1762.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1763.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1765.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/1987.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1989.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1990.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1991.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1992.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1994.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1996.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1997.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1998.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/1999.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2001.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2002.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2003.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2004.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2005.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2006.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2007.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2009.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2012.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2059.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2060.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2061.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2062.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2063.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2065.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2066.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2067.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2109.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2110.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2111.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2113.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2114.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2115.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2117.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2119.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/2120.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2121.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2123.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2124.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2125.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2126.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2127.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2128.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2129.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2132.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2135.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2136.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2137.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2138.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2139.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2140.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/2141.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4829.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4831.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4832.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4833.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4834.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4835.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4836.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4837.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4838.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4839.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4840.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4842.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4843.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4844.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4845.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4846.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4847.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4848.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4849.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4850.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4851.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4853.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4855.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4856.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4857.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4858.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4859.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4860.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4861.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4864.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4865.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4866.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4867.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4868.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4869.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4870.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4871.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4872.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4875.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4876.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4877.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4878.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4879.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4880.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4881.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4882.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4883.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4884.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4886.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4887.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4888.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4889.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4890.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4891.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4894.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4895.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4897.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4898.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4899.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/4900.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4901.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4902.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4904.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4906.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4908.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4909.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4910.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4911.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4912.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4915.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4916.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4917.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4920.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4921.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4922.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4923.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4926.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4927.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4928.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4929.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4931.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4932.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4934.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4935.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4936.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4937.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4938.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4939.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4940.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4942.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4943.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4944.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4945.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4946.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4947.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4948.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4949.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4950.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4951.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4953.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4954.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4955.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4956.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4958.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4959.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/4962.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5608.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5610.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5612.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5613.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5614.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5615.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5616.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5617.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5618.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5619.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5621.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5622.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5623.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5624.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5625.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5626.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5627.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5629.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5630.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5632.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5634.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5636.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5637.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5638.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5639.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5640.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5641.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5643.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5644.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5645.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5648.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5649.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5650.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5651.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5652.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5654.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5655.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5656.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5657.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/5666.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5668.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5670.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5671.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5672.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5673.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5674.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5678.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5682.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5683.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5684.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5685.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5687.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5688.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5689.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5690.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5691.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5692.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5693.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5694.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5695.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5696.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5698.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/5700.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6145.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6146.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6147.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6150.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6151.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6152.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6153.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6154.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6156.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6157.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6344.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6345.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6392.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6394.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6397.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6398.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6399.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6400.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6401.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6402.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6403.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6405.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6406.jpg,3,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6407.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6408.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6409.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6410.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6412.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6413.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6414.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6415.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6416.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6417.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6419.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6420.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6421.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6557.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6559.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6560.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6561.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6562.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6563.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6564.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6565.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6566.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6567.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6568.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6569.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6570.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6571.jpg,2,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6573.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6574.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6575.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6576.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6578.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6579.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6580.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6581.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6582.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6584.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6585.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6586.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6587.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6588.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6590.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6591.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/6742.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6743.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6745.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6746.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6747.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6748.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6750.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6751.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6753.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6754.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/6756.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/6757.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/6760.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/6762.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/6764.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/6765.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/6766.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/6767.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6768.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6769.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6770.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6771.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6772.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6773.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/6774.jpg,1,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/7006.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/7007.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/7008.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/7010.jpg,2,29,W.207c,matched,Nhánh ngang bên trái
+images/train/8208.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8209.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8210.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8211.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8213.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8215.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8217.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8219.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8221.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8222.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8223.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8224.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8225.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8227.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8228.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8229.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8231.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8232.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8233.jpg,2,29,W.207a,matched,Hai nhánh ngang đối diện
+images/train/8257.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8258.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8259.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8260.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8262.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8264.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8265.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8266.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8267.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8269.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8270.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8271.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8272.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8273.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8275.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8276.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8277.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8278.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8279.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8281.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8282.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8283.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8290.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8291.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8292.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8432.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8584.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8585.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8586.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8587.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8590.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8591.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8593.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8595.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8596.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8597.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8598.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8600.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8601.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8602.jpg,1,29,,needs_review,Chưa đủ rõ để xác định biến thể bằng ảnh cắt
+images/train/8984.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/8985.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/8989.jpg,1,29,W.207c,matched,Nhánh ngang bên trái
+images/train/9003.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9004.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9005.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9006.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9009.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9010.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9011.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9012.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9013.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9014.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9018.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9020.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9021.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9022.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9023.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9024.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9026.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9027.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9029.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9031.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9032.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9033.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9034.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9334.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9335.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9336.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9339.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9340.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9341.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9342.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9343.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9345.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9347.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9348.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9351.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9352.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9354.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9355.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9356.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9358.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9359.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9360.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9362.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9363.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9364.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9366.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9368.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9370.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9371.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9372.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9373.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9374.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9375.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9376.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9378.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9379.jpg,2,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9381.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9383.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
+images/train/9384.jpg,1,29,W.207b,matched,Nhánh ngang bên phải
