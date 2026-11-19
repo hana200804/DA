@@ -64,12 +64,12 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 **Mục tiêu:** dữ liệu đủ và đúng để huấn luyện và so sánh công bằng. Thiết kế: [Dữ liệu và gán nhãn](05-du-lieu.md).
 
-- [ ] `labels.yaml` v1 đối chiếu QCVN 41 (AI-01)
+- [x] [`labels.yaml` v1 đối chiếu QCVN 41](../ai/data/labels.yaml) (AI-01)
 - [ ] Dữ liệu công khai đã kiểm tra giấy phép, gán nhãn lại
 - [ ] Video thực địa ngày, đêm, mưa kèm GPS và nhãn chuẩn của tuyến
 - [ ] Tập thực địa đã gán nhãn
 - [ ] Dữ liệu tổng hợp cho lớp hiếm
-- [ ] Script kiểm tra dữ liệu, chuyển YOLO ↔ COCO, sinh manifest có hash
+- [x] [Script kiểm tra dữ liệu, chuyển YOLO ↔ COCO, sinh manifest có hash](../ai/data/README.md)
 
 **Hoàn thành khi:** dữ liệu v1.0 có manifest và chia tập cố định; kiểm soát chất lượng gán nhãn đạt; thống kê dữ liệu đã lập.
 

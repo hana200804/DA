@@ -10,15 +10,16 @@ Cần Python 3.11 và [uv](https://docs.astral.sh/uv/).
 cd ai
 uv venv --python 3.11
 uv pip install -e '.[dev]'          # thêm eval, train, serve khi cần
-uv run pytest
-uv run ruff check .
+uv run --no-sync pytest
+uv run --no-sync ruff check .
 ```
 
 ## Cấu trúc
 
 | Đường dẫn | Nội dung | Nhánh phụ trách |
 | --- | --- | --- |
-| `data/labels.yaml` | Danh mục nhãn, nguồn duy nhất. Hiện là bản mẫu `version: 0`, chờ Q1 | Dữ liệu và nhãn |
+| `data/labels.yaml` | Danh mục nhãn v1 gồm 46 lớp, nguồn duy nhất | Dữ liệu và nhãn |
+| [`data/`](data/README.md) | Cấu trúc thư mục dữ liệu, bộ chạy thử v0.1, nguồn công khai và mẫu thu thực địa | Dữ liệu và nhãn |
 | `data/manifests/` | Manifest `vX.Y.csv` của từng phiên bản dữ liệu | Dữ liệu và nhãn |
 | `src/signa_ai/labels.py` | Đọc và kiểm tra `labels.yaml` | Khung chung |
 | `src/signa_ai/detection.py` | `Detection`, interface `Detector`, xuất dự đoán COCO | Khung chung |

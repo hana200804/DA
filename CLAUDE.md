@@ -30,7 +30,7 @@ Mọi quyết định phải truy được về các ý trên; phần ngoài đ�
 
 ## Việc còn mở
 
-- Hỏi GVHD các câu chặn tiến độ trong `docs/02` §11: Q1 danh mục nhãn v1, **Q2 RT-DETR có thay được DETR gốc không**, Q3 giấy phép dữ liệu, Q4 GPU huấn luyện.
+- Hỏi GVHD các câu chặn tiến độ trong `docs/02` §11: **Q2 RT-DETR có thay được DETR gốc không**, Q3 giấy phép dữ liệu. Q1 đã chốt: `ai/data/labels.yaml` v1 gồm 46 lớp. Q4: nhóm có GPU.
 - Các ADR đang `Proposed`, chờ cả nhóm review để chuyển `Accepted`.
 - Chưa chọn hướng mở rộng nào để đưa vào tài liệu. Đề xuất đang chờ quyết định:
   - P1: kết hợp 3 mô hình bằng Weighted Boxes Fusion + hiệu chỉnh độ tin cậy (ECE); bản đồ và hàng đợi duyệt cập nhật thời gian thực bằng SSE.

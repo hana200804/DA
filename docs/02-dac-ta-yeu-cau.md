@@ -418,7 +418,7 @@ Thiết bị và server tham chiếu, cách đo từng chỉ tiêu: [08 · Kiể
 
 | # | Câu hỏi | Ảnh hưởng | Người trả lời | Chặn công việc |
 | --- | --- | --- | --- | --- |
-| Q1 | Danh mục v1 gồm những mã nào — đề xuất 40–60 mã phổ biến nhất có đủ dữ liệu | AI-01, gán nhãn | Thành viên 1, duyệt với GVHD | Có — tuần 2 |
+| Q1 | Danh mục v1 gồm những mã nào — đề xuất 40–60 mã phổ biến nhất có đủ dữ liệu. **Đã chốt:** 42 mã QCVN đủ 100 box train trong VN82 và 4 lớp `other_<nhóm>` ([labels.yaml](../ai/data/labels.yaml)) | AI-01, gán nhãn | Thành viên 1, duyệt với GVHD | Có — tuần 2 |
 | Q2 | "DETR" trong đề tài có chấp nhận RT-DETR (họ DETR, thời gian thực) hay bắt buộc DETR gốc | AI-02 | GVHD | Có — tuần 2 |
 | Q3 | Bộ dữ liệu công khai nào được phép dùng theo giấy phép | Nguồn dữ liệu | Thành viên 1 | Có — tuần 2 |
 | Q4 | GPU để huấn luyện (máy phòng lab, Kaggle, Colab) và giới hạn thời gian | Lịch huấn luyện, nhất là DETR | Cả nhóm | Có — tuần 3 |
