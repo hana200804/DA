@@ -21,7 +21,7 @@ from signa_ai.detection import Box, Detector
 from signa_ai.labels import load_label_map
 
 from .images import MAX_IMAGE_BYTES, decode_image, image_form
-from .yolov8 import YoloV8Detector
+from .yolov8 import DEFAULT_CONFIDENCE, YoloV8Detector
 
 logger = logging.getLogger(__name__)
 MODEL_SLOTS = {"yolov5": 4, "yolov8": 4, "detr": 1}
@@ -50,6 +50,7 @@ class ModelInfo(BaseModel):
 
 
 class ModelEntry(ModelInfo):
+    defaultConf: float = Field(ge=0, le=1)
     modelCard: dict
 
 
@@ -72,6 +73,7 @@ class DetectResponse(ModelInfo):
 class LoadedModel:
     detector: Detector
     card: dict
+    default_conf: float
     pending: int = 0
     slots: asyncio.Semaphore = field(init=False)
 
@@ -90,7 +92,8 @@ class LoadedModel:
         image = decode_image(upload.file)
         start = perf_counter()
         try:
-            detections = self.detector.predict(image, conf=form.conf, iou=form.iou)
+            conf = self.default_conf if form.conf is None else form.conf
+            detections = self.detector.predict(image, conf=conf, iou=form.iou)
         except Exception as exc:
             logger.exception("Suy luận thất bại cho mô hình %s", self.detector.name)
             raise HTTPException(500, "Suy luận mô hình thất bại") from exc
@@ -126,8 +129,22 @@ def load_models() -> list[LoadedModel]:
             or info.labelMapVersion != labels.version
         ):
             raise ValueError("Thông tin mô hình trong model_card.json không khớp cấu hình")
+
+        operating_point = card.get("operating_point")
+        if operating_point is not None and not isinstance(operating_point, dict):
+            raise ValueError("operating_point trong model_card.json phải là một đối tượng")
+        default_conf = (operating_point or {}).get("threshold")
+        if default_conf is None:
+            default_conf = float(os.getenv("SIGNA_YOLOV8_CONF", str(DEFAULT_CONFIDENCE)))
+        if (
+            isinstance(default_conf, bool)
+            or not isinstance(default_conf, (float, int))
+            or not 0 <= default_conf <= 1
+        ):
+            raise ValueError("Ngưỡng vận hành YOLOv8 phải là số trong khoảng [0, 1]")
+
         detector = YoloV8Detector(weights, labels, info.modelVersion, os.getenv("SIGNA_DEVICE"))
-        return [LoadedModel(detector, card)]
+        return [LoadedModel(detector, card, default_conf)]
     except Exception:
         logger.exception("Không thể nạp mô hình yolov8")
         return []
@@ -171,7 +188,12 @@ def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI
     async def models(request: Request) -> ModelList:
         loaded = request.app.state.models.values()
         return ModelList(
-            models=[ModelEntry(**item.info.model_dump(), modelCard=item.card) for item in loaded]
+            models=[
+                ModelEntry(
+                    **item.info.model_dump(), defaultConf=item.default_conf, modelCard=item.card
+                )
+                for item in loaded
+            ]
         )
 
     form_schema = DetectForm.model_json_schema()

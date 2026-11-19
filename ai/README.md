@@ -61,12 +61,16 @@ curl --fail-with-body --max-time 5 \
 ```
 
 - `POST /v1/detect` nhận multipart với `image`, `model` và hai trường tuỳ chọn
-  `conf`, `iou` trong khoảng [0, 1]. YOLOv8 dùng mặc định lần lượt là 0,25 và 0,7.
+  `conf`, `iou` trong khoảng [0, 1]. Mặc định của YOLOv8n tạm là `conf=0.40`
+  (làm tròn từ ngưỡng F1 tối đa 0,401663 trên val v1.1) và `iou=0.7`.
+  Khi request bỏ qua `conf`, dịch vụ ưu tiên `operating_point.threshold` trong
+  `model_card.json`, sau đó đến biến `SIGNA_YOLOV8_CONF`, rồi giá trị mặc định.
   Ảnh JPEG, PNG hoặc WebP có giới hạn 10 MB và 25 triệu pixel. Dịch vụ xử lý ảnh trong bộ nhớ.
 - Kết quả gồm `modelName`, `modelVersion`, `labelMapVersion`, `inferenceMs` và
   `detections`. Mỗi phát hiện có `signTypeCode`, `confidence` và `box`
   với `x`, `y`, `width`, `height` theo pixel ảnh gốc.
-- `GET /v1/models` trả `models` gồm các mô hình đã nạp cùng `modelCard`.
+- `GET /v1/models` trả `models` gồm các mô hình đã nạp cùng `modelCard` và
+  `defaultConf` là ngưỡng đang dùng khi request bỏ qua `conf`.
   Dịch vụ vẫn khởi động khi thiếu trọng số. `GET /healthz` báo các mô hình
   còn thiếu bằng HTTP `503` và chỉ trả `200` khi đủ ba mô hình.
   Bản tạm vẫn nhận yêu cầu `model=yolov8` khi YOLOv8 đã nạp.

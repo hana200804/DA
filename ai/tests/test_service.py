@@ -1,4 +1,5 @@
 import asyncio
+import json
 import tempfile
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -31,7 +32,7 @@ class FakeDetector:
 
 @pytest.fixture
 def loaded():
-    return LoadedModel(FakeDetector(), {"status": "temporary", "datasetVersion": "v1.1"})
+    return LoadedModel(FakeDetector(), {"status": "temporary", "datasetVersion": "v1.1"}, 0.40)
 
 
 @pytest.fixture
@@ -94,6 +95,7 @@ async def test_available_models_and_partial_readiness(client):
                 "modelName": "yolov8",
                 "modelVersion": "yolov8n-v1.1-temp",
                 "labelMapVersion": 1,
+                "defaultConf": 0.40,
                 "modelCard": {"status": "temporary", "datasetVersion": "v1.1"},
             }
         ]
@@ -111,7 +113,7 @@ async def test_available_models_and_partial_readiness(client):
 
 async def test_health_requires_all_three_models():
     def load_all():
-        return [LoadedModel(FakeDetector(name), {}) for name in ("yolov5", "yolov8", "detr")]
+        return [LoadedModel(FakeDetector(name), {}, 0.40) for name in ("yolov5", "yolov8", "detr")]
 
     async with running(create_app(load_all)) as client:
         response = await client.get("/healthz")
@@ -128,6 +130,54 @@ async def test_starts_without_existing_weights(monkeypatch, tmp_path, configured
     async with running(create_app()) as client:
         assert (await client.get("/healthz")).status_code == 503
         assert (await client.get("/v1/models")).json() == {"models": []}
+
+
+@pytest.mark.parametrize(
+    ("card_conf", "env_conf", "expected"),
+    [
+        (None, None, 0.40),
+        (None, "0.55", 0.55),
+        (0.401663, "0.55", 0.401663),
+        (0, "invalid", 0),
+        (1.01, "0.55", None),
+        (None, "NaN", None),
+    ],
+)
+async def test_operating_confidence(monkeypatch, tmp_path, card_conf, env_conf, expected):
+    class FakeYoloV8Detector(FakeDetector):
+        name = "yolov8"
+
+        def __init__(self, *_args):
+            super().__init__()
+
+    weights = tmp_path / "best.pt"
+    weights.touch()
+    card = {
+        "modelName": "yolov8",
+        "modelVersion": "yolov8n-v1.1-temp",
+        "labelMapVersion": 1,
+    }
+    if card_conf is not None:
+        card["operating_point"] = {"threshold": card_conf}
+    weights.with_name("model_card.json").write_text(json.dumps(card), encoding="utf-8")
+    monkeypatch.setattr("service.app.YoloV8Detector", FakeYoloV8Detector)
+    monkeypatch.setenv("SIGNA_YOLOV8_WEIGHTS", str(weights))
+    monkeypatch.delenv("SIGNA_YOLOV8_CONF", raising=False)
+    if env_conf is not None:
+        monkeypatch.setenv("SIGNA_YOLOV8_CONF", env_conf)
+
+    app = create_app()
+    async with running(app) as client:
+        models = (await client.get("/v1/models")).json()["models"]
+        if expected is None:
+            assert models == []
+            return
+        assert models[0]["defaultConf"] == expected
+        response = await client.post(
+            "/v1/detect", data={"model": "yolov8"}, files={"image": image_file()}
+        )
+        assert response.status_code == 200
+        assert app.state.models["yolov8"].detector.thresholds == (expected, None)
 
 
 @pytest.mark.parametrize(

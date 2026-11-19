@@ -9,6 +9,9 @@ from PIL import Image
 from signa_ai.detection import Box, Detection
 from signa_ai.labels import LabelMap
 
+# Làm tròn ngưỡng F1 tối đa 0,401663 trên val v1.1 (PR #9).
+DEFAULT_CONFIDENCE = 0.40
+
 
 class YoloV8Detector:
     name = "yolov8"
@@ -36,7 +39,7 @@ class YoloV8Detector:
                 source,
                 device=self.device,
                 imgsz=640,
-                conf=0.25 if conf is None else conf,
+                conf=DEFAULT_CONFIDENCE if conf is None else conf,
                 iou=0.7 if iou is None else iou,
                 save=False,
                 verbose=False,
