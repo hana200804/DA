@@ -2,11 +2,16 @@
 
 Phiên bản dữ liệu `vMAJOR.MINOR`: tăng `MAJOR` khi đổi danh mục nhãn, tăng `MINOR` khi thêm hoặc sửa ảnh ([Dữ liệu §9](../../docs/05-du-lieu.md#9-định-dạng-phiên-bản-và-lưu-trữ)).
 
+## v1.1 · Sửa nhãn W.202
+
+- Rà toàn bộ 322 box `W.202`. Đổi 48 box là biển tốc độ 60 km/h sang `P.127_60` theo [bảng sửa nhãn](reviews/vn82-box-fixes.csv).
+- Chia lại theo cùng 2.108 nhóm. Do số box từng lớp thay đổi, 1.128 ảnh đổi tập so với v1.0. [Manifest](manifests/v1.1.csv)
+
 ## v1.0 · VN82 chia lại theo nhóm ảnh cùng cảnh
 
 - Danh mục v1 gồm 42 mã QCVN 41:2024 đủ 100 box train và 4 lớp `other_<nhóm>`. Danh mục mẫu v0 chuyển sang `labels-v0.yaml`.
 - Dùng cả 9.978 ảnh VN82. Đổi nhãn theo [bảng ánh xạ](sources/vn82-to-signa.csv) và bỏ 877 box đèn tín hiệu.
-- Chia lại theo 2.108 nhóm ảnh cùng cảnh. Không còn cặp cùng cảnh nằm khác tập. Xuất YOLO, COCO và [manifest](manifests/v1.0.csv). [Chi tiết](README.md#bộ-dữ-liệu-v10)
+- Chia lại theo 2.108 nhóm ảnh cùng cảnh. Không còn cặp cùng cảnh nằm khác tập. Xuất YOLO, COCO và [manifest](manifests/v1.0.csv). [Chi tiết](README.md#bộ-dữ-liệu-v11)
 
 ## v0.2 · Đã thu hồi
 

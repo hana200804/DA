@@ -12,17 +12,17 @@
 | `raw/` | Tệp tải về, giữ nguyên | Không |
 | `processed/` | Bộ đã xuất YOLO và COCO, dựng lại được từ `raw/` | Không |
 
-## Bộ dữ liệu v1.0
+## Bộ dữ liệu v1.1
 
 Dùng bộ này để huấn luyện và so sánh ba mô hình. Ảnh lấy từ [VN82](sources/vn82.md), nhãn theo [danh mục v1](labels.yaml) gồm 46 lớp.
 
-| Tập | Ảnh | Box | Nhóm ảnh |
-| --- | ---: | ---: | ---: |
-| Train | 6.673 | 13.256 | 922 |
-| Val | 1.615 | 2.702 | 598 |
-| Test | 1.690 | 2.674 | 588 |
+| Tập | Ảnh | Box |
+| --- | ---: | ---: |
+| Train | 6.679 | 13.283 |
+| Val | 1.599 | 2.685 |
+| Test | 1.700 | 2.664 |
 
-- [Bảng ánh xạ](sources/vn82-to-signa.csv) đổi 82 lớp VN82 sang mã QCVN 41:2024. Lớp nào dưới 100 box train được gộp vào `other_<nhóm>`. Box đèn tín hiệu bị bỏ, ảnh vẫn giữ.
+- [Bảng ánh xạ](sources/vn82-to-signa.csv) đổi 82 lớp VN82 sang mã QCVN 41:2024. Lớp nào dưới 100 box train được gộp vào `other_<nhóm>`. Box đèn tín hiệu bị bỏ, ảnh vẫn giữ. [Bảng sửa nhãn](reviews/vn82-box-fixes.csv) đổi 48 box ghi nhầm `W.202` thành `P.127_60`.
 - Tập chia gốc của VN82 rò rỉ khung hình gần trùng giữa train, val và test. Script gom mọi ảnh cùng cảnh vào một nhóm rồi chia theo nhóm, cân bằng số box từng lớp. Hai ảnh cùng cảnh khi dHash 256 bit lệch tối đa 60, hoặc lệch tối đa 80 kèm tương quan ảnh xám 32×24 từ 0,88. Hai ảnh liền số chỉ cần dHash lệch tối đa 70. Kết quả có 2.108 nhóm và không còn cặp cùng cảnh nào nằm khác tập. `source-audit.json` ghi lại các số này.
 - `P.124c` chỉ có 10 box val và 9 box test vì phần lớn box nằm chung một nhóm lớn. AP của lớp này dao động nhiều.
 - Test vẫn cùng nguồn VN82 với train. Cần thêm tập test từ nguồn khác để đo khả năng tổng quát.
@@ -31,11 +31,11 @@ Chạy từ thư mục `ai/` sau khi đã [dựng VN82](sources/vn82.md#dựng-l
 
 ```sh
 uv run --no-sync python scripts/prepare_vn82_v1.py \
-  --source data/processed/vn82-colab --output data/processed/v1.0
-(cd data/processed && zip -q -r signa-v1.0.zip v1.0)
+  --source data/processed/vn82-colab --output data/processed/v1.1
+(cd data/processed && zip -q -r signa-v1.1.zip v1.1)
 ```
 
-Trên Colab, làm theo [hướng dẫn VN82](sources/vn82.md#bắt-đầu-trên-colab) với `signa-v1.0.zip` và thư mục `/content/v1.0`.
+Trên Colab, làm theo [hướng dẫn VN82](sources/vn82.md#bắt-đầu-trên-colab) với `signa-v1.1.zip` và thư mục `/content/v1.1`.
 
 ## Bộ chạy thử v0.1
 
@@ -50,7 +50,7 @@ Pipeline dùng [danh mục nhãn v0](labels-v0.yaml). Ảnh và nhãn được l
 | `processed/vnts-01/review/` | 359 ảnh nguồn, nhãn gốc `objects.jsonl`, nhãn COCO theo mã nguồn và số box từng mã. Mở `file_name` của COCO tương đối từ `review/images/`. |
 | `processed/vnts-01/source-audit.json` | Số ảnh giữ, số ảnh loại và SHA-256 ba tệp nguồn. |
 
-Từ 359 ảnh có 776 box trong nguồn đã lọc trùng, pipeline chọn 90 ảnh mà mã của mọi box trong nhãn nguồn đều ánh xạ được vào v0. `W.207` và các mã ngoài danh mục v0 được giữ ở bộ rà soát. Tập test của bộ chạy thử lấy từ test của nguồn. Do nguồn thiếu mã tuyến, validation lấy từ train của nguồn theo các dải 100 số trong tên ảnh gốc. Các dải chỉ là nhóm xấp xỉ. Dùng v0.1 để chạy thử luồng huấn luyện, xuất kết quả và đánh giá. Kết quả so sánh chính thức cần tập dữ liệu v1.0 và tuyến giữ riêng.
+Từ 359 ảnh có 776 box trong nguồn đã lọc trùng, pipeline chọn 90 ảnh mà mã của mọi box trong nhãn nguồn đều ánh xạ được vào v0. `W.207` và các mã ngoài danh mục v0 được giữ ở bộ rà soát. Tập test của bộ chạy thử lấy từ test của nguồn. Do nguồn thiếu mã tuyến, validation lấy từ train của nguồn theo các dải 100 số trong tên ảnh gốc. Các dải chỉ là nhóm xấp xỉ. Dùng v0.1 để chạy thử luồng huấn luyện, xuất kết quả và đánh giá. Kết quả so sánh chính thức dùng bộ v1.1 ở trên.
 
 | Tập | Ảnh | Box |
 | --- | ---: | ---: |

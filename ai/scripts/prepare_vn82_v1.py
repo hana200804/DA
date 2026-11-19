@@ -99,7 +99,19 @@ def read_mapping(path: Path, codes: set[str]) -> dict[int, str]:
     return mapping
 
 
-def prepare(source: Path, mapping_path: Path, output: Path) -> None:
+def read_fixes(path: Path, codes: set[str]) -> dict[tuple[str, int], tuple[int, str]]:
+    """Mã đã rà tay cho từng box, theo `images/<tập nguồn>/<tên ảnh>` và số thứ tự box."""
+    fixes = {}
+    with path.open(encoding="utf-8", newline="") as stream:
+        for row in csv.DictReader(stream):
+            key = (row["image"], int(row["box_index"]))
+            if key in fixes or row["signa_code"] not in codes:
+                raise ValueError(f"dòng sửa nhãn trùng hoặc sai mã: {key}")
+            fixes[key] = (int(row["source_id"]), row["signa_code"])
+    return fixes
+
+
+def prepare(source: Path, mapping_path: Path, fixes_path: Path, output: Path) -> None:
     output = output.resolve()
     if output.exists():
         raise ValueError(f"đích đã tồn tại: {output}")
@@ -108,6 +120,7 @@ def prepare(source: Path, mapping_path: Path, output: Path) -> None:
         raise ValueError("bảng ánh xạ chỉ khớp bản VN82 đã ghim")
     label_map = load_label_map()
     mapping = read_mapping(mapping_path, set(label_map.names.values()))
+    fixes = read_fixes(fixes_path, set(label_map.names.values()))
 
     paths = sorted(path for split in SPLITS for path in (source / "images" / split).iterdir())
     names = [path.name for path in paths]
@@ -121,6 +134,7 @@ def prepare(source: Path, mapping_path: Path, output: Path) -> None:
 
     dropped = Counter()
     mapped = Counter()
+    fixed = Counter()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent) as temp:
         root = Path(temp)
@@ -130,9 +144,15 @@ def prepare(source: Path, mapping_path: Path, output: Path) -> None:
             writer.writerow(["path", "source", "sequence"])
             for path, group in zip(paths, groups, strict=True):
                 label = source / "labels" / path.parent.name / path.with_suffix(".txt").name
+                key = f"images/{path.parent.name}/{path.name}"
                 boxes = []
-                for box in decode_boxes(label.read_bytes()):
+                for index, box in enumerate(decode_boxes(label.read_bytes()), 1):
                     code = mapping[box.class_id]
+                    if (key, index) in fixes:
+                        source_id, code = fixes.pop((key, index))
+                        if source_id != box.class_id:
+                            raise ValueError(f"box sửa nhãn không khớp lớp nguồn: {key} #{index}")
+                        fixed[code] += 1
                     if not code:
                         dropped[box.class_id] += 1
                         continue
@@ -143,6 +163,8 @@ def prepare(source: Path, mapping_path: Path, output: Path) -> None:
                 shutil.copyfile(path, target)
                 write_yolo(root / "labels" / path.with_suffix(".txt").name, boxes)
                 writer.writerow([f"images/{path.name}", "public:vn82", f"vn82-g{group:05}"])
+        if fixes:
+            raise ValueError(f"bảng sửa nhãn có box không tồn tại: {next(iter(fixes))}")
 
         samples = read_samples(root, intake, label_map)
         assigned = assign_splits(samples)
@@ -176,10 +198,12 @@ def prepare(source: Path, mapping_path: Path, output: Path) -> None:
                 ),
                 "dropped_boxes": {str(key): value for key, value in sorted(dropped.items())},
                 "mapped_boxes": dict(sorted(mapped.items())),
+                "fixed_boxes": dict(sorted(fixed.items())),
             },
         )
         shutil.copyfile(source / "ATTRIBUTION.md", staged / "ATTRIBUTION.md")
         shutil.copyfile(mapping_path, staged / "vn82-to-signa.csv")
+        shutil.copyfile(fixes_path, staged / "vn82-box-fixes.csv")
         staged.rename(output)
 
 
@@ -187,9 +211,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--mapping", type=Path, default=DATA_DIR / "sources" / "vn82-to-signa.csv")
+    parser.add_argument("--fixes", type=Path, default=DATA_DIR / "reviews" / "vn82-box-fixes.csv")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
-        prepare(args.source, args.mapping, args.output)
+        prepare(args.source, args.mapping, args.fixes, args.output)
     except (KeyError, OSError, ValueError) as error:
         parser.exit(2, f"{error}\n")
