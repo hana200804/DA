@@ -78,7 +78,7 @@ Cuối tuần 12 **đóng băng tính năng**.
 **Mục tiêu:** YOLOv5, YOLOv8, DETR được huấn luyện và so sánh theo cùng giao thức; chọn được mô hình triển khai. Thiết kế: [Thiết kế AI §2–4, §8](04-thiet-ke-ai.md#2-ba-mô-hình).
 
 - [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
-- [ ] Bộ đánh giá chung bằng `pycocotools` (AI-03)
+- [x] Bộ đánh giá chung bằng `pycocotools` (AI-03)
 - [ ] Bảng so sánh và phân tích lỗi ([Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình))
 - [ ] Bản TFLite INT8/FP16 của các ứng viên điện thoại (AI-05)
 - [ ] Thí nghiệm 960 px, dữ liệu tổng hợp (AI-07)
