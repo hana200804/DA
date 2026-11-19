@@ -19,14 +19,21 @@ eval = ["pycocotools>=2.0.8", "numpy>=1.26"]
 # Huấn luyện ba mô hình (docs/04 §2). Phiên bản chốt trong nhánh huấn luyện.
 train = ["ultralytics", "yolov5", "transformers", "torch"]
 # Dịch vụ nhận diện (docs/04 §7, docs/07 §7)
-serve = ["fastapi", "uvicorn[standard]", "python-multipart", "pillow"]
-dev = ["pytest>=8.0", "ruff>=0.6", "httpx>=0.27", "pillow>=10", "numpy>=1.26"]
+serve = [
+    "fastapi", "starlette>=1.10", "uvicorn[standard]", "python-multipart>=0.0.34",
+    "pillow>=10", "numpy>=1.26", "ultralytics==8.3.203",
+]
+dev = [
+    "pytest>=8.0", "ruff>=0.6", "httpx>=0.27", "pillow>=10", "numpy>=1.26",
+    "fastapi", "starlette>=1.10", "python-multipart>=0.0.34",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signa_ai"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-ra"
 
 [tool.ruff]
