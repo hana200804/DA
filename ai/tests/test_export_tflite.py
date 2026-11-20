@@ -1,9 +1,18 @@
 import json
+import sys
+from types import SimpleNamespace
 
 import pytest
 import yaml
 
-from scripts.export_tflite import ARTIFACTS, calibration_config, complete, sha256, split_paths
+from scripts.export_tflite import (
+    ARTIFACTS,
+    calibration_config,
+    complete,
+    export_model,
+    sha256,
+    split_paths,
+)
 from signa_ai.labels import load_label_map
 
 
@@ -44,3 +53,42 @@ def test_resume_requires_matching_settings_and_intact_artifacts(tmp_path):
     assert not complete(tmp_path, {"size": 640})
     (tmp_path / "model.tflite").write_bytes(b"")
     assert not complete(tmp_path, {"size": 480})
+
+
+@pytest.mark.parametrize(
+    ("returned", "created"),
+    [(True, True), (True, False), (False, True)],
+    ids=["reported-file", "missing-file", "unreported-file"],
+)
+def test_yolov5_export_requires_new_reported_file(tmp_path, monkeypatch, returned, created):
+    weights = tmp_path / "best.pt"
+    target = tmp_path / "exporter-output.tflite"
+    staging = tmp_path / "model.tflite"
+    target.write_bytes(b"640")
+    staging.write_bytes(b"640")
+    labels = load_label_map()
+
+    def run(**kwargs):
+        assert kwargs["imgsz"] == (480, 480)
+        assert not target.exists()
+        assert not staging.exists()
+        if created:
+            target.write_bytes(b"480")
+        files = [str(tmp_path / "best_saved_model")]
+        return [*files, str(target)] if returned else files
+
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(device=str))
+    monkeypatch.setitem(sys.modules, "export", SimpleNamespace(run=run))
+    monkeypatch.setitem(
+        sys.modules,
+        "models.experimental",
+        SimpleNamespace(attempt_load=lambda *args, **kwargs: SimpleNamespace(names=labels.names)),
+    )
+    args = (weights, labels, "yolov5", 480, True, tmp_path / "data.yaml", tmp_path)
+    if returned and created:
+        assert export_model(*args) == target
+        assert target.read_bytes() == b"480"
+    else:
+        with pytest.raises(RuntimeError, match="YOLOv5 480px INT8 thất bại"):
+            export_model(*args)

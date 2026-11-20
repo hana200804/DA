@@ -169,7 +169,8 @@ Git chỉ lưu cấu hình, meta, `results.csv` và `best-selection.json` của 
 4. Xem `MyDrive/Signa/exports/<SOURCE_RUN>/summary.csv`. Bảng tổng hợp
    mAP@0.5, mAP@0.5:0.95, recall nhóm biển cấm tại ngưỡng F1 tối đa,
    kích thước MB (1 MB = 1.000.000 byte) và trung bình ms/ảnh cho
-   `Interpreter.invoke()` trên CPU Colab (4 luồng, 5 lượt khởi động).
+   `Interpreter.invoke()` trên CPU Colab (tối đa 4 luồng, 5 lượt khởi động).
+   Bảng và metadata ghi model CPU, số CPU logic và số luồng thực tế.
    Dùng các số CPU này để tham khảo khi so sánh trong cùng runtime.
 
 YAML hiệu chỉnh chứa danh sách lấy mẫu với seed 0 từ manifest train v1.1
@@ -184,7 +185,8 @@ Mỗi thư mục cấu hình (ví dụ `640-int8/`) có `model.tflite`,
 `predictions-val.json`, `metrics.json` và `export-meta.json`. Dự đoán
 dùng COCO val, confidence 0,001, NMS theo lớp với IoU 0,7 và tối đa 300
 box mỗi ảnh. Metadata ghi SHA mã nguồn, SHA checkpoint, phiên bản thư
-viện, kích thước và hợp đồng tensor. Khi chạy lại, notebook dùng kết quả
+viện, kích thước và hợp đồng tensor. `requirements.txt` cạnh `summary.csv`
+ghi phiên bản của mọi gói đã cài trong môi trường xuất. Khi chạy lại, notebook dùng kết quả
 cũ nếu thiết lập và SHA-256 của các tệp khớp. `summary.csv` được cập nhật
 sau mỗi cấu hình hoàn tất.
 

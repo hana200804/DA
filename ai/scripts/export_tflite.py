@@ -11,7 +11,7 @@ import random
 import shutil
 import subprocess
 import sys
-from importlib.metadata import version
+from importlib.metadata import distributions, version
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
@@ -58,7 +58,6 @@ V8_PACKAGES = (
 )
 IOU = 0.7
 MAX_DET = 300
-CPU_THREADS = 4
 
 
 def sha256(path: Path) -> str:
@@ -129,6 +128,10 @@ def export_model(
     data: Path,
     yolo5: Path | None,
 ) -> Path:
+    # Hai độ phân giải dùng chung tên tệp trong thư mục tạm.
+    for previous in weights.parent.glob("*.tflite"):
+        previous.unlink()
+
     if model == "yolov8":
         from ultralytics import YOLO
 
@@ -159,7 +162,7 @@ def export_model(
     detector = attempt_load(str(weights), device=torch.device("cpu"), fuse=False)
     if detector.names != labels.names:
         raise ValueError("Checkpoint YOLOv5 lệch danh mục nhãn")
-    run(
+    files = run(
         weights=str(weights),
         data=str(data),
         imgsz=(size, size),
@@ -169,7 +172,14 @@ def export_model(
         int8=int8,
         nms=False,
     )
-    return weights.with_name(f"{weights.stem}-{'int8' if int8 else 'fp16'}.tflite")
+    artifacts = [Path(name) for name in files if Path(name).suffix == ".tflite"]
+    if len(artifacts) != 1 or not artifacts[0].is_file():
+        precision = "INT8" if int8 else "FP16"
+        raise RuntimeError(
+            f"Xuất YOLOv5 {size}px {precision} thất bại: cần đúng một tệp TFLite "
+            f"tồn tại trong kết quả exporter, nhận {files!r}. Xem log exporter phía trên."
+        )
+    return artifacts[0]
 
 
 def tensor_meta(tensor: dict) -> dict:
@@ -190,10 +200,12 @@ def predict_val(
     model: str,
     size: int,
     int8: bool,
+    *,
+    num_threads: int,
 ) -> tuple[list[dict], float, dict]:
     import tensorflow as tf
 
-    interpreter = tf.lite.Interpreter(model_path=str(path), num_threads=CPU_THREADS)
+    interpreter = tf.lite.Interpreter(model_path=str(path), num_threads=num_threads)
     interpreter.allocate_tensors()
     (inp,) = interpreter.get_input_details()
     (out,) = interpreter.get_output_details()
@@ -273,6 +285,18 @@ def write_summary(root: Path, rows: list[dict]) -> None:
     partial.replace(root / "summary.csv")
 
 
+def cpu_model() -> str | None:
+    try:
+        with Path("/proc/cpuinfo").open(encoding="utf-8") as stream:
+            for line in stream:
+                key, _, value = line.partition(":")
+                if key.strip() == "model name" and value.strip():
+                    return value.strip()
+    except OSError:
+        return None
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", choices=("yolov5", "yolov8"), required=True)
@@ -306,6 +330,9 @@ def main() -> None:
         raise ValueError("COCO val không khớp manifest hoặc danh mục v1.1")
 
     packages = PACKAGES + (V8_PACKAGES if args.model == "yolov8" else ())
+    cpu_count = os.cpu_count()
+    cpu_threads = min(4, cpu_count or 1)
+    cpu = {"cpu_count": cpu_count, "cpu_model": cpu_model(), "cpu_threads": cpu_threads}
     identity = {
         "repo_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=REPO, text=True
@@ -321,7 +348,7 @@ def main() -> None:
         "conf": EVAL_CONFIDENCE,
         "iou": IOU,
         "max_det": MAX_DET,
-        "cpu_threads": CPU_THREADS,
+        **cpu,
         "cpu_warmup": 5,
     }
     if args.yolov5_repo:
@@ -333,6 +360,14 @@ def main() -> None:
     rows = []
     with TemporaryDirectory() as temp:
         work = Path(temp)
+        requirements = work / "requirements.txt"
+        installed = {(dist.metadata["Name"], dist.version) for dist in distributions()}
+        requirements.write_text(
+            "\n".join(sorted(f"{name}=={ver}" for name, ver in installed if name)) + "\n",
+            encoding="utf-8",
+        )
+        identity["requirements_sha256"] = sha256(requirements)
+        publish(requirements, root)
         write_labels_json(work / "labels.json", LABELS)
         publish(work / "labels.json", root)
         config, sample_count = calibration_config(work, args.dataset, labels, train, args.model)
@@ -356,7 +391,14 @@ def main() -> None:
                     model_path = work / "model.tflite"
                     shutil.copyfile(artifact, model_path)
                     predictions, cpu_ms, tensors = predict_val(
-                        model_path, args.dataset, images, labels, args.model, size, int8
+                        model_path,
+                        args.dataset,
+                        images,
+                        labels,
+                        args.model,
+                        size,
+                        int8,
+                        num_threads=cpu_threads,
                     )
                     pred_path, metrics_path = (work / filename for filename in ARTIFACTS[1:])
                     write_json(pred_path, predictions)
@@ -408,6 +450,7 @@ def main() -> None:
                         "config": name,
                         "size_mb": metrics["cost"]["size_mb"],
                         "cpu_ms_per_image": metrics["cost"]["cpu_ms"],
+                        **cpu,
                         "map_50": metrics["map_50"],
                         "map_50_95": metrics["map_50_95"],
                         "prohibitory_recall": metrics["prohibitory_recall"],
