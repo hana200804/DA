@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, Mock
 
 import numpy as np
 import pytest
+import yaml
 from PIL import Image
 
 from signa_ai.detection import Box, to_coco_predictions
@@ -239,3 +240,56 @@ def test_linear_scheduler_rates_and_resume_on_cpu(tmp_path):
     advance_and_check(optimizer, scheduler, 151, 0.5017)
     advance_and_check(optimizer, scheduler, 299, 0.0133)
     advance_and_check(optimizer, scheduler, 300, 0.01)
+
+
+def test_resume_keeps_batch_and_records_current_workers(tmp_path):
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("workers: 4\nbatch: 8\n", encoding="utf-8")
+    (tmp_path / "requirements.txt").touch()
+    state = {"config": {"workers": 2, "batch": 8}}
+    choose_batch = Mock()
+    namespace = {
+        "yaml": yaml,
+        "WORKERS": 8,
+        "BASE_CONFIG": {"workers": 8},
+        "choose_batch": choose_batch,
+        "write_text": lambda path, value: path.write_text(value, encoding="utf-8"),
+    }
+    load_notebook_functions({"load_run_config"}, namespace)
+    load_run_config = namespace["load_run_config"]
+    model = object()
+
+    expected = {"workers": 8, "batch": 8}
+    assert load_run_config(tmp_path, model, state, needs_training=True) == expected
+    assert yaml.safe_load(config_file.read_text(encoding="utf-8")) == expected
+    choose_batch.assert_called_once_with(model, saved_batch=8)
+
+    choose_batch.reset_mock()
+    assert load_run_config(tmp_path, model, state, needs_training=False) == expected
+    choose_batch.assert_not_called()
+    incompatible = {"config": {"workers": 2, "batch": 4}}
+    with pytest.raises(ValueError, match="checkpoint last.pt"):
+        load_run_config(tmp_path, model, incompatible, needs_training=True)
+
+
+def test_saved_batch_oom_does_not_try_smaller_batch():
+    cuda = Mock(OutOfMemoryError=MemoryError)
+    cuda.mem_get_info.return_value = (1024, 1024)
+    cuda.memory_reserved.return_value = 0
+    probe_memory = Mock(side_effect=MemoryError)
+    model = Mock()
+    model.parameters.return_value = []
+    namespace = {
+        "torch": SimpleNamespace(cuda=cuda),
+        "GPU": "NVIDIA L4",
+        "BATCH_CANDIDATES": (16, 8, 4, 2, 1),
+        "train_set": SimpleNamespace(annotations={1: [[0, 0, 8, 8]]}),
+        "probe_memory": probe_memory,
+        "checkpoint_rng": Mock(),
+        "restore_rng": Mock(),
+    }
+    load_notebook_functions({"choose_batch"}, namespace)
+
+    with pytest.raises(RuntimeError, match="NVIDIA L4.*batch 16 đã lưu"):
+        namespace["choose_batch"](model, saved_batch=16)
+    probe_memory.assert_called_once_with(model, 16, 1)

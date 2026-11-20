@@ -37,11 +37,11 @@ uv run --no-sync ruff check .
 
 ## Huấn luyện DETR-R50 trên Colab
 
-1. Mở [notebook DETR](notebooks/train_detr_main_v1.1.ipynb) trong Colab, chọn GPU **L4** và đặt `signa-v1.1.zip` ở thư mục gốc My Drive.
+1. Mở [notebook DETR](notebooks/train_detr_main_v1.1.ipynb) trong Colab, chọn GPU **L4, A100 hoặc H100** (ưu tiên A100 nếu có) và đặt `signa-v1.1.zip` ở thư mục gốc My Drive.
 2. Đặt `SMOKE = True` ở ô đầu và chọn **Run all** để chạy một epoch với khoảng 2% của train và val. Kết quả thử nằm trong `/content/signa-smoke/`.
 3. Đặt `SMOKE = False` rồi **Run all** cho lượt chính. Notebook dò batch, lưu checkpoint theo epoch ở `MyDrive/Signa/experiments/detr-r50-640-v1.1-main-s0/` và chấm val bằng bộ đánh giá chung.
 
-Khi phiên Colab ngắt, chọn lại GPU L4 và **Run all** để tiếp tục từ `last.pt`. Chạy một runtime cho mỗi lượt. Sau khi có `done.json`, notebook bỏ qua lượt đã hoàn thành. Tập test dành cho đánh giá sau khi chốt cấu hình.
+Khi phiên Colab ngắt, chọn GPU được hỗ trợ và **Run all** để tiếp tục từ `last.pt`. Batch giữ nguyên qua các phiên. GPU của phiên mới cần đủ VRAM cho batch đã lưu. Chạy một runtime cho mỗi lượt. Sau khi có `done.json`, notebook bỏ qua lượt đã hoàn thành. Tập test dành cho đánh giá sau khi chốt cấu hình.
 
 ## Chạy dịch vụ nhận diện
 
