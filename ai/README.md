@@ -26,6 +26,8 @@ uv run --no-sync ruff check .
 | `src/signa_ai/dataset.py` | Chuyển YOLO ↔ COCO, chia tập, sinh manifest | Dữ liệu và nhãn |
 | `src/signa_ai/evaluate.py` | CLI COCO chung cho YOLOv5, YOLOv8 và DETR | Bộ đánh giá |
 | `configs/augment.md` | Bảng đối chiếu tăng cường cho ba mô hình | Huấn luyện YOLO, DETR |
+| `configs/yolov5-hyp.yaml` | Siêu tham số YOLOv5 cho lượt so sánh chính | Huấn luyện YOLO |
+| `src/signa_ai/augment.py` | Tham số và pipeline Albumentations dùng chung cho ba mô hình | Huấn luyện YOLO, DETR |
 | `experiments/` | Cấu hình, log, chỉ số của từng thí nghiệm | Huấn luyện YOLO, DETR |
 | `service/` | Dịch vụ nhận diện FastAPI | Dịch vụ nhận diện |
 
@@ -128,7 +130,7 @@ Notebook lấy helper/danh mục từ commit `ef46f19` đã có trên main; khô
 4. Ô 7 tạo `handoff/` gồm trọng số, danh mục và thẻ mô hình tạm cho backend/app qua API.
    Chưa có TFLite hay kiểm chứng FPS trên điện thoại; đây chưa phải mô hình camera offline.
    Đây cũng chưa phải lượt so sánh chính thức với YOLOv5 và DETR:
-   còn thiếu bộ tăng cường thời tiết/nén ảnh chung trong `configs/augment.md`.
+   lượt này dùng tăng cường mặc định, khác [bảng tăng cường chung](configs/augment.md).
 5. Ô 8 xuất `suspected-labels-train.csv`: ảnh, số thứ tự box v1.1 từ 1,
    mã gốc, mã dự đoán, confidence và lý do. Ghép một–một theo IoU ≥ 0,5;
    khác lớp với confidence ≥ 0,8 hoặc không phát hiện ở ngưỡng 0,25 thì gắn cờ.
