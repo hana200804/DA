@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import ast
+import csv
 import json
+import os
+from io import StringIO
+from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -55,12 +61,14 @@ def test_detr_dataset_preserves_valid_boxes(tmp_path, split):
         path = tmp_path / f"images/{split}/{image_id}.png"
         path.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (80, 40), (50, 70, 90)).save(path)
-        images.append({
-            "id": image_id,
-            "file_name": path.relative_to(tmp_path).as_posix(),
-            "width": 80,
-            "height": 40,
-        })
+        images.append(
+            {
+                "id": image_id,
+                "file_name": path.relative_to(tmp_path).as_posix(),
+                "width": 80,
+                "height": 40,
+            }
+        )
     dataset_json = {
         "info": {"label_map_version": labels.version},
         "images": images,
@@ -85,3 +93,62 @@ def test_detr_dataset_preserves_valid_boxes(tmp_path, split):
     if split != "train":
         assert original == Box(20, 10, 40, 20)
     assert dataset[1][2]["boxes"].shape == (0, 4)
+
+
+def test_notebook_recovers_best_and_logs_from_last(tmp_path):
+    notebook = Path(__file__).resolve().parents[1] / "notebooks/train_detr_main_v1.1.ipynb"
+    functions = {
+        "atomic_write",
+        "write_text",
+        "write_json",
+        "save_checkpoint",
+        "run_status",
+        "sync_epoch_artifacts",
+    }
+    namespace = {
+        "torch": SimpleNamespace(
+            save=lambda value, stream: stream.write(json.dumps(value).encode("utf-8")),
+            load=lambda path, **_: json.loads(path.read_text(encoding="utf-8")),
+        ),
+        "csv": csv,
+        "json": json,
+        "os": os,
+        "StringIO": StringIO,
+        "EPOCHS": 300,
+        "PATIENCE": 30,
+    }
+    for cell in json.loads(notebook.read_text(encoding="utf-8"))["cells"]:
+        if cell["cell_type"] == "code":
+            tree = ast.parse("".join(cell["source"]))
+            definitions = [
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name in functions
+            ]
+            exec(
+                compile(ast.Module(body=definitions, type_ignores=[]), str(notebook), "exec"),
+                namespace,
+            )
+
+    status = namespace["run_status"]
+    save = namespace["save_checkpoint"]
+    assert status(tmp_path) == ("new", None)
+    latest = {
+        "epoch": 2,
+        "best": {"epoch": 2, "fitness": 0.4},
+        "model": {"linear": [1.0, 2.0]},
+        "patience_count": 0,
+        "history": [{"epoch": 1}, {"epoch": 2}],
+    }
+    save(tmp_path / "best.pt", {"epoch": 1})
+    save(tmp_path / "last.pt", latest)
+    assert status(tmp_path) == ("resume", latest)
+    namespace["sync_epoch_artifacts"](tmp_path, latest)
+    assert namespace["torch"].load(tmp_path / "best.pt") == {"epoch": 2, "model": latest["model"]}
+    assert namespace["torch"].load(tmp_path / "best-selection.json") == latest["best"]
+    assert (tmp_path / "results.csv").read_text(encoding="utf-8") == "epoch\n1\n2\n"
+
+    save(tmp_path / "last.pt", {**latest, "patience_count": 30})
+    assert status(tmp_path)[0] == "trained"
+    namespace["write_json"](tmp_path / "done.json", {})
+    assert status(tmp_path) == ("done", None)
