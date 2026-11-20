@@ -3,10 +3,13 @@ from __future__ import annotations
 import ast
 import csv
 import json
+import math
 import os
+from contextlib import nullcontext
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock
 
 import numpy as np
 import pytest
@@ -95,8 +98,23 @@ def test_detr_dataset_preserves_valid_boxes(tmp_path, split):
     assert dataset[1][2]["boxes"].shape == (0, 4)
 
 
-def test_notebook_recovers_best_and_logs_from_last(tmp_path):
+def load_notebook_functions(functions, namespace):
     notebook = Path(__file__).resolve().parents[1] / "notebooks/train_detr_main_v1.1.ipynb"
+    for cell in json.loads(notebook.read_text(encoding="utf-8"))["cells"]:
+        if cell["cell_type"] == "code":
+            tree = ast.parse("".join(cell["source"]))
+            definitions = [
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name in functions
+            ]
+            exec(
+                compile(ast.Module(body=definitions, type_ignores=[]), str(notebook), "exec"),
+                namespace,
+            )
+
+
+def test_notebook_recovers_best_and_logs_from_last(tmp_path):
     functions = {
         "atomic_write",
         "write_text",
@@ -117,18 +135,7 @@ def test_notebook_recovers_best_and_logs_from_last(tmp_path):
         "EPOCHS": 300,
         "PATIENCE": 30,
     }
-    for cell in json.loads(notebook.read_text(encoding="utf-8"))["cells"]:
-        if cell["cell_type"] == "code":
-            tree = ast.parse("".join(cell["source"]))
-            definitions = [
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name in functions
-            ]
-            exec(
-                compile(ast.Module(body=definitions, type_ignores=[]), str(notebook), "exec"),
-                namespace,
-            )
+    load_notebook_functions(functions, namespace)
 
     status = namespace["run_status"]
     save = namespace["save_checkpoint"]
@@ -152,3 +159,40 @@ def test_notebook_recovers_best_and_logs_from_last(tmp_path):
     assert status(tmp_path)[0] == "trained"
     namespace["write_json"](tmp_path / "done.json", {})
     assert status(tmp_path) == ("done", None)
+
+
+@pytest.mark.parametrize(
+    ("losses", "expected", "steps", "attempts"),
+    [
+        ([math.nan, *([2.0] * 99)], (2.0, 1), 99, 100),
+        ([math.nan, 2.0, math.inf], (None, 2), 1, 3),
+    ],
+)
+def test_train_epoch_skips_nonfinite_loss_until_limit(losses, expected, steps, attempts):
+    torch = MagicMock()
+    torch.autocast.side_effect = lambda *_args, **_kwargs: nullcontext()
+    namespace = {
+        "torch": torch,
+        "math": math,
+        "DEVICE": "cpu",
+        "EPOCHS": 1,
+        "CLIP": 0.1,
+        "MAX_NONFINITE_LOSS_FRACTION": 0.01,
+        "tqdm": lambda loader, **_: loader,
+    }
+    load_notebook_functions({"train_epoch"}, namespace)
+    outputs = []
+    for value in losses:
+        loss = Mock()
+        loss.detach.return_value.item.return_value = value
+        outputs.append(SimpleNamespace(loss=loss))
+    model, optimizer, scaler = Mock(side_effect=outputs), Mock(), Mock()
+    tensor = MagicMock()
+    tensor.to.return_value = tensor
+    tensor.__len__.return_value = 1
+    loader = [(tensor, tensor, [], None, None)] * 100
+
+    assert namespace["train_epoch"](model, loader, optimizer, scaler, 1) == expected
+    assert model.call_count == attempts
+    assert scaler.scale.call_count == scaler.step.call_count == scaler.update.call_count == steps
+    assert optimizer.zero_grad.call_count >= attempts

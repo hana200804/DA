@@ -74,6 +74,6 @@ def test_detr_affine_keeps_square_and_uses_gray_border(monkeypatch):
     transform.set_random_seed(0)
     image = np.full((64, 64, 3), 200, dtype=np.uint8)
     result = transform(image=image, bboxes=[[24, 24, 16, 16]], class_labels=[1])
-    (_, _, width, height), = result["bboxes"]
+    ((_, _, width, height),) = result["bboxes"]
     assert width / height == pytest.approx(1.0, abs=1e-6)
     assert result["image"][0, 0].tolist() == [114, 114, 114]
