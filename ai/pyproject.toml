@@ -19,7 +19,7 @@ eval = ["pycocotools>=2.0.8", "numpy>=1.26"]
 # Huấn luyện ba mô hình (docs/04 §2). Phiên bản chốt trong nhánh huấn luyện.
 train = [
     "ultralytics==8.3.203", "yolov5", "transformers==4.57.6", "torch", "timm==1.0.24",
-    "albumentations==2.0.8",
+    "albumentations==2.0.8", "scipy",
 ]
 # Dịch vụ nhận diện (docs/04 §7, docs/07 §7)
 serve = [
