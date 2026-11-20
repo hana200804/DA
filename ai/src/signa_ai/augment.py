@@ -129,10 +129,14 @@ def patch_ultralytics() -> None:
 
 
 def patch_yolov5() -> None:
-    try:
-        from yolov5.utils.augmentations import Albumentations  # gói pip `yolov5`
-    except ImportError:
-        # Chạy trong thư mục clone ultralytics/yolov5.
-        from utils.augmentations import Albumentations
+    """Patch lớp Albumentations của repo ultralytics/yolov5 đã nằm trên ``sys.path``.
 
+    Kiểm tra dataloader dùng đúng lớp được patch, tránh trường hợp cùng mã nguồn
+    được nạp hai lần dưới hai tên module khác nhau.
+    """
+    import utils.dataloaders as dataloaders
+    from utils.augmentations import Albumentations
+
+    if dataloaders.Albumentations is not Albumentations:
+        raise RuntimeError("utils.dataloaders không dùng lớp Albumentations vừa patch")
     use_signa_photometric(Albumentations, "yolov5")
