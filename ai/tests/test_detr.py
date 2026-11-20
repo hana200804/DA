@@ -196,3 +196,46 @@ def test_train_epoch_skips_nonfinite_loss_until_limit(losses, expected, steps, a
     assert model.call_count == attempts
     assert scaler.scale.call_count == scaler.step.call_count == scaler.update.call_count == steps
     assert optimizer.zero_grad.call_count >= attempts
+
+
+def test_linear_scheduler_rates_and_resume_on_cpu(tmp_path):
+    torch = pytest.importorskip("torch")
+    namespace = {"torch": torch, "EPOCHS": 300, "LRF": 0.01}
+    load_notebook_functions({"make_scheduler"}, namespace)
+
+    def new_optimizer():
+        return torch.optim.AdamW(
+            [
+                {"params": [torch.zeros(1, device="cpu")], "lr": 1e-4},
+                {"params": [torch.zeros(1, device="cpu")], "lr": 1e-5},
+            ]
+        )
+
+    def advance_and_check(optimizer, scheduler, epoch, factor):
+        for _ in range(scheduler.last_epoch, epoch):
+            optimizer.step()
+            scheduler.step()
+        expected = pytest.approx((1e-4 * factor, 1e-5 * factor), abs=1e-14)
+        assert scheduler.last_epoch == epoch
+        assert scheduler.get_last_lr() == expected
+        assert [group["lr"] for group in optimizer.param_groups] == expected
+
+    optimizer = new_optimizer()
+    scheduler = namespace["make_scheduler"](optimizer)
+    advance_and_check(optimizer, scheduler, 0, 1.0)
+    advance_and_check(optimizer, scheduler, 150, 0.505)
+    checkpoint = tmp_path / "last.pt"
+    torch.save(
+        {"optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict()}, checkpoint
+    )
+
+    optimizer = new_optimizer()
+    scheduler = namespace["make_scheduler"](optimizer)
+    state = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    optimizer.load_state_dict(state["optimizer"])
+    scheduler.load_state_dict(state["scheduler"])
+    assert scheduler.last_epoch == 150
+    advance_and_check(optimizer, scheduler, 150, 0.505)
+    advance_and_check(optimizer, scheduler, 151, 0.5017)
+    advance_and_check(optimizer, scheduler, 299, 0.0133)
+    advance_and_check(optimizer, scheduler, 300, 0.01)
