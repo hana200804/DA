@@ -167,7 +167,8 @@ Git chỉ lưu cấu hình, meta, `results.csv` và `best-selection.json` của 
    `1e7cf74cb64d719b34f7315aa13eab9e32cde672`, Ultralytics 8.4.201 và
    TensorFlow 2.15.1. Phiên bản đầy đủ của các gói xuất nằm trong ô 2.
    Ô 3 hiển thị trực tiếp stdout và stderr, đồng thời nối nhật ký vào
-   `MyDrive/Signa/exports/<SOURCE_RUN>/export.log`.
+   `MyDrive/Signa/exports/<SOURCE_RUN>/export.log` với giờ bắt đầu và
+   kết thúc theo UTC, mã thoát và dòng cuối của thanh tiến trình.
 4. Xem `MyDrive/Signa/exports/<SOURCE_RUN>/summary.csv`. Bảng tổng hợp
    mAP@0.5, mAP@0.5:0.95, recall nhóm biển cấm tại ngưỡng F1 tối đa,
    kích thước MB (1 MB = 1.000.000 byte) và trung bình ms/ảnh cho
@@ -176,11 +177,13 @@ Git chỉ lưu cấu hình, meta, `results.csv` và `best-selection.json` của 
    Dùng các số CPU này để tham khảo khi so sánh trong cùng runtime.
 
 Luồng YOLOv8 dùng ONNX opset 19. Với Torch 2.8 và ONNX 1.17, exporter
-mặc định chọn opset 22, vượt mức hỗ trợ 21 của ONNX Runtime 1.18.1.
-onnxslim cần ONNX Runtime để gấp hằng số, còn onnx2tf dùng nó để
-chạy suy luận kiểm tra tensor trung gian. Ultralytics từng ghi nhận lỗi
-shape `32/16` tại nút residual `model.2/m.0/Add` khi đồ thị ONNX
+mặc định chọn opset 22. Mức này vượt giới hạn 20 của đường xuất ONNX qua
+TorchScript trong Torch 2.8 và giới hạn 21 của ONNX Runtime 1.18.1.
+Khi ONNX Runtime từ chối đồ thị, onnxslim có thể bỏ qua bước gấp hằng số
+và onnx2tf bỏ qua suy luận kiểm tra tensor trung gian. Ultralytics từng ghi
+nhận lỗi shape `32/16` tại nút residual `model.2/m.0/Add` khi đồ thị ONNX
 chưa được đơn giản hóa đầy đủ.
+[Giới hạn exporter PyTorch](https://github.com/pytorch/pytorch/blob/v2.8.0/torch/onnx/_constants.py),
 [Bảng tương thích ONNX Runtime](https://onnxruntime.ai/docs/reference/compatibility.html#onnx-opset-support),
 [phân tích upstream](https://github.com/ultralytics/ultralytics/pull/21758#issuecomment-3211548953).
 
@@ -200,6 +203,37 @@ viện, kích thước và hợp đồng tensor. `requirements.txt` cạnh `summ
 ghi phiên bản của mọi gói đã cài trong môi trường xuất. Khi chạy lại, notebook dùng kết quả
 cũ nếu thiết lập và SHA-256 của các tệp khớp. `summary.csv` được cập nhật
 sau mỗi cấu hình hoàn tất.
+
+### Kết quả YOLOv5n trên Colab CPU
+
+Checkpoint `yolov5n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
+**78,35% / 61,58%** trên val với PyTorch và bộ chấm chung. Lượt xuất ở
+`eb182d9` trên Colab CPU 2 vCPU cho các kết quả sau.
+
+| Cấu hình | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Ngưỡng F1 tối đa | ms/ảnh |
+| --- | ---: | ---: | ---: | ---: |
+| 640 FP16 | 78,34 | 61,47 | 0,398 | 137,40 |
+| 640 INT8 | 58,46 | 36,63 | 0,831 | 164,50 |
+| 480 FP16 | 75,82 | 58,03 | 0,372 | 80,75 |
+| 480 INT8 | 53,31 | 31,15 | 0,848 | 96,66 |
+
+YOLOv5 ghép `xywh` đã chuẩn hóa, objectness và xác suất lớp vào một tensor.
+Exporter INT8 xuất tensor đó dưới dạng `uint8` với một cặp `scale` và
+`zero_point` dùng chung. Signa đọc cặp này từ chính tensor đầu ra và giải
+lượng tử như `DetectMultiBackend` mà `detect.py` gọi.
+Ở đầu ra lượng tử hóa, mỗi bước tọa độ ứng với `scale × S` pixel và các điểm
+gần nhau có thể rơi vào cùng một mức. Số liệu tổng hợp chưa cho biết phần
+giảm mAP đến riêng từ đầu ra hay từ các toán tử đã lượng tử hóa bên trong.
+[Đầu ra TFDetect](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/models/tf.py#L374-L418),
+[TFLite backend YOLOv5](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/models/common.py#L753-L770),
+[đặc tả lượng tử TensorFlow Lite](https://github.com/tensorflow/tensorflow/blob/v2.15.1/tensorflow/lite/g3doc/performance/quantization_spec.md).
+
+Ưu tiên FP16 cho YOLOv5n khi đo trên Android. Nếu cần giảm dung lượng, thử
+lượng tử hóa phần trích đặc trưng và giữ tầng dự đoán cùng phép giải mã ở
+float, sau đó chấm lại cùng val. Đặt riêng `inference_output_type=tf.float32`
+chỉ đổi kiểu đầu ra ở biên khi toán tử tạo dự đoán vẫn chạy INT8. Phép giải
+lượng tử ở biên giữ nguyên sai số đã phát sinh trong đồ thị.
+[Các chế độ lượng tử hóa TensorFlow Lite](https://developers.google.com/edge/litert/conversion/tensorflow/quantization/post_training_quantization).
 
 ### Hợp đồng đầu vào, đầu ra và nhãn
 
