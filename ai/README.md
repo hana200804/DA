@@ -162,16 +162,27 @@ Git chỉ lưu cấu hình, meta, `results.csv` và `best-selection.json` của 
    thử YOLOv8n, đặt `SOURCE_RUN = "yolov8n-640-v1.1-temp-s0"` ở ô đầu.
 3. Chọn **Run all**. Notebook tạo môi trường Python 3.11 riêng, lấy mã tại
    `REPO_COMMIT` rồi xuất 640/480 px × FP16/INT8. YOLOv8 ghim
-   Ultralytics 8.3.203, TensorFlow 2.19.0, tf-keras 2.19.0, ONNX 1.17.0 và
-   onnx2tf 1.28.2. YOLOv5 ghim repo gốc ở
+   Ultralytics 8.3.203, TensorFlow 2.19.0, tf-keras 2.19.0, ONNX 1.17.0,
+   ONNX Runtime 1.18.1, onnxslim 0.1.71 và onnx2tf 1.28.2. YOLOv5 ghim repo gốc ở
    `1e7cf74cb64d719b34f7315aa13eab9e32cde672`, Ultralytics 8.4.201 và
    TensorFlow 2.15.1. Phiên bản đầy đủ của các gói xuất nằm trong ô 2.
+   Ô 3 hiển thị trực tiếp stdout và stderr, đồng thời nối nhật ký vào
+   `MyDrive/Signa/exports/<SOURCE_RUN>/export.log`.
 4. Xem `MyDrive/Signa/exports/<SOURCE_RUN>/summary.csv`. Bảng tổng hợp
    mAP@0.5, mAP@0.5:0.95, recall nhóm biển cấm tại ngưỡng F1 tối đa,
    kích thước MB (1 MB = 1.000.000 byte) và trung bình ms/ảnh cho
    `Interpreter.invoke()` trên CPU Colab (tối đa 4 luồng, 5 lượt khởi động).
    Bảng và metadata ghi model CPU, số CPU logic và số luồng thực tế.
    Dùng các số CPU này để tham khảo khi so sánh trong cùng runtime.
+
+Luồng YOLOv8 dùng ONNX opset 19. Với Torch 2.8 và ONNX 1.17, exporter
+mặc định chọn opset 22, vượt mức hỗ trợ 21 của ONNX Runtime 1.18.1.
+onnxslim cần ONNX Runtime để gấp hằng số, còn onnx2tf dùng nó để
+chạy suy luận kiểm tra tensor trung gian. Ultralytics từng ghi nhận lỗi
+shape `32/16` tại nút residual `model.2/m.0/Add` khi đồ thị ONNX
+chưa được đơn giản hóa đầy đủ.
+[Bảng tương thích ONNX Runtime](https://onnxruntime.ai/docs/reference/compatibility.html#onnx-opset-support),
+[phân tích upstream](https://github.com/ultralytics/ultralytics/pull/21758#issuecomment-3211548953).
 
 YAML hiệu chỉnh chứa danh sách lấy mẫu với seed 0 từ manifest train v1.1
 (300 ảnh cho YOLOv8, 101 ảnh cho YOLOv5). Khóa `train` và `val` trong YAML
