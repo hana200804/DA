@@ -15,6 +15,8 @@ Hồ sơ từng lượt nằm trong thư mục cùng tên: `config.yaml`, `meta.
 ## Ghi chú
 
 - Trần epoch là 200 cho YOLO, 300 cho DETR. Hai lượt YOLOv5 chạm trần trước khi đủ 30 epoch không tăng. DETR dừng sớm ở epoch 249.
-- Điểm do Ultralytics tự tính cao hơn bộ đánh giá chung khoảng 3 điểm (YOLOv8n: 69,2% so với 65,6% mAP@0.5:0.95), vì hai bên nội suy đường PR khác nhau. Bảng trên chỉ dùng bộ đánh giá chung.
-- YOLOv8n lượt chính thấp hơn lượt tạm `yolov8n-640-v1.1-temp-s0` (67,90%), vì lượt tạm dùng tăng cường mặc định của Ultralytics. Lượt chính dùng bảng tăng cường chung cho cả ba mô hình.
+- Recall biển cấm được đo ở ngưỡng F1 tối đa của từng mô hình. Giờ GPU trên L4 và A100 không so sánh trực tiếp được. Giờ GPU của YOLO chỉ gồm phiên huấn luyện.
+- Điểm mAP@0.5:0.95 tự tính trong `best-selection.json` cao hơn bộ đánh giá chung lần lượt 2,2 điểm phần trăm với YOLOv5n, 2,5 với YOLOv5s, 3,8 với YOLOv8n và 4,1 với YOLOv8s. Điểm tự tính của YOLOv8n là 69,39%. Hai quy trình khác nhau về NMS (đa nhãn ở validator, đơn nhãn khi xuất dự đoán), tiền xử lý (batch khi validation, từng ảnh khi xuất), giới hạn số phát hiện (`max_det=300` khi xuất, `maxDets=100` khi tính COCO AP) và cách tính AP. Chưa tách được ảnh hưởng của từng khác biệt. [Điểm tự tính của YOLOv8n](yolov8n-640-v1.1-main-s0/best-selection.json)
+- Theo bộ đánh giá chung, mAP@0.5:0.95 trên val của YOLOv8n là 65,57% ở lượt chính và 67,90% ở lượt tạm `yolov8n-640-v1.1-temp-s0`. Lượt tạm dùng tăng cường mặc định của Ultralytics và trần 100 epoch. Lượt chính dùng tăng cường chung và trần 200 epoch. Với một seed, chưa tách được ảnh hưởng của từng thay đổi. [Nguồn điểm lượt tạm trong mô tả PR #9](https://github.com/hana200804/DA/pull/9)
 - Lượt YOLOv5n dừng ở bước chọn epoch sau khi train xong, do YOLOv5 @1e7cf74 ghi cột `metrics/mAP50-95`. Lỗi được sửa ở commit `8de0608`, rồi chạy tiếp mà không train lại (`run_status` = `trained`). Kết quả không đổi.
+- Khi tiếp tục từ checkpoint, bộ công cụ YOLOv5 và YOLOv8 khởi tạo lại bộ đếm dừng sớm.
