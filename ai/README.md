@@ -207,8 +207,8 @@ sau mỗi cấu hình hoàn tất.
 ### Kết quả YOLOv5n trên Colab CPU
 
 Checkpoint `yolov5n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
-**78,35% / 61,58%** trên val với PyTorch và bộ chấm chung. Lượt xuất ở
-`eb182d9` trên Colab CPU 2 vCPU cho các kết quả sau.
+**78,35% / 61,58%** trên val với PyTorch và bộ chấm chung. Notebook ở
+`eb182d9` chạy mã xuất tại `0939673` trên Colab CPU 2 vCPU.
 
 | Cấu hình | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Ngưỡng F1 tối đa | ms/ảnh |
 | --- | ---: | ---: | ---: | ---: |
@@ -222,11 +222,28 @@ Exporter INT8 xuất tensor đó dưới dạng `uint8` với một cặp `scale
 `zero_point` dùng chung. Signa đọc cặp này từ chính tensor đầu ra và giải
 lượng tử như `DetectMultiBackend` mà `detect.py` gọi.
 Ở đầu ra lượng tử hóa, mỗi bước tọa độ ứng với `scale × S` pixel và các điểm
-gần nhau có thể rơi vào cùng một mức. Số liệu tổng hợp chưa cho biết phần
-giảm mAP đến riêng từ đầu ra hay từ các toán tử đã lượng tử hóa bên trong.
+gần nhau có thể rơi vào cùng một mức. Với biển chỉ khoảng 10 px sau khi
+resize về đầu vào 640, sai số vài pixel có thể làm IoU với box chuẩn giảm
+mạnh. Làm tròn cũng có thể đẩy IoU giữa hai box trùng xuống dưới ngưỡng
+NMS 0,7, để lại dự đoán dương tính giả có điểm cao. Cơ chế này phù hợp
+với việc ngưỡng F1 tối đa tăng từ 0,398 lên 0,831 ở 640. Số liệu tổng hợp
+chưa tách được sai số đầu ra khỏi sai số từ toán tử INT8 bên trong.
 [Đầu ra TFDetect](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/models/tf.py#L374-L418),
 [TFLite backend YOLOv5](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/models/common.py#L753-L770),
 [đặc tả lượng tử TensorFlow Lite](https://github.com/tensorflow/tensorflow/blob/v2.15.1/tensorflow/lite/g3doc/performance/quantization_spec.md).
+
+Các thí nghiệm tách nguyên nhân dưới đây vẫn chưa chạy.
+
+1. Đọc `640-int8/export-meta.json`, tính `tensors.output.scale × 640`
+   theo pixel và đối chiếu scale, zero point đầu vào với `1/255` và `0`.
+2. So sánh AP theo kích thước biển nhỏ, vừa và lớn giữa `640-fp16` và
+   `640-int8` trong hai tệp `metrics.json`.
+3. Áp thêm NMS theo lớp với IoU 0,5 lên `640-int8/predictions-val.json`,
+   rồi chấm lại bằng `signa_ai.evaluate` để xem tác động của box trùng.
+4. Chạy lại FP16 trên Colab, lượng tử đầu ra về `uint8` bằng scale và
+   zero point của bản INT8 rồi giải mã và chấm lại cùng val. So với
+   FP16 gốc để đo phần sai số do đầu ra, sau đó so với INT8 để xem
+   mức chênh còn lại khi các toán tử bên trong cũng được lượng tử hóa.
 
 Ưu tiên FP16 cho YOLOv5n khi đo trên Android. Nếu cần giảm dung lượng, thử
 lượng tử hóa phần trích đặc trưng và giữ tầng dự đoán cùng phép giải mã ở
