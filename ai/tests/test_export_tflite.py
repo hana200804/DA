@@ -1,5 +1,8 @@
 import json
+import os
+import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +17,48 @@ from scripts.export_tflite import (
     split_paths,
 )
 from signa_ai.labels import load_label_map
+
+
+@pytest.mark.parametrize(
+    "filename", ("export_tflite_v1.1.ipynb", "export_tflite_yolov5_v1.1.ipynb")
+)
+def test_notebook_export_overrides_inline_matplotlib_backend(tmp_path, monkeypatch, filename):
+    path = Path(__file__).resolve().parents[1] / "notebooks" / filename
+    notebook = json.loads(path.read_text(encoding="utf-8"))
+    (cell,) = [cell for cell in notebook["cells"] if cell["id"] == "xuat-va-cham-val"]
+
+    script = tmp_path / "ai/scripts/export_tflite.py"
+    script.parent.mkdir(parents=True)
+    script.write_text('import os\nprint(os.environ["MPLBACKEND"])\n', encoding="utf-8")
+    output = tmp_path / "Signa/exports/test-run"
+    output.mkdir(parents=True)
+    (output / "summary.csv").touch()
+    inline_backend = "module://matplotlib_inline.backend_inline"
+    monkeypatch.setenv("MPLBACKEND", inline_backend)
+
+    def popen(command, *, cwd, **kwargs):
+        assert cwd == "/content"
+        return subprocess.Popen(command, cwd=tmp_path, **kwargs)
+
+    namespace = {
+        "DATASET": tmp_path,
+        "DRIVE": tmp_path,
+        "Path": Path,
+        "REPO": tmp_path,
+        "REPO_COMMIT": "test-sha",
+        "SOURCE_RUN": "test-run",
+        "YOLOV5_REPO": tmp_path,
+        "os": os,
+        "python": sys.executable,
+        "subprocess": SimpleNamespace(
+            Popen=popen, PIPE=subprocess.PIPE, STDOUT=subprocess.STDOUT,
+            CalledProcessError=subprocess.CalledProcessError,
+        ),
+    }
+    exec(compile("".join(cell["source"]), str(path), "exec"), namespace)
+
+    assert "Agg" in (output / "export.log").read_text(encoding="utf-8").splitlines()
+    assert os.environ["MPLBACKEND"] == inline_backend
 
 
 def test_calibration_yaml_only_lists_train_images(tmp_path):
