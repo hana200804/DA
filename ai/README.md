@@ -28,10 +28,20 @@ uv run --no-sync ruff check .
 | `configs/augment.md` | Bảng đối chiếu tăng cường cho ba mô hình | Huấn luyện YOLO, DETR |
 | `configs/yolov5-hyp.yaml` | Siêu tham số YOLOv5 cho lượt so sánh chính | Huấn luyện YOLO |
 | `src/signa_ai/augment.py` | Tham số và pipeline Albumentations dùng chung cho ba mô hình | Huấn luyện YOLO, DETR |
+| `src/signa_ai/detr.py` | Dataset COCO, letterbox và hậu xử lý DETR-R50 | Huấn luyện DETR |
+| [`notebooks/train_detr_main_v1.1.ipynb`](notebooks/train_detr_main_v1.1.ipynb) | Huấn luyện và chấm DETR-R50 trên val v1.1 | Huấn luyện DETR |
 | `experiments/` | Cấu hình, log, chỉ số của từng thí nghiệm | Huấn luyện YOLO, DETR |
 | `service/` | Dịch vụ nhận diện FastAPI | Dịch vụ nhận diện |
 
 Ảnh, video và trọng số không đưa vào Git.
+
+## Huấn luyện DETR-R50 trên Colab
+
+1. Mở [notebook DETR](notebooks/train_detr_main_v1.1.ipynb) trong Colab, chọn GPU **L4, A100 hoặc H100** (ưu tiên A100 nếu có) và đặt `signa-v1.1.zip` ở thư mục gốc My Drive.
+2. Đặt `SMOKE = True` ở ô đầu và chọn **Run all** để chạy một epoch với khoảng 2% của train và val. Kết quả thử nằm trong `/content/signa-smoke/`.
+3. Đặt `SMOKE = False` rồi **Run all** cho lượt chính. Notebook dò batch, lưu checkpoint theo epoch ở `MyDrive/Signa/experiments/detr-r50-640-v1.1-main-s0/` và chấm val bằng bộ đánh giá chung.
+
+Khi phiên Colab ngắt, chọn GPU được hỗ trợ và **Run all** để tiếp tục từ `last.pt`. Batch giữ nguyên qua các phiên. GPU của phiên mới cần đủ VRAM cho batch đã lưu. Chạy một runtime cho mỗi lượt. Sau khi có `done.json`, notebook bỏ qua lượt đã hoàn thành. Tập test dành cho đánh giá sau khi chốt cấu hình.
 
 ## Chạy dịch vụ nhận diện
 
