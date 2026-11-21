@@ -144,6 +144,8 @@ def export_model(
                 imgsz=size,
                 batch=1,
                 device="cpu",
+                # Với Torch 2.8 và ONNX 1.17, opset mặc định 22 vượt giới hạn của ONNX Runtime 1.18.
+                opset=19,
                 nms=False,
                 int8=int8,
                 half=not int8,

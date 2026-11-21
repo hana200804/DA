@@ -55,6 +55,29 @@ def test_resume_requires_matching_settings_and_intact_artifacts(tmp_path):
     assert not complete(tmp_path, {"size": 480})
 
 
+@pytest.mark.parametrize(("int8", "suffix"), [(False, "float16"), (True, "full_integer_quant")])
+def test_yolov8_uses_compatible_opset_and_preserves_precision(tmp_path, monkeypatch, int8, suffix):
+    weights = tmp_path / "best.pt"
+    labels = load_label_map()
+    data = tmp_path / "calibration.yaml"
+    saved_model = tmp_path / "best_saved_model"
+
+    def export(**kwargs):
+        assert kwargs["opset"] == 19
+        assert kwargs["nms"] is False
+        assert kwargs["int8"] is int8
+        assert kwargs["half"] is not int8
+        assert kwargs["split"] == "train"
+        assert kwargs["data"] == str(data)
+        return str(saved_model / ("best_int8.tflite" if int8 else "best_float16.tflite"))
+
+    detector = SimpleNamespace(task="detect", names=labels.names, export=export)
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=lambda path: detector))
+    assert export_model(weights, labels, "yolov8", 640, int8, data, None) == (
+        saved_model / f"best_{suffix}.tflite"
+    )
+
+
 @pytest.mark.parametrize(
     ("returned", "created"),
     [(True, True), (True, False), (False, True)],
