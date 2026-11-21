@@ -102,6 +102,22 @@ uv run --no-sync python -m signa_ai.evaluate \
 - Tách ngày, đêm và mưa theo `images[].tags` trong GT hoặc theo cột `tags` của `--manifest` (khớp `path` với `file_name`). Hỗ trợ `day`, `night`, `rain` và `ngày`, `đêm`, `mưa`. Dùng dấu chấm phẩy để tách nhiều thẻ trong cùng chuỗi. Điều kiện thiếu thẻ và chỉ số AP hoặc recall thiếu GT có giá trị `null`.
 - Các trường `cost` để `null` cho đến khi thí nghiệm cung cấp số đo.
 
+## Lượt so sánh chính YOLOv5, YOLOv8 · v1.1
+
+Hai notebook, mỗi notebook một runtime Colab riêng vì repo YOLOv5 gốc cần `ultralytics>=8.4`,
+còn YOLOv8 ghim 8.3.203:
+
+| Notebook | Mô hình | Run trên Drive |
+| --- | --- | --- |
+| [`train_yolov8_main_v1.1.ipynb`](notebooks/train_yolov8_main_v1.1.ipynb) | YOLOv8 n, s | `yolov8{n,s}-640-v1.1-main-s0` |
+| [`train_yolov5_main_v1.1.ipynb`](notebooks/train_yolov5_main_v1.1.ipynb) | YOLOv5 n, s (repo gốc, anchor) | `yolov5{n,s}-640-v1.1-main-s0` |
+
+Cả hai theo [giao thức huấn luyện](../docs/04-thiet-ke-ai.md#3-giao-thức-huấn-luyện) và
+[bảng tăng cường chung](configs/augment.md): ảnh 640, tối đa 200 epoch, patience 30, seed 0,
+chọn `best.pt` theo mAP@0.5:0.95 trên val. Chọn GPU rồi **Run all**. Mất phiên thì **Run all** lại:
+run xong được bỏ qua, run dở tiếp tục từ `last.pt`. Mỗi run kết thúc bằng dự đoán val và
+`metrics.json` của bộ đánh giá chung. Notebook không xuất test.
+
 ## Huấn luyện YOLOv8n trên Colab · v1.1
 
 Mở [notebook](notebooks/train_yolov8n_v1.1.ipynb) bằng **Upload notebook** tại

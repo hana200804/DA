@@ -1,0 +1,16 @@
+{
+  "repo_commit": "f4ad6edc24d26f0cb6d937c8331ba48f98216234",
+  "dataset_version": "v1.1",
+  "label_map_version": 1,
+  "augmentation": "signa_ai.augment (configs/augment.md)",
+  "sessions": [
+    {
+      "started_at": "2026-11-20T08:33:34.599821+00:00",
+      "gpu": "NVIDIA L4",
+      "torch": "2.14.1+cu130",
+      "gpu_hours": 6.058649118198334,
+      "ultralytics": "8.3.203",
+      "epoch": 196
+    }
+  ]
+}
