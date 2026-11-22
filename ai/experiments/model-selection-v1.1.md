@@ -4,7 +4,7 @@
 
 Chọn mô hình có mAP@0.5:0.95 val cao nhất trong các mô hình đạt NFR-02. Đề xuất **YOLOv8s** theo val vì đứng đầu với **69,56%**. Ở ngưỡng F1 tối đa **0,528**, precision là **90,31%**, recall **80,22%** và F1 **84,97%**. [Phân tích năm lượt val](error-analysis-v1.1-val.md)
 
-Notebook đã đo pipeline trên Colab và laptop. Xác nhận p95 ≤ 1 s cho YOLO và ≤ 3 s cho DETR trên server demo trước khi chốt. Q7 còn mở. [Số đo pipeline](test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có), [NFR-02](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng), [Q7](../../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)
+Notebook đã đo pipeline trên Colab và laptop. Thử qua HTTP với trọng số thật trên laptop CPU 4 lõi cho p95 145,1 ms ở YOLOv8s. Xác nhận p95 ≤ 1 s cho YOLO và ≤ 3 s cho DETR trên server demo trước khi chốt. Q7 còn mở. [Số đo pipeline](test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có), [Phép đo HTTP](https://github.com/hana200804/DA/pull/21), [NFR-02](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng), [Q7](../../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)
 
 ## Điện thoại (FR-03)
 
@@ -49,7 +49,9 @@ Với YOLOv8n 640 FP16, precision toàn bộ mã giảm từ 86,67% xuống 71,9
 | Server · YOLOv8s | 84,03% | ≥ 85,00% | −0,97 điểm phần trăm |
 | Điện thoại · YOLOv8n 640 FP16 | 81,50% | ≥ 80,00% | +1,50 điểm phần trăm |
 
-Trên test, ứng viên server YOLOv8s đạt **81,11%**, thiếu **3,89 điểm phần trăm** so với NFR-05. YOLOv5s đạt 82,19% mAP@0.5 trên test, trong khi YOLOv8s vẫn cao nhất trên val theo chỉ số chọn mAP@0.5:0.95. Giữ đề xuất YOLOv8s cho đến khi kiểm thử NFR-02 và đối chiếu phương án cải thiện bằng val. NFR-05 cho điện thoại cần điểm của chính file TFLite. [So sánh trên test](test-v1.1.md), [Đặc tả NFR-05](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
+Trên test, ứng viên server YOLOv8s đạt **81,11%**, thiếu **3,89 điểm phần trăm** so với NFR-05. YOLOv5s đạt 82,19% mAP@0.5 trên test. Theo quy tắc chọn bằng val, YOLOv8s vẫn là ứng viên server nhờ mAP@0.5:0.95 cao nhất. Khi tăng riêng ảnh suy luận lên 960 với cùng checkpoint, AP box nhỏ trên val tăng 2,61 điểm, mAP@0.5 giảm 2,35 điểm. Giữ đề xuất YOLOv8s ở 640 và đánh giá phương án huấn luyện 960 trên val khi đủ tài nguyên. [So sánh test PyTorch](test-v1.1.md), [Thí nghiệm AI-07](https://github.com/hana200804/DA/pull/22)
+
+YOLOv8n TFLite 640 FP16 có test mAP@0.5 **78,91%**, thiếu **1,09 điểm phần trăm** so với NFR-05. Recall biển cấm là **85,80%** trên ảnh test trước tracker, đạt mốc NFR-06 tại ngưỡng đã chốt. Hiệu năng Android, phép đo với tracker và kết quả thực địa vẫn cần xác nhận trước khi chốt mẫu triển khai. [Kết quả TFLite](https://github.com/hana200804/DA/pull/20), [Đặc tả NFR-05 và NFR-06](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
 
 ## Chốt cấu hình trước khi đo test
 
@@ -69,5 +71,5 @@ SHA-256 trọng số nguồn lấy từ `My Drive/Signa/experiments/<lượt>/ev
 ## Việc còn mở
 
 - Chốt thiết bị và server tham chiếu (Q7), đo FPS thiết bị (NFR-01) và p95 đầu cuối trên server demo (NFR-02).
-- Thử phương án 960 px trên val (AI-07). Tập thực địa cho AI-03 còn thiếu video, GPS đồng bộ và nhãn chuẩn.
+- Hoàn tất huấn luyện 960 px để đo trên val (AI-07). Tập thực địa cho AI-03 còn thiếu video, GPS đồng bộ và nhãn chuẩn.
 - Mỗi lượt chính chỉ dùng một seed. Chưa có độ lệch giữa các seed. [Hồ sơ huấn luyện](main-v1.1.md)
