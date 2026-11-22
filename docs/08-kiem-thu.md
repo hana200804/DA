@@ -119,7 +119,7 @@ Khóa cấu hình chấm và ngưỡng từ val trước khi chấm ảnh test. 
 | --- | --- |
 | mAP@0.5 tập test, mô hình server tốt nhất | ≥ 0,85 (NFR-05) |
 | mAP@0.5 tập test, mô hình điện thoại (sau lượng tử hoá) | ≥ 0,80 (NFR-05) |
-| Recall nhóm biển cấm trên ảnh test, trước tracker, tại ngưỡng đã khóa | ≥ 0,85 để chọn ứng viên điện thoại (NFR-06) |
+| Recall nhóm biển cấm trên ảnh test, trước tracker, tại ngưỡng đã khóa | ≥ 0,85 để kiểm tra ứng viên điện thoại đã chọn trên val (NFR-06) |
 | Mức giảm mAP do INT8 so với FP32 | < 2 điểm, nếu không thì dùng FP16 |
 | mAP@0.5:0.95, AP theo kích thước, theo điều kiện, theo lớp, ma trận nhầm lẫn | Báo cáo cho cả 3 mô hình |
 | Thời gian suy luận trên server tham chiếu | NFR-02 |
@@ -134,7 +134,7 @@ Khóa cấu hình chấm và ngưỡng từ val trước khi chấm ảnh test. 
 | YOLOv8s | | | | | | | | | |
 | Biến thể DETR theo Q2 | | | | | | | | | |
 
-Tính recall nhóm biển cấm trên ảnh test bằng số box thật ghép đúng mã ở IoU ≥ 0,5 chia tổng số box thật thuộc nhóm này. Đo cả biển tốc độ. Dùng giá trị để lọc ứng viên đã khóa và nghiệm thu chuỗi riêng ở §5.
+Tính recall nhóm biển cấm trên ảnh test bằng số box thật ghép đúng mã ở IoU ≥ 0,5 chia tổng số box thật thuộc nhóm này. Đo cả biển tốc độ. Dùng giá trị này để kiểm tra ứng viên đã chọn trên val, không dùng để chọn lại ứng viên. Nghiệm thu chuỗi có tracker riêng ở §5.
 
 **Thí nghiệm bổ sung (AI-07)** gồm ảnh 640 so với 960 và FP32 / FP16 / INT8 cho mô hình điện thoại. Đối chứng có và không có dữ liệu tổng hợp là hạng mục riêng ở [M3](09-hang-muc-cong-viec.md#m3--ba-mô-hình).
 

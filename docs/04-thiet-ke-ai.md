@@ -84,12 +84,12 @@ Mỗi bộ công cụ tự tính mAP theo cách hơi khác nhau. Để công b�
 
 **Cấu hình chấm test.** Dùng val để chọn ngưỡng và ứng viên cần đánh giá. Khóa checkpoint hoặc tệp TFLite bằng SHA-256, kích thước ảnh, thiết lập xuất và ngưỡng trước khi chấm test. Server dùng ngưỡng F1 tối đa trên val. Điện thoại chọn ngưỡng ưu tiên recall trên val vì tracker lọc nhiễu. Giữ các giá trị đã khóa khi chấm test. [Bảng cấu hình v1.1](../ai/experiments/model-selection-v1.1.md#chốt-cấu-hình-trước-khi-đo-test)
 
-**Cấu hình triển khai.** Chốt sau khi có số đo FPS trên Android và NFR-02 trên server tham chiếu theo Q7. Xếp hạng theo val. Dùng recall trên ảnh test trước tracker để kiểm tra ứng viên điện thoại đạt mốc NFR-06 tại ngưỡng đã khóa.
+**Cấu hình triển khai.** Chốt sau khi có số đo FPS trên Android và NFR-02 trên server tham chiếu theo Q7. Xếp hạng và lọc ứng viên theo val. Recall biển cấm trên ảnh test trước tracker chỉ dùng để kiểm tra ứng viên đã chọn có đạt mốc NFR-06 tại ngưỡng đã khóa. Không dùng kết quả test để đổi ứng viên hay ngưỡng. Nếu ứng viên không đạt trên test, ghi là chưa đạt.
 
 | Vai trò | Ứng viên | Quy tắc chọn |
 | --- | --- | --- |
 | Mặc định trên server (FR-02) | Cả ba | mAP@0.5:0.95 trên val cao nhất trong các mô hình đạt NFR-02 về thời gian |
-| Trên điện thoại (FR-03) | YOLOv5n, YOLOv8n, ở 640 hoặc 480 px, INT8 hoặc FP16 | Chọn mAP@0.5 val cao nhất trong các cấu hình đạt ≥ 15 FPS (NFR-01), < 15 MB (NFR-07) và recall biển cấm ≥ 0,85 trên ảnh test trước tracker (NFR-06). Đo FPS khi phát lại video val trên thiết bị tham chiếu |
+| Trên điện thoại (FR-03) | YOLOv5n, YOLOv8n, ở 640 hoặc 480 px, INT8 hoặc FP16 | Chọn mAP@0.5 val cao nhất trong các cấu hình đạt ≥ 15 FPS (NFR-01), < 15 MB (NFR-07) và recall biển cấm ≥ 0,85 trên val ở ngưỡng ưu tiên recall (NFR-06). Kiểm tra lại mốc NFR-06 trên ảnh test trước tracker, không chọn lại theo test. Đo FPS khi phát lại video val trên thiết bị tham chiếu |
 
 Khóa cấu hình triển khai trước khi nghiệm thu trên video thực địa. Nghiệm thu NFR-06 theo biển thật trên tuyến, sau tracker. [Kiểm thử §5](08-kiem-thu.md#5-thử-nghiệm-thực-địa)
 

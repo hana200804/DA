@@ -578,7 +578,7 @@ Cả tám cấu hình đều dưới 15 MB. FPS toàn chuỗi trên Android **ch
 Thành viên 3 phụ trách đo trên thiết bị tham chiếu sau khi chốt Q7.
 Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chọn mAP@0.5 val cao nhất
 trong số các cấu hình đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và mốc recall
-NFR-06 trên ảnh test trước tracker tại ngưỡng đã khóa.
+NFR-06 trên val ở ngưỡng ưu tiên recall. Ảnh test chỉ dùng để kiểm tra lại mốc này.
 [Đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#điện-thoại-fr-03),
 [Quy tắc AI-04](../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04),
 [Đặc tả · Q7](../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ).
@@ -620,8 +620,8 @@ NFR-06 trên ảnh test trước tracker tại ngưỡng đã khóa.
    sau 20 phút. Ghi tên thiết bị, bản Android, bản app/TFLite, video,
    cấu hình, delegate thực tế, số luồng, trạng thái nhiệt và log.
 3. Giữ các cấu hình đạt ≥ 15 FPS toàn chuỗi (NFR-01), < 15 MB
-   (NFR-07) và recall biển cấm ≥ 0,85 trên ảnh test trước tracker ở ngưỡng đã khóa (NFR-06),
-   rồi chọn mAP@0.5 val lớn nhất trong số đó. Đối chiếu
+   (NFR-07) và recall biển cấm ≥ 0,85 trên val ở ngưỡng ưu tiên recall (NFR-06),
+   rồi chọn mAP@0.5 val lớn nhất trong số đó. Kiểm tra lại NFR-06 trên ảnh test, không chọn lại theo test. Đối chiếu
    [quy tắc chọn mô hình](../docs/04-thiet-ke-ai.md#4-giao-thức-đánh-giá-và-chọn-mô-hình)
    và [giao thức đo thiết bị](../docs/08-kiem-thu.md#4-đánh-giá-trên-thiết-bị).
 

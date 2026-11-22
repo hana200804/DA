@@ -8,7 +8,7 @@ Notebook đã đo pipeline trên Colab và laptop. Phép đo HTTP loopback tuầ
 
 ## Điện thoại (FR-03)
 
-Chọn mAP@0.5 val cao nhất trong số cấu hình đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và mốc NFR-06 (recall biển cấm ≥ 0,85 trên ảnh test trước tracker, tại ngưỡng đã khóa). Nghiệm thu NFR-06 trên video thực địa có tracker. [Quy tắc AI-04](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04), [NFR-06](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
+Chọn mAP@0.5 val cao nhất trong số cấu hình đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và mốc NFR-06 (recall biển cấm ≥ 0,85 trên val ở ngưỡng ưu tiên recall). Kiểm tra lại mốc này trên ảnh test trước tracker tại ngưỡng đã khóa, không chọn lại theo test. Nghiệm thu NFR-06 trên video thực địa có tracker. [Quy tắc AI-04](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04), [NFR-06](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
 
 Trạng thái từng bộ lọc:
 
@@ -29,7 +29,7 @@ Số ms/ảnh dưới đây đo trên CPU Colab, với hai luồng trên Intel X
 | YOLOv8n | 480-FP16 | 6,16 | 130,30 | 78,47% | 62,49% |
 | YOLOv8n | 480-INT8 | 3,26 | 137,65 | 70,40% | 50,55% |
 
-Đề xuất tạm **YOLOv8n TFLite 640 FP16** vì mAP@0.5 val cao nhất (81,50%) và recall biển cấm trên ảnh test đạt mốc chọn ứng viên. Để chốt, đo FPS của chuỗi nhận diện khi phát lại video val trên thiết bị tham chiếu, rồi áp quy tắc trên.
+Đề xuất tạm **YOLOv8n TFLite 640 FP16** vì mAP@0.5 val cao nhất (81,50%) và đạt recall biển cấm 85,04% trên val ở ngưỡng ưu tiên recall. Kiểm tra trên ảnh test cho 85,80%. Để chốt, đo FPS của chuỗi nhận diện khi phát lại video val trên thiết bị tham chiếu, rồi áp quy tắc trên.
 
 ### Ngưỡng ưu tiên recall biển cấm
 
@@ -51,7 +51,7 @@ Với YOLOv8n 640 FP16, precision toàn bộ mã giảm từ 86,67% xuống 71,9
 
 Trên test, ứng viên server YOLOv8s đạt **81,11%**, thiếu **3,89 điểm phần trăm** so với NFR-05. YOLOv5s đạt 82,19% mAP@0.5 trên test. Theo quy tắc chọn bằng val, YOLOv8s vẫn là ứng viên server nhờ mAP@0.5:0.95 cao nhất. Khi tăng riêng ảnh suy luận lên 960 với cùng checkpoint, AP box nhỏ trên val tăng 2,61 điểm, mAP@0.5 giảm 2,35 điểm. Giữ đề xuất YOLOv8s ở 640 và đánh giá phương án huấn luyện 960 trên val khi đủ tài nguyên. [So sánh test PyTorch](test-v1.1.md), [Thí nghiệm AI-07](https://github.com/hana200804/DA/pull/22)
 
-YOLOv8n TFLite 640 FP16 có test mAP@0.5 **78,91%**, thiếu **1,09 điểm phần trăm** so với NFR-05. Recall biển cấm là **85,80%** trên ảnh test trước tracker, đạt mốc chọn ứng viên tại ngưỡng đã khóa. Còn chờ đo FPS để chốt cấu hình và đo với tracker trên video thực địa để nghiệm thu NFR-06. [Kết quả TFLite](yolov8n-640-v1.1-main-s0/tflite-640-fp16-evaluation/README.md), [Đặc tả NFR-05 và NFR-06](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
+YOLOv8n TFLite 640 FP16 có test mAP@0.5 **78,91%**, thiếu **1,09 điểm phần trăm** so với NFR-05. Recall biển cấm là **85,80%** trên ảnh test trước tracker, đạt mốc NFR-06 khi kiểm tra trên ảnh test tại ngưỡng đã khóa. Còn chờ đo FPS để chốt cấu hình và đo với tracker trên video thực địa để nghiệm thu NFR-06. [Kết quả TFLite](yolov8n-640-v1.1-main-s0/tflite-640-fp16-evaluation/README.md), [Đặc tả NFR-05 và NFR-06](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
 
 ## Chốt cấu hình trước khi đo test
 
