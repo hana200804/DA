@@ -79,10 +79,11 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 - [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
 - [x] Bộ đánh giá chung bằng `pycocotools` (AI-03)
-- [ ] Bảng so sánh và phân tích lỗi ([Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình))
+- [x] Bảng so sánh và phân tích lỗi trên val ([Kết quả v1.1](../ai/experiments/error-analysis-v1.1-val.md), [Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình))
 - [ ] Bản TFLite INT8/FP16 của các ứng viên điện thoại (AI-05)
 - [ ] Thí nghiệm 960 px, dữ liệu tổng hợp (AI-07)
-- [ ] Chọn mô hình triển khai kèm lý do (AI-04); thẻ mô hình (AI-06)
+- [ ] Chọn mô hình triển khai kèm lý do (AI-04). Đã đề xuất theo val, chờ đo FPS và NFR-02. [Đề xuất v1.1](../ai/experiments/model-selection-v1.1.md)
+- [x] Thẻ mô hình cho năm lượt chính và hai bản TFLite 640 FP16 (AI-06). [Hồ sơ thí nghiệm](../ai/experiments/README.md#sinh-thẻ-mô-hình)
 
 **Hoàn thành khi:** đạt NFR-05, NFR-06; bảng kết quả đủ cả ba mô hình.
 
