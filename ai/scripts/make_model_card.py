@@ -38,7 +38,7 @@ def tflite_card(paths: list[Path], run: str, card: dict) -> dict:
     ):
         raise ValueError("Nguồn TFLite không khớp lượt chạy, danh mục nhãn hoặc dữ liệu val")
 
-    variant = f'{identity["size"]}-{identity["precision"]}'
+    variant = f"{identity['size']}-{identity['precision']}"
     with summary_path.open(encoding="utf-8-sig", newline="") as handle:
         rows = [row for row in csv.DictReader(handle) if row["config"] == variant]
     expected = {
@@ -96,7 +96,9 @@ def make_card(run: Path, version: str, export_config: Path | None) -> dict:
     metrics = read_json(run / "metrics.json")
     dataset, labels = config["dataset_version"], config["label_map_version"]
     if (dataset, labels, labels) != (
-        meta["dataset_version"], meta["label_map_version"], metrics["label_map_version"]
+        meta["dataset_version"],
+        meta["label_map_version"],
+        metrics["label_map_version"],
     ):
         raise ValueError("Phiên bản dữ liệu hoặc nhãn trong hồ sơ lượt chạy không khớp")
 
@@ -156,7 +158,10 @@ def main() -> None:
     parser.add_argument("--out", type=Path, help="Mặc định ghi model_card.json trong lượt chạy")
     parser.add_argument("--export-config", type=Path, help="Cấu hình xuất dự đoán val PyTorch")
     parser.add_argument(
-        "--tflite", type=Path, nargs=3, metavar=("SUMMARY", "META", "ANALYSIS"),
+        "--tflite",
+        type=Path,
+        nargs=3,
+        metavar=("SUMMARY", "META", "ANALYSIS"),
         help="Summary CSV, export-meta.json và phân tích val TFLite có chỉ tiêu recall biển cấm",
     )
     args = parser.parse_args()

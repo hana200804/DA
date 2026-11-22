@@ -2,13 +2,21 @@
 
 ## Server (FR-02)
 
-Chọn mô hình có mAP@0.5:0.95 val cao nhất trong các mô hình đạt NFR-02. Đề xuất **YOLOv8s** theo val vì đứng đầu với **69,56%**. Ở ngưỡng F1 tối đa **0,5279324054718018**, precision là **90,31%**, recall **80,22%** và F1 **84,97%**. [Phân tích năm lượt val](error-analysis-v1.1-val.md)
+Chọn mô hình có mAP@0.5:0.95 val cao nhất trong các mô hình đạt NFR-02. Đề xuất **YOLOv8s** theo val vì đứng đầu với **69,56%**. Ở ngưỡng F1 tối đa **0,528**, precision là **90,31%**, recall **80,22%** và F1 **84,97%**. [Phân tích năm lượt val](error-analysis-v1.1-val.md)
 
 Chưa đo p95 trên server tham chiếu. Q7 chưa chốt. Ở bước sau, dùng notebook đo thời gian đầu cuối từ nhận ảnh đến trả kết quả. Xác nhận p95 ≤ 1 s cho YOLO và ≤ 3 s cho DETR trước khi chốt. [NFR-02](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng), [Q7](../../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)
 
 ## Điện thoại (FR-03)
 
-Lọc theo NFR-07 (< 15 MB). Cả tám ứng viên đều qua bộ lọc. Chưa đo FPS (NFR-01) trên Android tham chiếu. Số ms/ảnh dưới đây đo trên CPU Colab, với hai luồng trên Intel Xeon 2,20 GHz. Nguồn là `tflite-summary-yolov5n.csv` và `tflite-summary-yolov8n.csv` trong `~/signa-cache`.
+Quy tắc chọn: trong các cấu hình đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và NFR-06 (recall biển cấm ≥ 0,85) ở ngưỡng điện thoại, chọn cấu hình có mAP@0.5 val cao nhất. Quy tắc này giống [mục so sánh ứng viên điện thoại](../README.md#so-sánh-ứng-viên-điện-thoại-ai-04). `docs/04` §4 nêu NFR-01 và NFR-07. NFR-06 là yêu cầu riêng của mô hình điện thoại nên cũng được lọc. [Quy tắc AI-04](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04), [NFR-06](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
+
+Trạng thái từng bộ lọc:
+
+- NFR-07: cả tám cấu hình đều dưới 15 MB.
+- NFR-01: chưa đo FPS trên Android tham chiếu.
+- NFR-06 ở ngưỡng điện thoại: đã tính cho hai bản 640 FP16 ở [mục dưới](#ngưỡng-ưu-tiên-recall-biển-cấm). Sáu cấu hình còn lại **chưa đo** vì chưa phân tích dự đoán val của chúng.
+
+Số ms/ảnh dưới đây đo trên CPU Colab, với hai luồng trên Intel Xeon 2,20 GHz. Nguồn là [CSV YOLOv5n](yolov5n-640-v1.1-main-s0/tflite-summary.csv) và [CSV YOLOv8n](yolov8n-640-v1.1-main-s0/tflite-summary.csv), giống `My Drive/Signa/exports/<lượt>/summary.csv`.
 
 | Mô hình | Ảnh và lượng tử hoá | MB | ms/ảnh CPU Colab | mAP@0.5 val | mAP@0.5:0.95 val |
 | --- | --- | --- | --- | --- | --- |
@@ -21,7 +29,7 @@ Lọc theo NFR-07 (< 15 MB). Cả tám ứng viên đều qua bộ lọc. Chưa 
 | YOLOv8n | 480-FP16 | 6,16 | 130,30 | 78,47% | 62,49% |
 | YOLOv8n | 480-INT8 | 3,26 | 137,65 | 70,40% | 50,55% |
 
-Đề xuất tạm **YOLOv8n TFLite 640 FP16** vì mAP@0.5 val cao nhất (81,50%). Để chốt, đo chuỗi nhận diện khi phát lại video val trên thiết bị tham chiếu. Chọn cấu hình có mAP@0.5 val cao nhất trong các cấu hình đạt ≥ 15 FPS và < 15 MB. [Quy tắc lựa chọn](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04)
+Đề xuất tạm **YOLOv8n TFLite 640 FP16** vì mAP@0.5 val cao nhất (81,50%) và đạt NFR-06 ở ngưỡng điện thoại trên val. Để chốt, đo FPS của chuỗi nhận diện khi phát lại video val trên thiết bị tham chiếu, rồi áp quy tắc trên.
 
 ### Ngưỡng ưu tiên recall biển cấm
 
@@ -32,7 +40,7 @@ Tính recall nhóm từ các mã có `category: prohibitory` trong `labels.yaml`
 | [YOLOv5n](yolov5n-640-v1.1-main-s0/model_card.json) | 0,398440 | 83,44% | 0,240847 | 85,04% | 78,76% |
 | [YOLOv8n](yolov8n-640-v1.1-main-s0/model_card.json) | 0,429308 | 80,45% | 0,042588 | 85,04% | 71,95% |
 
-Với YOLOv8n 640 FP16, precision toàn bộ mã giảm từ 86,67% xuống 71,95% khi hạ ngưỡng. Kết quả trên val đạt mức recall biển cấm yêu cầu. Chưa đo chuỗi xử lý có tracker. Nguồn dự đoán là `~/signa-cache/tflite-640-fp16/<mô hình>/predictions-val.json`. Thẻ lưu điểm đo và SHA-256 của nguồn.
+Với YOLOv8n 640 FP16, precision toàn bộ mã giảm từ 86,67% xuống 71,95% khi hạ ngưỡng. YOLOv5n 640 FP16 đạt cùng recall biển cấm 85,04% với precision 78,76%. Đây là dữ kiện để so sánh khi đã đo FPS. Kết quả trên val đạt mức recall biển cấm yêu cầu. Chưa đo chuỗi xử lý có tracker. Nguồn dự đoán là `My Drive/Signa/exports/<lượt>/640-fp16/predictions-val.json`. Thẻ lưu điểm đo và SHA-256 của nguồn để đối chiếu.
 
 ## Đối chiếu NFR-05
 
@@ -56,7 +64,7 @@ Các cấu hình dự kiến dưới đây dùng ngưỡng vận hành chọn tr
 | [DETR-R50](detr-r50-640-v1.1-main-s0/model_card.json) | 640 | 0,706530917812261 | `d0f90fc5d92fa406ea2e4d96003c4714e075ca30b41f48febd3f68e57a50a179` |
 | YOLOv8n TFLite FP16 | 640 | 0,04258768633008003 | `5cb3927b7e740ac944b09a569c4dc5547553cec8a5cdae635d8148a456f82a03` |
 
-SHA-256 trọng số nguồn lấy từ `~/signa-cache/val-v1.1/<lượt>/export-config.json`. File điện thoại là `model.tflite` có SHA-256 `0af0fcaef4eefd4899c2ec85bd833bec8aa3f586b04f18acb63728dc074df159`, theo `tflite-640-fp16/yolov8n/export-meta.json` trong cache. Dùng ngưỡng 0,001 khi xuất COCO để tính AP. Dùng ngưỡng vận hành trong bảng khi tính precision, recall và lỗi tại điểm vận hành.
+SHA-256 trọng số nguồn lấy từ `My Drive/Signa/experiments/<lượt>/evaluation/export-config.json`. File điện thoại là `model.tflite` có SHA-256 `0af0fcaef4eefd4899c2ec85bd833bec8aa3f586b04f18acb63728dc074df159`, theo `My Drive/Signa/exports/yolov8n-640-v1.1-main-s0/640-fp16/export-meta.json`. Dùng ngưỡng 0,001 khi xuất COCO để tính AP. Dùng ngưỡng vận hành trong bảng khi tính precision, recall và lỗi tại điểm vận hành.
 
 ## Việc còn mở
 

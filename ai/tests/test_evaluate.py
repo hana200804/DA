@@ -95,19 +95,30 @@ def test_error_analysis_cli(sample, tmp_path):
     gt, predictions, _ = sample
     gt["annotations"].append(dict(gt["annotations"][1], id=3, bbox=[200, 200, 20, 20]))
     predictions[1].update(category_id=0, score=0.9)
-    predictions.extend([
-        dict(predictions[0], score=0.8, bbox=[300, 300, 20, 20]),
-        dict(predictions[0], score=0.2, bbox=[330, 330, 20, 20]),
-        dict(predictions[1], category_id=1, score=0.2),
-    ])
+    predictions.extend(
+        [
+            dict(predictions[0], score=0.8, bbox=[300, 300, 20, 20]),
+            dict(predictions[0], score=0.2, bbox=[330, 330, 20, 20]),
+            dict(predictions[1], category_id=1, score=0.2),
+        ]
+    )
     gt_path, pred_path, out = (tmp_path / name for name in ("gt.json", "pred.json", "out.json"))
     gt_path.write_text(json.dumps(gt), encoding="utf-8")
     pred_path.write_text(json.dumps(predictions), encoding="utf-8")
     subprocess.run(
         [
-            sys.executable, "scripts/analyze_errors.py",
-            "--gt", str(gt_path), "--pred", str(pred_path), "--out", str(out),
-            "--labels", "data/labels.yaml", "--target-prohibitory-recall", "0.85",
+            sys.executable,
+            "scripts/analyze_errors.py",
+            "--gt",
+            str(gt_path),
+            "--pred",
+            str(pred_path),
+            "--out",
+            str(out),
+            "--labels",
+            "data/labels.yaml",
+            "--target-prohibitory-recall",
+            "0.85",
         ],
         check=True,
     )

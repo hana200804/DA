@@ -23,17 +23,25 @@ Các báo cáo v1.1 gồm [kết quả lượt chính](main-v1.1.md), [phân tí
 
 Chạy trong `ai/` với `config.yaml`, `meta.json`, `best-selection.json` và `metrics.json` của lượt. Số liệu val lấy từ bộ đánh giá chung. Phiên bản mô hình ứng viên đầu tiên là `v1.0`. Phiên bản dữ liệu nằm trong `datasetVersion`. Trường chưa có số đo như kích thước checkpoint PyTorch, độ trễ server, FPS thiết bị, kết quả test và thực địa được ghi `null`.
 
+Nguồn nằm trên Drive chung của nhóm. Đối chiếu SHA-256 trong thẻ và `export-meta.json` trước khi so kết quả.
+
+- `My Drive/Signa/experiments/<lượt>/evaluation/export-config.json`: cấu hình xuất dự đoán val PyTorch, có SHA-256 trọng số.
+- `My Drive/Signa/exports/<lượt>/<cấu hình>/predictions-val.json` và `export-meta.json`: dự đoán val và metadata của bản TFLite, ví dụ cấu hình `640-fp16`.
+- `experiments/<lượt>/tflite-summary.csv` trong repo: bản sao của `My Drive/Signa/exports/<lượt>/summary.csv`.
+- GT val: `data/processed/v1.1/coco/val.json` sau khi giải nén `signa-v1.1.zip` ([Bộ dữ liệu v1.1](../data/README.md#bộ-dữ-liệu-v11)), SHA-256 `e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2`.
+
 ```sh
-cache="$HOME/signa-cache"
+drive="/path/to/My Drive/Signa"
 run=yolov8n-640-v1.1-main-s0
+tflite="$drive/exports/$run/640-fp16"
 .venv/bin/python scripts/analyze_errors.py \
-  --gt "$cache/val-v1.1/gt/ground-truth-val.json" \
-  --pred "$cache/tflite-640-fp16/yolov8n/predictions-val.json" \
+  --gt data/processed/v1.1/coco/val.json \
+  --pred "$tflite/predictions-val.json" \
   --target-prohibitory-recall 0.85 --out /tmp/signa-yolov8n-tflite-val.json
 .venv/bin/python scripts/make_model_card.py "experiments/$run" --version v1.0 \
-  --export-config "$cache/val-v1.1/$run/export-config.json" \
-  --tflite "$cache/tflite-summary-yolov8n.csv" \
-  "$cache/tflite-640-fp16/yolov8n/export-meta.json" /tmp/signa-yolov8n-tflite-val.json
+  --export-config "$drive/experiments/$run/evaluation/export-config.json" \
+  --tflite "experiments/$run/tflite-summary.csv" \
+  "$tflite/export-meta.json" /tmp/signa-yolov8n-tflite-val.json
 ```
 
-Bỏ `--tflite` với thẻ chỉ có checkpoint server. Nếu hồ sơ DETR-R50 chưa có ở nhánh hiện tại, lấy bốn tệp nguồn bằng `git show <commit>:ai/experiments/detr-r50-640-v1.1-main-s0/<tệp>`. Dùng thư mục đầu vào có cùng tên lượt và `--out` để ghi thẻ vào `experiments/`. Thẻ DETR-R50 hiện tại dùng [hồ sơ tại commit c49c2d9](https://github.com/hana200804/DA/tree/c49c2d99ab13b378c00887e13631ed40996de400/ai/experiments/detr-r50-640-v1.1-main-s0).
+Bỏ `--tflite` với thẻ chỉ có checkpoint server. Thẻ DETR-R50 dùng hồ sơ `detr-r50-640-v1.1-main-s0` đã có trên `main`.
