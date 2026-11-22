@@ -14,3 +14,5 @@ Mỗi lượt huấn luyện có một thư mục `ai/experiments/<mã thí nghi
 | `model_card.json` | Thẻ mô hình (AI-06), chỉ khi mô hình được phát hành | Có |
 
 Không chạy bộ đánh giá trên test hoặc tập thực địa trước khi chốt cấu hình ([Thiết kế AI §4](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04)).
+
+Kết quả lượt so sánh chính trên v1.1: [main-v1.1.md](main-v1.1.md).
