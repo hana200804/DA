@@ -324,9 +324,11 @@ Recall biển cấm đo ở ngưỡng F1 tối đa của từng cấu hình.
 Cao nhất là YOLOv5n 640 FP16 với 83,44%, còn YOLOv8n 640 FP16 đạt 80,45%.
 Trên val, chỉ YOLOv8n 640 FP16 vượt 80% mAP@0.5. NFR-05 đo trên test, nên
 số val này chưa kết luận được NFR-05. `docs/04` §4 chọn ngưỡng điện thoại
-thấp hơn F1 tối đa để ưu tiên recall. Phân tích ngưỡng này đang làm trong
-`ai/experiments/model-selection-v1.1.md` trên nhánh `ai/3-evaluation`. Cần
-đo lại recall ở ngưỡng điện thoại trước khi chốt.
+thấp hơn F1 tối đa để ưu tiên recall. Ở ngưỡng điện thoại, YOLOv8n 640 FP16
+đạt recall biển cấm 85,04% với precision 71,95% (ngưỡng 0,0426). YOLOv5n
+640 FP16 đạt cùng recall với precision 78,76% (ngưỡng 0,241). Sáu cấu hình
+còn lại chưa đo ở ngưỡng điện thoại. Ngưỡng đầy đủ và cách tính nằm trong
+[đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#ngưỡng-ưu-tiên-recall-biển-cấm).
 
 Ở 640 px, khi chuyển từ FP16 sang INT8, mAP@0.5 val giảm 6,88 điểm phần trăm
 với YOLOv8n và 19,87 điểm phần trăm với YOLOv5n. Ở 480 px, mức giảm lần lượt
@@ -339,7 +341,8 @@ Thành viên 3 phụ trách đo trên thiết bị tham chiếu sau khi chốt Q
 Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chỉ chọn cấu hình
 này nếu đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và NFR-06 ở ngưỡng điện
 thoại. Nếu không đạt, chọn cấu hình có mAP@0.5 val cao nhất trong số các
-cấu hình đạt NFR-01, NFR-07 và NFR-06 ở ngưỡng điện thoại.
+cấu hình đạt NFR-01, NFR-07 và NFR-06 ở ngưỡng điện thoại. Quy tắc này
+giống [đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#điện-thoại-fr-03).
 [Quy tắc AI-04](../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04),
 [Đặc tả · Q7](../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ).
 

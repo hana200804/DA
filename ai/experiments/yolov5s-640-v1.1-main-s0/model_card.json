@@ -1,0 +1,62 @@
+{
+  "modelName": "yolov5",
+  "modelVersion": "yolov5s-v1.0",
+  "status": "candidate",
+  "description": "Mô hình nhận diện biển báo giao thông theo mã của Signa.",
+  "datasetVersion": "v1.1",
+  "labelMapVersion": 1,
+  "repoCommit": "f4ad6edc24d26f0cb6d937c8331ba48f98216234",
+  "trainingConfig": {
+    "dataset_version": "v1.1",
+    "label_map_version": 1,
+    "weights": "yolov5s.pt",
+    "data": "/content/signa-data.yaml",
+    "hyp": "/content/signa-source/ai/configs/yolov5-hyp.yaml",
+    "epochs": 200,
+    "batch_size": 16,
+    "imgsz": 640,
+    "device": "0",
+    "workers": 2,
+    "patience": 30,
+    "seed": 0,
+    "project": "/content/drive/MyDrive/Signa/experiments",
+    "name": "yolov5s-640-v1.1-main-s0",
+    "exist_ok": true
+  },
+  "augmentation": "signa_ai.augment (configs/augment.md)",
+  "selection": {
+    "split": "val",
+    "metric": "mAP@0.5:0.95",
+    "epoch": 183
+  },
+  "val": {
+    "map_50": 0.8141049185087996,
+    "map_50_95": 0.659655369262692,
+    "ap_by_size": {
+      "small": 0.5245776086011922,
+      "medium": 0.7053666595391013,
+      "large": 0.7020436213572406
+    },
+    "prohibitory_recall": 0.8274182324286709
+  },
+  "test": null,
+  "field": null,
+  "inputSize": 640,
+  "weightsSha256": "f47138cc1af5db74e912d0a86ca397eee69edf2f644d2f82383a68452c966a0f",
+  "sizeMb": null,
+  "cpuMsPerImage": null,
+  "gpuMsPerImage": null,
+  "serverLatencyP95Ms": null,
+  "deviceFps": null,
+  "operating_point": {
+    "threshold": 0.4176335334777832,
+    "precision": 0.8571428571428571,
+    "recall": 0.8134078212290503,
+    "f1": 0.8347028473151156
+  },
+  "limitations": [
+    "Lượt so sánh chính dùng một seed.",
+    "Chưa đo trên tập test và tập thực địa.",
+    "Chưa đo thời gian xử lý đầu cuối trên server tham chiếu."
+  ]
+}

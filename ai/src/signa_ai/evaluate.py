@@ -248,6 +248,42 @@ def best_f1(ranked: list[tuple[float, bool, int]], total: int) -> dict:
     return best
 
 
+def prohibitory_operating_point(
+    ranked: list[tuple[float, bool, int]],
+    total: int,
+    prohibitory: set[int],
+    group_support: int,
+    operating_point: dict,
+    target: float,
+) -> dict:
+    best = {**operating_point, "target_recall": target, "target_met": False}
+    initial_recall = best["prohibitory_recall"]
+    if initial_recall is None:
+        return best
+    if initial_recall >= target:
+        return dict(best, target_met=True)
+
+    tp = predicted = group_tp = 0
+    for score, group in groupby(ranked, key=itemgetter(0)):
+        for _, hit, class_id in group:
+            predicted += 1
+            tp += hit
+            group_tp += hit and class_id in prohibitory
+        if score >= operating_point["threshold"]:
+            continue
+        recall = group_tp / group_support
+        if recall > best["prohibitory_recall"]:
+            best = {
+                **operating_metrics(tp, predicted, total, score),
+                "prohibitory_recall": recall,
+                "target_recall": target,
+                "target_met": recall >= target,
+            }
+            if best["target_met"]:
+                break
+    return best
+
+
 def evaluate(
     gt: dict,
     predictions: list[dict],
@@ -255,9 +291,12 @@ def evaluate(
     *,
     manifest: Path | None = None,
     threshold: float | None = None,
+    target_prohibitory_recall: float | None = None,
 ) -> dict:
     if threshold is not None and not EVAL_CONFIDENCE <= threshold <= 1:
         raise ValueError(f"ngưỡng vận hành phải thuộc [{EVAL_CONFIDENCE}, 1]")
+    if target_prohibitory_recall is not None and not 0 < target_prohibitory_recall <= 1:
+        raise ValueError("chỉ tiêu recall biển cấm phải thuộc (0, 1]")
     with redirect_stdout(StringIO()):
         truth, results = coco_inputs(gt, predictions, labels)
         summary, per_class_ap = coco_ap(truth, results, list(truth.imgs))
@@ -293,7 +332,7 @@ def evaluate(
     hits = Counter(class_id for _, hit, class_id in selected if hit)
 
     names = labels.names
-    prohibitory = [sign.id for sign in labels.classes if sign.category == "prohibitory"]
+    prohibitory = {sign.id for sign in labels.classes if sign.category == "prohibitory"}
     group_support = sum(support[class_id] for class_id in prohibitory)
     background = len(names)
     positions = {class_id: index for index, class_id in enumerate(names)}
@@ -313,7 +352,7 @@ def evaluate(
         ),
         key=lambda pair: (-pair["count"], pair["actual"], pair["predicted"]),
     )[:10]
-    return {
+    report = {
         **summary,
         "label_map_version": labels.version,
         "images": len(truth.imgs),
@@ -339,6 +378,16 @@ def evaluate(
         "top_confusions": top_confusions,
         "cost": dict.fromkeys(COST_FIELDS),
     }
+    if target_prohibitory_recall is not None:
+        report["prohibitory_operating_point"] = prohibitory_operating_point(
+            ranked,
+            total,
+            prohibitory,
+            group_support,
+            dict(report["operating_point"], prohibitory_recall=report["prohibitory_recall"]),
+            target_prohibitory_recall,
+        )
+    return report
 
 
 def main() -> None:

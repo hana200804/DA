@@ -1,0 +1,131 @@
+{
+  "modelName": "yolov5",
+  "modelVersion": "yolov5n-v1.0",
+  "status": "candidate",
+  "description": "Mô hình nhận diện biển báo giao thông theo mã của Signa.",
+  "datasetVersion": "v1.1",
+  "labelMapVersion": 1,
+  "repoCommit": "f4ad6edc24d26f0cb6d937c8331ba48f98216234",
+  "trainingConfig": {
+    "dataset_version": "v1.1",
+    "label_map_version": 1,
+    "weights": "yolov5n.pt",
+    "data": "/content/signa-data.yaml",
+    "hyp": "/content/signa-source/ai/configs/yolov5-hyp.yaml",
+    "epochs": 200,
+    "batch_size": 16,
+    "imgsz": 640,
+    "device": "0",
+    "workers": 2,
+    "patience": 30,
+    "seed": 0,
+    "project": "/content/drive/MyDrive/Signa/experiments",
+    "name": "yolov5n-640-v1.1-main-s0",
+    "exist_ok": true
+  },
+  "augmentation": "signa_ai.augment (configs/augment.md)",
+  "selection": {
+    "split": "val",
+    "metric": "mAP@0.5:0.95",
+    "epoch": 171
+  },
+  "val": {
+    "map_50": 0.7834593580922468,
+    "map_50_95": 0.6158053498843072,
+    "ap_by_size": {
+      "small": 0.5099033875248278,
+      "medium": 0.682370138296507,
+      "large": 0.5780834770682404
+    },
+    "prohibitory_recall": 0.8357689631176062
+  },
+  "test": null,
+  "field": null,
+  "inputSize": 640,
+  "weightsSha256": "1a41dfc18db0a00f2455b9159a902830de2b203d1b9c858a26a7d016be9a9936",
+  "sizeMb": null,
+  "cpuMsPerImage": null,
+  "gpuMsPerImage": null,
+  "serverLatencyP95Ms": null,
+  "deviceFps": null,
+  "operating_point": {
+    "threshold": 0.390178382396698,
+    "precision": 0.8362204724409449,
+    "recall": 0.7910614525139665,
+    "f1": 0.8130143540669856
+  },
+  "limitations": [
+    "Lượt so sánh chính dùng một seed.",
+    "Chưa đo trên tập test và tập thực địa.",
+    "Chưa đo thời gian xử lý đầu cuối trên server tham chiếu."
+  ],
+  "tflite": {
+    "inputSize": 640,
+    "precision": "fp16",
+    "sourceWeightsSha256": "1a41dfc18db0a00f2455b9159a902830de2b203d1b9c858a26a7d016be9a9936",
+    "modelSha256": "36dda19b873e3e81e0f4a758d69b7fb1c9661dec5c68cdd624da115b8c7e9901",
+    "valGroundTruthSha256": "e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2",
+    "valPredictionsSha256": "7a3df1c2ba0eb4aed78e104218c40165d37bda32b00f68c825cc79de7dd520ae",
+    "sizeBytes": 3763428,
+    "sizeMb": 3.763428,
+    "cpuMsPerImage": 137.40425047967946,
+    "cpuEnvironment": "Colab",
+    "cpuModel": "Intel(R) Xeon(R) CPU @ 2.20GHz",
+    "cpuThreads": 2,
+    "deviceFps": null,
+    "tensors": {
+      "input": {
+        "shape": [
+          1,
+          640,
+          640,
+          3
+        ],
+        "dtype": "float32",
+        "scale": 0.0,
+        "zero_point": 0
+      },
+      "output": {
+        "shape": [
+          1,
+          25200,
+          51
+        ],
+        "dtype": "float32",
+        "scale": 0.0,
+        "zero_point": 0
+      }
+    },
+    "val": {
+      "map_50": 0.7833736556405639,
+      "map_50_95": 0.6147266700541572,
+      "ap_by_size": {
+        "small": 0.5074962765171275,
+        "medium": 0.681147696629432,
+        "large": 0.5781892183974013
+      },
+      "prohibitory_recall": 0.8343771746694503,
+      "maxF1": {
+        "threshold": 0.39843982458114624,
+        "precision": 0.8367507886435331,
+        "recall": 0.7903165735567971,
+        "f1": 0.8128710974909021
+      }
+    },
+    "test": null,
+    "field": null,
+    "operating_point": {
+      "threshold": 0.2408471554517746,
+      "precision": 0.7875591124045107,
+      "recall": 0.8063314711359404,
+      "f1": 0.7968347442031652,
+      "prohibitory_recall": 0.8503827418232429,
+      "target_recall": 0.85,
+      "target_met": true
+    },
+    "limitations": [
+      "Chưa đo FPS của chuỗi nhận diện trên thiết bị tham chiếu.",
+      "Điểm vận hành trên val tính theo từng ảnh, chưa đo với tracker."
+    ]
+  }
+}

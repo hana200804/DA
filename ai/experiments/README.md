@@ -9,11 +9,39 @@ Mỗi lượt huấn luyện có một thư mục `ai/experiments/<mã thí nghi
 | `config.yaml` | Toàn bộ siêu tham số, phiên bản dữ liệu, phiên bản danh mục nhãn | Có |
 | `meta.json` | Commit, thời điểm, GPU, số giờ GPU, epoch dừng | Có |
 | `metrics.json` | Kết quả của bộ đánh giá chung trên val | Có |
+| `error-analysis-val.json` | Phân tích lỗi tại ngưỡng F1 tối đa và SHA-256 của đầu vào trên val | Có |
 | `log.txt` hoặc `results.csv` | Log huấn luyện | Có nếu nhỏ hơn 5 MB |
 | `tflite-summary.csv` | Kết quả val, kích thước và thời gian CPU Colab theo cấu hình TFLite của ứng viên điện thoại | Có |
 | `weights/best.pt` | Trọng số tốt nhất | Không. Lưu trên ổ chung hoặc MinIO, ghi đường dẫn trong `meta.json` |
-| `model_card.json` | Thẻ mô hình (AI-06), chỉ khi mô hình được phát hành | Có |
+| `model_card.json` | Thẻ mô hình (AI-06) cho ứng viên và mô hình phát hành | Có |
 
 Không chạy bộ đánh giá trên test hoặc tập thực địa trước khi chốt cấu hình ([Thiết kế AI §4](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04)).
 
-Kết quả lượt so sánh chính trên v1.1: [main-v1.1.md](main-v1.1.md).
+Các báo cáo v1.1 gồm [kết quả lượt chính](main-v1.1.md), [phân tích lỗi trên val](error-analysis-v1.1-val.md) và [đề xuất triển khai](model-selection-v1.1.md).
+
+## Sinh thẻ mô hình
+
+Chạy trong `ai/` với `config.yaml`, `meta.json`, `best-selection.json` và `metrics.json` của lượt. Số liệu val lấy từ bộ đánh giá chung. Phiên bản mô hình ứng viên đầu tiên là `v1.0`. Phiên bản dữ liệu nằm trong `datasetVersion`. Trường chưa có số đo như kích thước checkpoint PyTorch, độ trễ server, FPS thiết bị, kết quả test và thực địa được ghi `null`.
+
+Nguồn nằm trên Drive chung của nhóm. Đối chiếu SHA-256 trong thẻ và `export-meta.json` trước khi so kết quả.
+
+- `My Drive/Signa/experiments/<lượt>/evaluation/export-config.json`: cấu hình xuất dự đoán val PyTorch, có SHA-256 trọng số.
+- `My Drive/Signa/exports/<lượt>/<cấu hình>/predictions-val.json` và `export-meta.json`: dự đoán val và metadata của bản TFLite, ví dụ cấu hình `640-fp16`.
+- `experiments/<lượt>/tflite-summary.csv` trong repo: bản sao của `My Drive/Signa/exports/<lượt>/summary.csv`.
+- GT val: `data/processed/v1.1/coco/val.json` sau khi giải nén `signa-v1.1.zip` ([Bộ dữ liệu v1.1](../data/README.md#bộ-dữ-liệu-v11)), SHA-256 `e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2`.
+
+```sh
+drive="/path/to/My Drive/Signa"
+run=yolov8n-640-v1.1-main-s0
+tflite="$drive/exports/$run/640-fp16"
+.venv/bin/python scripts/analyze_errors.py \
+  --gt data/processed/v1.1/coco/val.json \
+  --pred "$tflite/predictions-val.json" \
+  --target-prohibitory-recall 0.85 --out /tmp/signa-yolov8n-tflite-val.json
+.venv/bin/python scripts/make_model_card.py "experiments/$run" --version v1.0 \
+  --export-config "$drive/experiments/$run/evaluation/export-config.json" \
+  --tflite "experiments/$run/tflite-summary.csv" \
+  "$tflite/export-meta.json" /tmp/signa-yolov8n-tflite-val.json
+```
+
+Bỏ `--tflite` với thẻ chỉ có checkpoint server. Thẻ DETR-R50 dùng hồ sơ `detr-r50-640-v1.1-main-s0` đã có trên `main`.

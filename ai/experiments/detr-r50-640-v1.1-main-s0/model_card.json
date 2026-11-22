@@ -1,0 +1,76 @@
+{
+  "modelName": "detr",
+  "modelVersion": "detr-r50-v1.0",
+  "status": "candidate",
+  "description": "Mô hình nhận diện biển báo giao thông theo mã của Signa.",
+  "datasetVersion": "v1.1",
+  "labelMapVersion": 1,
+  "repoCommit": "5bcda664cac961a658011b9ed9094330d649865a",
+  "trainingConfig": {
+    "repo_commit": "5bcda664cac961a658011b9ed9094330d649865a",
+    "dataset_version": "v1.1",
+    "label_map_version": 1,
+    "model": "facebook/detr-resnet-50",
+    "model_revision": "1d5f47bd3bdd2c4bbfa585418ffe6da5028b4c0b",
+    "num_labels": 46,
+    "image_size": 640,
+    "epochs": 300,
+    "patience": 30,
+    "seed": 0,
+    "workers": 8,
+    "optimizer": "AdamW",
+    "lr": 0.0001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "lr_scheduler": "linear",
+    "lrf": 0.01,
+    "clip_grad": 0.1,
+    "amp": "float16",
+    "max_nonfinite_loss_fraction": 0.01,
+    "auxiliary_loss": true,
+    "augmentation": "signa_ai.augment.detr_transforms",
+    "val_conf": 0.001,
+    "transformers": "4.57.6",
+    "timm": "1.0.24",
+    "scipy": "1.17.1",
+    "pycocotools": "2.0.11",
+    "smoke": false,
+    "batch": 16
+  },
+  "augmentation": "signa_ai.augment.detr_transforms",
+  "selection": {
+    "split": "val",
+    "metric": "mAP@0.5:0.95",
+    "epoch": 219
+  },
+  "val": {
+    "map_50": 0.7608705882741609,
+    "map_50_95": 0.5679433017847687,
+    "ap_by_size": {
+      "small": 0.37408112030643764,
+      "medium": 0.654206495537633,
+      "large": 0.6210622591647812
+    },
+    "prohibitory_recall": 0.7543493389004872
+  },
+  "test": null,
+  "field": null,
+  "inputSize": 640,
+  "weightsSha256": "d0f90fc5d92fa406ea2e4d96003c4714e075ca30b41f48febd3f68e57a50a179",
+  "sizeMb": null,
+  "cpuMsPerImage": null,
+  "gpuMsPerImage": null,
+  "serverLatencyP95Ms": null,
+  "deviceFps": null,
+  "operating_point": {
+    "threshold": 0.706530917812261,
+    "precision": 0.8449809402795425,
+    "recall": 0.7430167597765364,
+    "f1": 0.7907253269916765
+  },
+  "limitations": [
+    "Lượt so sánh chính dùng một seed.",
+    "Chưa đo trên tập test và tập thực địa.",
+    "Chưa đo thời gian xử lý đầu cuối trên server tham chiếu."
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "modelName": "yolov8",
+  "modelVersion": "yolov8n-v1.0",
+  "status": "candidate",
+  "description": "Mô hình nhận diện biển báo giao thông theo mã của Signa.",
+  "datasetVersion": "v1.1",
+  "labelMapVersion": 1,
+  "repoCommit": "f4ad6edc24d26f0cb6d937c8331ba48f98216234",
+  "trainingConfig": {
+    "dataset_version": "v1.1",
+    "label_map_version": 1,
+    "data": "/content/signa-data.yaml",
+    "epochs": 200,
+    "imgsz": 640,
+    "batch": 16,
+    "device": 0,
+    "patience": 30,
+    "seed": 0,
+    "deterministic": true,
+    "workers": 2,
+    "cache": false,
+    "project": "/content/drive/MyDrive/Signa/experiments",
+    "name": "yolov8n-640-v1.1-main-s0",
+    "exist_ok": true,
+    "val": true,
+    "plots": true,
+    "amp": true,
+    "fliplr": 0.0,
+    "flipud": 0.0,
+    "hsv_h": 0.0,
+    "hsv_s": 0.0,
+    "hsv_v": 0.0,
+    "degrees": 10.0,
+    "translate": 0.1,
+    "scale": 0.5,
+    "shear": 0.0,
+    "perspective": 0.0,
+    "mosaic": 0.0,
+    "mixup": 0.0,
+    "cutmix": 0.0,
+    "copy_paste": 0.0
+  },
+  "augmentation": "signa_ai.augment (configs/augment.md)",
+  "selection": {
+    "split": "val",
+    "metric": "mAP@0.5:0.95",
+    "epoch": 157
+  },
+  "val": {
+    "map_50": 0.8146368435519497,
+    "map_50_95": 0.6557203849678587,
+    "ap_by_size": {
+      "small": 0.5124622364922227,
+      "medium": 0.7076293323312948,
+      "large": 0.7202716512395063
+    },
+    "prohibitory_recall": 0.8044537230340988
+  },
+  "test": null,
+  "field": null,
+  "inputSize": 640,
+  "weightsSha256": "5cb3927b7e740ac944b09a569c4dc5547553cec8a5cdae635d8148a456f82a03",
+  "sizeMb": null,
+  "cpuMsPerImage": null,
+  "gpuMsPerImage": null,
+  "serverLatencyP95Ms": null,
+  "deviceFps": null,
+  "operating_point": {
+    "threshold": 0.43184080719947815,
+    "precision": 0.8671015083571137,
+    "recall": 0.7921787709497207,
+    "f1": 0.8279486181393538
+  },
+  "limitations": [
+    "Lượt so sánh chính dùng một seed.",
+    "Chưa đo trên tập test và tập thực địa.",
+    "Chưa đo thời gian xử lý đầu cuối trên server tham chiếu."
+  ],
+  "tflite": {
+    "inputSize": 640,
+    "precision": "fp16",
+    "sourceWeightsSha256": "5cb3927b7e740ac944b09a569c4dc5547553cec8a5cdae635d8148a456f82a03",
+    "modelSha256": "0af0fcaef4eefd4899c2ec85bd833bec8aa3f586b04f18acb63728dc074df159",
+    "valGroundTruthSha256": "e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2",
+    "valPredictionsSha256": "67b584bd7298de4dbbb3877b2a2f686ff4df1abfa004ac26f529ea0f37a19c63",
+    "sizeBytes": 6201024,
+    "sizeMb": 6.201024,
+    "cpuMsPerImage": 223.15812114383237,
+    "cpuEnvironment": "Colab",
+    "cpuModel": "Intel(R) Xeon(R) CPU @ 2.20GHz",
+    "cpuThreads": 2,
+    "deviceFps": null,
+    "tensors": {
+      "input": {
+        "shape": [
+          1,
+          640,
+          640,
+          3
+        ],
+        "dtype": "float32",
+        "scale": 0.0,
+        "zero_point": 0
+      },
+      "output": {
+        "shape": [
+          1,
+          50,
+          8400
+        ],
+        "dtype": "float32",
+        "scale": 0.0,
+        "zero_point": 0
+      }
+    },
+    "val": {
+      "map_50": 0.8149869269123133,
+      "map_50_95": 0.6554835876910032,
+      "ap_by_size": {
+        "small": 0.5126302491484421,
+        "medium": 0.7058872978249212,
+        "large": 0.7199044346910318
+      },
+      "prohibitory_recall": 0.8044537230340988,
+      "maxF1": {
+        "threshold": 0.4293079078197479,
+        "precision": 0.8667481662591687,
+        "recall": 0.7921787709497207,
+        "f1": 0.8277875072971396
+      }
+    },
+    "test": null,
+    "field": null,
+    "operating_point": {
+      "threshold": 0.04258768633008003,
+      "precision": 0.7195431472081218,
+      "recall": 0.8446927374301676,
+      "f1": 0.7771115298954943,
+      "prohibitory_recall": 0.8503827418232429,
+      "target_recall": 0.85,
+      "target_met": true
+    },
+    "limitations": [
+      "Chưa đo FPS của chuỗi nhận diện trên thiết bị tham chiếu.",
+      "Điểm vận hành trên val tính theo từng ảnh, chưa đo với tracker."
+    ]
+  }
+}
