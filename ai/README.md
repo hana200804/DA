@@ -9,7 +9,7 @@ Cần Python 3.11 và [uv](https://docs.astral.sh/uv/).
 ```sh
 cd ai
 uv venv --python 3.11
-uv pip install -e '.[dev]'          # thêm train, serve khi cần
+uv pip install -e '.[dev]'          # thêm detr, train, serve khi cần
 uv run --no-sync pytest
 uv run --no-sync ruff check .
 ```
@@ -25,13 +25,30 @@ uv run --no-sync ruff check .
 | `src/signa_ai/detection.py` | `Detection`, interface `Detector`, xuất dự đoán COCO | Khung chung |
 | `src/signa_ai/dataset.py` | Chuyển YOLO ↔ COCO, chia tập, sinh manifest | Dữ liệu và nhãn |
 | `src/signa_ai/evaluate.py` | CLI COCO chung cho YOLOv5, YOLOv8 và DETR | Bộ đánh giá |
+| `src/signa_ai/mobile.py` | Letterbox, giải mã TFLite, NMS và sinh `labels.json` | Mô hình điện thoại |
+| `notebooks/export_tflite*.ipynb`, `scripts/export_tflite.py` | Xuất và chấm các ứng viên TFLite trên Colab | Mô hình điện thoại |
 | `configs/augment.md` | Bảng đối chiếu tăng cường cho ba mô hình | Huấn luyện YOLO, DETR |
 | `configs/yolov5-hyp.yaml` | Siêu tham số YOLOv5 cho lượt so sánh chính | Huấn luyện YOLO |
+| `configs/detr-r50-config.json` | Cấu hình kiến trúc DETR-R50 tại revision đã ghim, dùng khi nạp checkpoint | Huấn luyện và suy luận DETR |
 | `src/signa_ai/augment.py` | Tham số và pipeline Albumentations dùng chung cho ba mô hình | Huấn luyện YOLO, DETR |
+| `src/signa_ai/detr.py` | Dataset COCO, nạp checkpoint và suy luận DETR-R50 | Huấn luyện và suy luận DETR |
+| [`notebooks/train_detr_main_v1.1.ipynb`](notebooks/train_detr_main_v1.1.ipynb) | Huấn luyện và chấm DETR-R50 trên val v1.1 | Huấn luyện DETR |
 | `experiments/` | Cấu hình, log, chỉ số của từng thí nghiệm | Huấn luyện YOLO, DETR |
 | `service/` | Dịch vụ nhận diện FastAPI | Dịch vụ nhận diện |
 
 Ảnh, video và trọng số không đưa vào Git.
+
+## Huấn luyện DETR-R50 trên Colab
+
+1. Mở [notebook DETR](notebooks/train_detr_main_v1.1.ipynb) trong Colab, chọn GPU **L4, A100 hoặc H100** (ưu tiên A100 nếu có) và đặt `signa-v1.1.zip` ở thư mục gốc My Drive.
+2. Đặt `SMOKE = True` ở ô đầu và chọn **Run all** để chạy một epoch với khoảng 2% của train và val. Kết quả thử nằm trong `/content/signa-smoke/`.
+3. Đặt `SMOKE = False` rồi **Run all** cho lượt chính. Notebook dò batch, lưu checkpoint theo epoch ở `MyDrive/Signa/experiments/detr-r50-640-v1.1-main-s0/` và chấm val bằng bộ đánh giá chung.
+
+Khi phiên Colab ngắt, chọn GPU được hỗ trợ và **Run all** để tiếp tục từ `last.pt`. Batch giữ nguyên qua các phiên. GPU của phiên mới cần đủ VRAM cho batch đã lưu. Chạy một runtime cho mỗi lượt. Sau khi có `done.json`, notebook bỏ qua lượt đã hoàn thành. Tập test dành cho đánh giá sau khi chốt cấu hình.
+
+Hồ sơ lượt chính nằm trong [thư mục thí nghiệm](experiments/detr-r50-640-v1.1-main-s0/). Xem [bảng so sánh v1.1](experiments/main-v1.1.md) để đối chiếu kết quả val.
+
+Khi cần suy luận, cài `uv pip install -e '.[detr]'` rồi dùng `load_detr_checkpoint` trong [`signa_ai.detr`](src/signa_ai/detr.py) với `best.pt` và danh mục nhãn đã dùng khi huấn luyện. Hàm không cần mạng. Cấu hình kiến trúc đọc từ [`configs/detr-r50-config.json`](configs/detr-r50-config.json), trọng số đọc từ checkpoint cục bộ. Tệp cấu hình là `config.json` của `facebook/detr-resnet-50` tại revision `1d5f47bd` đã ghim trong notebook, chép nguyên văn (SHA-256 `e7bcf399…17e6`). Hàm ghi đè số lớp, nhãn, `use_pretrained_backbone=False` và `auxiliary_loss=True` như lúc huấn luyện. Truyền `config=` để dùng tệp cấu hình khác. `predict_detr` nhận ảnh PIL, chạy trên thiết bị của mô hình và trả phát hiện theo pixel ảnh gốc. Dùng `to_coco_predictions` cùng danh mục để lấy `category_id`, `bbox` và `score` cho bộ đánh giá.
 
 ## Chạy dịch vụ nhận diện
 
@@ -218,3 +235,212 @@ cần chạy lại epoch đó; Drive bị ngắt khi đang ghi checkpoint vẫn 
 Bộ đếm patience không được phục hồi đầy đủ qua resume nên có thể dừng muộn hơn.
 Trọng số, ảnh/đồ thị, gói `handoff/`, CSV rà nhãn và dự đoán COCO val/test giữ trên Drive;
 Git chỉ lưu cấu hình, meta, `results.csv` và `best-selection.json` của lượt này.
+
+## Xuất TFLite trên Colab · v1.1
+
+1. Tải `signa-v1.1.zip` lên gốc **My Drive**. Đặt checkpoint của nhóm tại
+   `MyDrive/Signa/experiments/<SOURCE_RUN>/weights/best.pt`.
+2. Mở [notebook YOLOv8n](notebooks/export_tflite_v1.1.ipynb) hoặc
+   [notebook YOLOv5n](notebooks/export_tflite_yolov5_v1.1.ipynb) trên Colab.
+   Dùng một runtime **CPU riêng** cho mỗi mô hình. Mặc định `SOURCE_RUN` là
+   `yolov8n-640-v1.1-main-s0` hoặc `yolov5n-640-v1.1-main-s0`. Để chạy
+   thử YOLOv8n, đặt `SOURCE_RUN = "yolov8n-640-v1.1-temp-s0"` ở ô đầu.
+3. Chọn **Run all**. Notebook tạo môi trường Python 3.11 riêng, lấy mã tại
+   `REPO_COMMIT` rồi xuất 640/480 px × FP16/INT8. YOLOv8 ghim
+   Ultralytics 8.3.203, TensorFlow 2.19.0, tf-keras 2.19.0, ONNX 1.17.0,
+   ONNX Runtime 1.18.1, onnxslim 0.1.71 và onnx2tf 1.28.2. YOLOv5 ghim repo gốc ở
+   `1e7cf74cb64d719b34f7315aa13eab9e32cde672`, Ultralytics 8.4.201 và
+   TensorFlow 2.15.1. Phiên bản đầy đủ của các gói xuất nằm trong ô 2.
+   Ô 3 hiển thị trực tiếp stdout và stderr, đồng thời nối nhật ký vào
+   `MyDrive/Signa/exports/<SOURCE_RUN>/export.log` với giờ bắt đầu và
+   kết thúc theo UTC, mã thoát và dòng cuối của thanh tiến trình.
+4. Xem `MyDrive/Signa/exports/<SOURCE_RUN>/summary.csv`. Bảng tổng hợp
+   mAP@0.5, mAP@0.5:0.95, recall nhóm biển cấm tại ngưỡng F1 tối đa,
+   kích thước MB (1 MB = 1.000.000 byte) và trung bình ms/ảnh cho
+   `Interpreter.invoke()` trên CPU Colab (tối đa 4 luồng, 5 lượt khởi động).
+   Bảng và metadata ghi model CPU, số CPU logic và số luồng thực tế.
+   Dùng các số CPU này để tham khảo khi so sánh trong cùng runtime.
+
+Luồng YOLOv8 dùng ONNX opset 19. Với Torch 2.8 và ONNX 1.17, exporter
+mặc định chọn opset 22. Mức này vượt giới hạn 20 của đường xuất ONNX qua
+TorchScript trong Torch 2.8 và giới hạn 21 của ONNX Runtime 1.18.1.
+Khi ONNX Runtime từ chối đồ thị, onnxslim có thể bỏ qua bước gấp hằng số
+và onnx2tf bỏ qua suy luận kiểm tra tensor trung gian. Ultralytics từng ghi
+nhận lỗi shape `32/16` tại nút residual `model.2/m.0/Add` khi đồ thị ONNX
+chưa được đơn giản hóa đầy đủ.
+[Giới hạn exporter PyTorch](https://github.com/pytorch/pytorch/blob/v2.8.0/torch/onnx/_constants.py),
+[Bảng tương thích ONNX Runtime](https://onnxruntime.ai/docs/reference/compatibility.html#onnx-opset-support),
+[phân tích upstream](https://github.com/ultralytics/ultralytics/pull/21758#issuecomment-3211548953).
+
+YAML hiệu chỉnh chứa danh sách lấy mẫu với seed 0 từ manifest train v1.1
+(300 ảnh cho YOLOv8, 101 ảnh cho YOLOv5). Khóa `train` và `val` trong YAML
+**hiệu chỉnh** đều trỏ đến danh sách train vì schema exporter cần cả hai.
+YOLOv8 gọi exporter với `split="train"` và dùng tệp
+`*_full_integer_quant.tflite`. YOLOv5 đọc khóa `train` và xuất tensor
+`uint8` cho bản INT8. [Exporter YOLOv8 đã ghim](https://github.com/ultralytics/ultralytics/blob/v8.3.203/ultralytics/engine/exporter.py),
+[exporter YOLOv5 đã ghim](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/export.py).
+
+Mỗi thư mục cấu hình (ví dụ `640-int8/`) có `model.tflite`,
+`predictions-val.json`, `metrics.json` và `export-meta.json`. Dự đoán
+dùng COCO val, confidence 0,001, NMS theo lớp với IoU 0,7 và tối đa 300
+box mỗi ảnh. Metadata ghi SHA mã nguồn, SHA checkpoint, phiên bản thư
+viện, kích thước và hợp đồng tensor. `requirements.txt` cạnh `summary.csv`
+ghi phiên bản của mọi gói đã cài trong môi trường xuất. Khi chạy lại, notebook dùng kết quả
+cũ nếu thiết lập và SHA-256 của các tệp khớp. `summary.csv` được cập nhật
+sau mỗi cấu hình hoàn tất.
+
+### Kết quả YOLOv5n trên Colab CPU
+
+Checkpoint `yolov5n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
+**78,35% / 61,58%** trên val với PyTorch và bộ chấm chung. Lượt xuất dùng
+mã tại `0939673` trên Colab CPU 2 vCPU (Intel Xeon 2,20 GHz), với 2 luồng
+suy luận.
+[CSV kết quả YOLOv5n](experiments/yolov5n-640-v1.1-main-s0/tflite-summary.csv).
+
+| Cấu hình | Kích thước (MB) | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Recall biển cấm (%) | Ngưỡng F1 tối đa | ms/ảnh |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 640 FP16 | 3,763 | 78,34 | 61,47 | 83,44 | 0,398 | 137,40 |
+| 640 INT8 | 2,061 | 58,46 | 36,63 | 63,12 | 0,831 | 164,50 |
+| 480 FP16 | 3,753 | 75,82 | 58,03 | 78,57 | 0,372 | 80,75 |
+| 480 INT8 | 2,054 | 53,31 | 31,15 | 51,98 | 0,848 | 96,66 |
+
+YOLOv5 ghép `xywh` đã chuẩn hóa, objectness và xác suất lớp vào một tensor.
+Exporter INT8 xuất tensor đó dưới dạng `uint8` với một cặp `scale` và
+`zero_point` dùng chung. Signa đọc cặp này từ chính tensor đầu ra và giải
+lượng tử như `DetectMultiBackend` mà `detect.py` gọi.
+Ở đầu ra lượng tử hóa, mỗi bước tọa độ ứng với `scale × S` pixel và các điểm
+gần nhau có thể rơi vào cùng một mức. Với biển chỉ khoảng 10 px sau khi
+resize về đầu vào 640, sai số vài pixel có thể làm IoU với box chuẩn giảm
+mạnh. Làm tròn cũng có thể đẩy IoU giữa hai box trùng xuống dưới ngưỡng
+NMS 0,7, để lại dự đoán dương tính giả có điểm cao. Cơ chế này phù hợp
+với việc ngưỡng F1 tối đa tăng từ 0,398 lên 0,831 ở 640. Số liệu tổng hợp
+chưa tách được sai số đầu ra khỏi sai số từ toán tử INT8 bên trong.
+[Đầu ra TFDetect](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/models/tf.py#L374-L418),
+[TFLite backend YOLOv5](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/models/common.py#L753-L770),
+[đặc tả lượng tử TensorFlow Lite](https://github.com/tensorflow/tensorflow/blob/v2.15.1/tensorflow/lite/g3doc/performance/quantization_spec.md).
+
+Các thí nghiệm tách nguyên nhân dưới đây vẫn chưa chạy.
+
+1. Đọc `640-int8/export-meta.json`, tính `tensors.output.scale × 640`
+   theo pixel và đối chiếu scale, zero point đầu vào với `1/255` và `0`.
+2. So sánh AP theo kích thước biển nhỏ, vừa và lớn giữa `640-fp16` và
+   `640-int8` trong hai tệp `metrics.json`.
+3. Áp thêm NMS theo lớp với IoU 0,5 lên `640-int8/predictions-val.json`,
+   rồi chấm lại bằng `signa_ai.evaluate` để xem tác động của box trùng.
+4. Chạy lại FP16 trên Colab, lượng tử đầu ra về `uint8` bằng scale và
+   zero point của bản INT8 rồi giải mã và chấm lại cùng val. So với
+   FP16 gốc để đo phần sai số do đầu ra, sau đó so với INT8 để xem
+   mức chênh còn lại khi các toán tử bên trong cũng được lượng tử hóa.
+
+Ưu tiên FP16 cho YOLOv5n khi đo trên Android. Nếu cần giảm dung lượng, thử
+lượng tử hóa phần trích đặc trưng và giữ tầng dự đoán cùng phép giải mã ở
+float, sau đó chấm lại cùng val. Đặt riêng `inference_output_type=tf.float32`
+chỉ đổi kiểu đầu ra ở biên khi toán tử tạo dự đoán vẫn chạy INT8. Phép giải
+lượng tử ở biên giữ nguyên sai số đã phát sinh trong đồ thị.
+[Các chế độ lượng tử hóa TensorFlow Lite](https://developers.google.com/edge/litert/conversion/tensorflow/quantization/post_training_quantization).
+
+### Kết quả YOLOv8n trên Colab CPU
+
+Checkpoint `yolov8n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
+**81,46% / 65,57%** trên val với PyTorch và bộ chấm chung.
+[Kết quả PyTorch](experiments/main-v1.1.md).
+
+Metadata `identity.repo_commit` ghi mã xuất `9659c32` cho cả bốn cấu hình. Lượt xuất chạy trên Colab CPU 2 vCPU (Intel Xeon 2,20 GHz),
+với 2 luồng suy luận. [CSV kết quả YOLOv8n](experiments/yolov8n-640-v1.1-main-s0/tflite-summary.csv).
+
+| Cấu hình | Kích thước (MB) | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Recall biển cấm (%) | Ngưỡng F1 tối đa | ms/ảnh |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 640 FP16 | 6,201 | 81,50 | 65,55 | 80,45 | 0,429 | 223,16 |
+| 640 INT8 | 3,284 | 74,62 | 52,91 | 70,63 | 0,796 | 235,45 |
+| 480 FP16 | 6,157 | 78,47 | 62,49 | 75,30 | 0,398 | 130,30 |
+| 480 INT8 | 3,262 | 70,40 | 50,55 | 65,69 | 0,801 | 137,65 |
+
+Lần chạy đầu lỗi vì môi trường xuất không nhận backend Matplotlib inline
+của Colab. Commit `62ac220` sửa lỗi bằng cách đặt `MPLBACKEND=Agg` cho
+tiến trình xuất. Nhật ký `export-yolov8n.log` ghi lần chạy lại hoàn tất cả
+bốn cấu hình và thoát với mã `0` lúc `2026-11-21T05:42:44Z`.
+`62ac220` chỉ sửa notebook. Còn `9659c32` là mã xuất mà notebook ghim qua
+`REPO_COMMIT`, nên cả hai lần chạy đều ghi `9659c32`. Nhật ký không ghi
+commit notebook của lần chạy lại.
+
+### So sánh ứng viên điện thoại (AI-04)
+
+Recall biển cấm đo ở ngưỡng F1 tối đa của từng cấu hình.
+
+| Cấu hình | YOLOv5n mAP@0.5 val (%) | YOLOv5n recall biển cấm (%) | YOLOv5n (MB) | YOLOv8n mAP@0.5 val (%) | YOLOv8n recall biển cấm (%) | YOLOv8n (MB) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 640 FP16 | 78,34 | **83,44** | 3,763 | **81,50** | 80,45 | 6,201 |
+| 640 INT8 | 58,46 | 63,12 | 2,061 | 74,62 | 70,63 | 3,284 |
+| 480 FP16 | 75,82 | 78,57 | 3,753 | 78,47 | 75,30 | 6,157 |
+| 480 INT8 | 53,31 | 51,98 | 2,054 | 70,40 | 65,69 | 3,262 |
+
+Ở ngưỡng F1 tối đa, chưa cấu hình nào đạt NFR-06 (recall biển cấm ≥ 0,85).
+Cao nhất là YOLOv5n 640 FP16 với 83,44%, còn YOLOv8n 640 FP16 đạt 80,45%.
+Trên val, chỉ YOLOv8n 640 FP16 vượt 80% mAP@0.5. NFR-05 đo trên test, nên
+số val này chưa kết luận được NFR-05. `docs/04` §4 chọn ngưỡng điện thoại
+thấp hơn F1 tối đa để ưu tiên recall. Phân tích ngưỡng này đang làm trong
+`ai/experiments/model-selection-v1.1.md` trên nhánh `ai/3-evaluation`. Cần
+đo lại recall ở ngưỡng điện thoại trước khi chốt.
+
+Ở 640 px, khi chuyển từ FP16 sang INT8, mAP@0.5 val giảm 6,88 điểm phần trăm
+với YOLOv8n và 19,87 điểm phần trăm với YOLOv5n. Ở 480 px, mức giảm lần lượt
+là 8,07 và 22,51 điểm phần trăm. Hai luồng xuất khác số ảnh hiệu chỉnh
+(300 / 101), công cụ (TF 2.19 + onnx2tf / TF 2.15) và kiểu đầu ra
+(`int8` / `uint8`). Vì vậy chưa quy được chênh lệch này cho kiến trúc.
+
+Cả tám cấu hình đều dưới 15 MB. FPS toàn chuỗi trên Android **chưa đo**.
+Thành viên 3 phụ trách đo trên thiết bị tham chiếu sau khi chốt Q7.
+Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chỉ chọn cấu hình
+này nếu đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và NFR-06 ở ngưỡng điện
+thoại. Nếu không đạt, chọn cấu hình có mAP@0.5 val cao nhất trong số các
+cấu hình đạt NFR-01, NFR-07 và NFR-06 ở ngưỡng điện thoại.
+[Quy tắc AI-04](../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04),
+[Đặc tả · Q7](../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ).
+
+### Hợp đồng đầu vào, đầu ra và nhãn
+
+- Đầu vào là RGB `[1,S,S,3]` theo NHWC. Resize bilinear theo tâm pixel,
+  làm tròn kích thước, đệm 114 ở hai bên hoặc trên dưới. Đặt pixel đệm
+  lẻ ở bên phải hoặc dưới. Chuẩn hóa RGB vào [0, 1]. Với tensor 8 bit,
+  dùng `round(value / scale + zeroPoint)` và cắt theo miền của kiểu dữ
+  liệu trong metadata. Khi đúng điểm giữa, làm tròn về số chẵn.
+- Đầu ra là `[1,4+nc,N]` cho YOLOv8 và `[1,N,5+nc]` cho YOLOv5. Với
+  tensor 8 bit, giải lượng tử bằng `(q - zeroPoint) × scale`. Bốn kênh
+  đầu là `cx, cy, w, h` theo tỷ lệ kích thước đầu vào. Lấy điểm lớp cao
+  nhất và nhân thêm objectness cho YOLOv5. Trừ phần đệm, chia theo tỷ
+  lệ resize thực tế của từng trục rồi cắt box theo biên ảnh gốc. Xem
+  mã tham chiếu tại [mobile.py](src/signa_ai/mobile.py).
+- `labels.json` nằm cạnh `summary.csv`. JSON UTF-8 có `version` là
+  phiên bản danh mục, `categories` ánh xạ khóa nhóm đến đối tượng
+  `{"name": "..."}`, và `classes` sắp theo `id` từ 0 đến 45. Mỗi lớp
+  có `id`, `code`, `category`, `name` và `speed_kmh` (số hoặc `null`).
+  `id` là chỉ số kênh lớp và COCO `category_id`. Đóng gói tệp nhãn cùng
+  mô hình đã chọn trong `assets/`.
+
+### Đo FPS trên Android
+
+1. Trên thiết bị tham chiếu, đo từng tệp dưới 15 MB với cùng
+   bản `benchmark_model` cho Android và cùng số luồng. Đẩy binary và mô
+   hình lên thiết bị qua ADB như ví dụ dưới đây. Lưu log CPU XNNPACK
+   và GPU delegate riêng để đối chiếu độ trễ detector. Ghi lỗi hoặc
+   delegate thực tế khi có fallback. [TFLite benchmark_model](https://github.com/tensorflow/tensorflow/tree/v2.19.0/tensorflow/lite/tools/benchmark).
+2. Trong app, phát lại cùng video val và dùng cùng chế độ xử lý khung,
+   letterbox, detector, NMS và tracker. Khởi động một phút rồi chia
+   số khung xử lý xong cho thời gian đo bằng đồng hồ đơn điệu. Đo GPU
+   delegate và CPU XNNPACK, ghi FPS toàn chuỗi, độ trễ từng bước và FPS
+   sau 20 phút. Ghi tên thiết bị, bản Android, bản app/TFLite, video,
+   cấu hình, delegate thực tế, số luồng, trạng thái nhiệt và log.
+3. Giữ các cấu hình đạt ≥ 15 FPS toàn chuỗi (NFR-01), < 15 MB
+   (NFR-07) và recall biển cấm ≥ 0,85 ở ngưỡng điện thoại (NFR-06),
+   rồi chọn mAP@0.5 val lớn nhất trong số đó. Đối chiếu
+   [quy tắc chọn mô hình](../docs/04-thiet-ke-ai.md#4-giao-thức-đánh-giá-và-chọn-mô-hình)
+   và [giao thức đo thiết bị](../docs/08-kiem-thu.md#4-đánh-giá-trên-thiết-bị).
+
+```sh
+adb push benchmark_model model.tflite /data/local/tmp/
+adb shell chmod +x /data/local/tmp/benchmark_model
+adb shell /data/local/tmp/benchmark_model --graph=/data/local/tmp/model.tflite \
+  --num_threads=4 --warmup_runs=20 --num_runs=100 --use_xnnpack=true --use_gpu=false
+adb shell /data/local/tmp/benchmark_model --graph=/data/local/tmp/model.tflite \
+  --num_threads=4 --warmup_runs=20 --num_runs=100 --use_xnnpack=false --use_gpu=true
+```

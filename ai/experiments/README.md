@@ -10,6 +10,7 @@ Mỗi lượt huấn luyện có một thư mục `ai/experiments/<mã thí nghi
 | `meta.json` | Commit, thời điểm, GPU, số giờ GPU, epoch dừng | Có |
 | `metrics.json` | Kết quả của bộ đánh giá chung trên val | Có |
 | `log.txt` hoặc `results.csv` | Log huấn luyện | Có nếu nhỏ hơn 5 MB |
+| `tflite-summary.csv` | Kết quả val, kích thước và thời gian CPU Colab theo cấu hình TFLite của ứng viên điện thoại | Có |
 | `weights/best.pt` | Trọng số tốt nhất | Không. Lưu trên ổ chung hoặc MinIO, ghi đường dẫn trong `meta.json` |
 | `model_card.json` | Thẻ mô hình (AI-06), chỉ khi mô hình được phát hành | Có |
 

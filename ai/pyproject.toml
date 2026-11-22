@@ -16,9 +16,13 @@ data = ["pillow>=10", "numpy>=1.26"]
 vnts = ["pillow>=10", "pyarrow>=15"]
 # Bộ đánh giá chung (docs/04 §4)
 eval = ["pycocotools>=2.0.8", "numpy>=1.26"]
+# Nạp checkpoint và suy luận DETR-R50 (signa_ai.detr), cùng phiên bản với notebook DETR
+detr = ["torch", "transformers==4.57.6", "timm==1.0.24", "pillow>=10", "numpy>=1.26"]
 # Huấn luyện ba mô hình (docs/04 §2). YOLOv5 dùng repo ultralytics/yolov5 ghim commit
 # trong notebook, chạy ở runtime riêng vì repo đó cần ultralytics>=8.4.
-train = ["ultralytics==8.3.203", "transformers", "torch", "albumentations==2.0.8"]
+train = [
+    "signa-ai[detr]", "ultralytics==8.3.203", "albumentations==2.0.8", "scipy==1.17.1",
+]
 # Dịch vụ nhận diện (docs/04 §7, docs/07 §7)
 serve-api = [
     "fastapi", "starlette>=1.10", "uvicorn[standard]", "python-multipart>=0.0.34",
