@@ -1,0 +1,106 @@
+{
+  "source_commit": "7083053ee7f75a394bc6ce7e7573c689ed3861b7",
+  "weights_sha256": "49012dc0aa68865114f3a09545cab371978e5a52567cced52ebb050f49bf219d",
+  "val_gt_sha256": "e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2",
+  "manifest_sha256": "2b68f6468617048d9f7e94dc9e9e9cc4ae8d5c6c41050f91918ff75ac8e66eba",
+  "confidence_for_ap": 0.001,
+  "operating_threshold": 0.5279324054718018,
+  "imgsz": 640,
+  "iou": 0.7,
+  "images": 1599,
+  "scorer": "signa_ai.evaluate / pycocotools 2.0.11",
+  "reference": {
+    "map_50": 0.84033979150256,
+    "map_50_95": 0.6956309867881437,
+    "predictions": 4413,
+    "operating_point": {
+      "threshold": 0.5279324054718018,
+      "precision": 0.9031446540880503,
+      "recall": 0.8022346368715084,
+      "f1": 0.8497041420118343
+    },
+    "prohibitory_recall": 0.7974947807933194,
+    "metrics_sha256": "64c5578d7ed55ff4e8c7a6fe945c7c3a2d0e40f584eb70599eec83c156059d3e"
+  },
+  "adapter": {
+    "8.3.203": {
+      "runtime": {
+        "ultralytics": "8.3.203",
+        "torch": "2.15.0+cu132",
+        "cuda": "13.2",
+        "GPU": "NVIDIA GeForce RTX 3050 Laptop GPU",
+        "python": "3.12.15",
+        "pillow": "13.0.0",
+        "numpy": "2.5.5",
+        "opencv": "5.1.0.95",
+        "s": 28.407981075000862
+      },
+      "predictions_file": "predictions-val-8.3.203.json.gz",
+      "predictions_sha256": "27e315a64e630629191c5caacf396014b9a7e08d0e81981fa86849db7cdb4460",
+      "predictions_gzip_sha256": "09bcda13f88cd700060a5135f0ce632da26f90935852d51322191d88179c510b",
+      "metrics_fixed_sha256": "ef1fc7073564ebe36bfc5df49560d19bc670e9c1dac4afb4c779e334c7f9f5eb",
+      "metrics_fixed": {
+        "map_50": 0.8403448531233493,
+        "map_50_95": 0.6954450776632323,
+        "predictions": 4413,
+        "operating_point": {
+          "threshold": 0.5279324054718018,
+          "precision": 0.9031040268456376,
+          "recall": 0.8018621973929236,
+          "f1": 0.8494772144407181
+        },
+        "prohibitory_recall": 0.7967988865692415
+      },
+      "max_f1": {
+        "threshold": 0.5277543663978577,
+        "precision": 0.9031446540880503,
+        "recall": 0.8022346368715084,
+        "f1": 0.8497041420118343
+      },
+      "delta_points_vs_notebook": {
+        "map_50": 0.000506162078928174,
+        "map_50_95": -0.018590912491145417
+      }
+    },
+    "8.4.201": {
+      "runtime": {
+        "ultralytics": "8.4.201",
+        "torch": "2.15.0+cu132",
+        "cuda": "13.2",
+        "GPU": "NVIDIA GeForce RTX 3050 Laptop GPU",
+        "python": "3.12.15",
+        "pillow": "13.0.0",
+        "numpy": "2.5.5",
+        "opencv": "5.1.0.95",
+        "s": 25.745970746997045
+      },
+      "predictions_file": "predictions-val-8.4.201.json.gz",
+      "predictions_sha256": "ac5b41600ea104064141fa78fa2c583949a8c2d777a5008e39cbda34cd7e9c86",
+      "predictions_gzip_sha256": "f411c6bdc9ad1f2130bb358c988085e7292f5ed3a35dc8001561252dfcfde7f9",
+      "metrics_fixed_sha256": "ec45d6772f72a59d00ac84fbf0f5bca0c53053c42ea12cbf6088ff5e098cb7df",
+      "metrics_fixed": {
+        "map_50": 0.840345870936293,
+        "map_50_95": 0.6953936669321122,
+        "predictions": 4412,
+        "operating_point": {
+          "threshold": 0.5279324054718018,
+          "precision": 0.9031040268456376,
+          "recall": 0.8018621973929236,
+          "f1": 0.8494772144407181
+        },
+        "prohibitory_recall": 0.7967988865692415
+      },
+      "max_f1": {
+        "threshold": 0.5275734663009644,
+        "precision": 0.9031446540880503,
+        "recall": 0.8022346368715084,
+        "f1": 0.8497041420118343
+      },
+      "delta_points_vs_notebook": {
+        "map_50": 0.0006079433732986139,
+        "map_50_95": -0.023731985603148154
+      }
+    }
+  },
+  "images_with_different_prediction_count_between_adapter_versions": 5
+}

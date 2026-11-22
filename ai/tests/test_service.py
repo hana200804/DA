@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import tempfile
 from contextlib import asynccontextmanager
@@ -183,6 +184,7 @@ async def test_loads_configured_models_and_keeps_others_on_failure(monkeypatch, 
             "modelName": name,
             "modelVersion": f"{name}-test",
             "labelMapVersion": 1,
+            "weightsSha256": hashlib.sha256(b"").hexdigest(),
             "operating_point": {"threshold": 0.5},
         }
         (folder / "model_card.json").write_text(json.dumps(card), encoding="utf-8")
@@ -223,6 +225,30 @@ async def test_starts_without_existing_weights(monkeypatch, tmp_path, configured
         assert (await client.get("/v1/models")).json() == {"defaultModel": "yolov8", "models": []}
 
 
+async def test_refuses_startup_with_wrong_checkpoint_hash(monkeypatch, tmp_path):
+    class UnloadableAdapter:
+        name = "yolov8"
+
+        def __init__(self, *_args):
+            pytest.fail("Adapter đã đọc checkpoint sai")
+
+    weights = tmp_path / "best.pt"
+    weights.write_bytes(b"wrong checkpoint")
+    card = {
+        "modelName": "yolov8",
+        "modelVersion": "yolov8s-v1.0",
+        "labelMapVersion": 1,
+        "weightsSha256": hashlib.sha256(b"expected checkpoint").hexdigest(),
+    }
+    weights.with_name("model_card.json").write_text(json.dumps(card), encoding="utf-8")
+    monkeypatch.setenv("SIGNA_YOLOV8_WEIGHTS", str(weights))
+    monkeypatch.setattr("service.app.YoloV8Detector", UnloadableAdapter)
+
+    with pytest.raises(ValueError, match="SHA-256 của SIGNA_YOLOV8_WEIGHTS không khớp"):
+        async with running(create_app()):
+            pytest.fail("Dịch vụ đã khởi động với checkpoint sai")
+
+
 @pytest.mark.parametrize(
     ("card_conf", "env_conf", "expected"),
     [
@@ -247,6 +273,7 @@ async def test_operating_confidence(monkeypatch, tmp_path, card_conf, env_conf, 
         "modelName": "yolov8",
         "modelVersion": "yolov8n-v1.1-temp",
         "labelMapVersion": 1,
+        "weightsSha256": hashlib.sha256(b"").hexdigest(),
     }
     if card_conf is not None:
         card["operating_point"] = {"threshold": card_conf}
