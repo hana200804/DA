@@ -256,11 +256,14 @@ Thêm thí nghiệm **chèn nhiễu** để kiểm tra độ bền: x% đề xu�
 | Giao diện | Một interface `Detector.predict(image) -> list[Detection]` cho mọi mô hình; mỗi mô hình một adapter |
 | Nạp mô hình | Nạp cả ba khi khởi động; `/healthz` chỉ trả `ok` khi nạp xong |
 | Thiết bị | CUDA nếu có, ngược lại CPU; cấu hình qua biến môi trường |
-| Đồng thời | Semaphore theo mô hình (YOLO 4, DETR 1); hàng chờ tối đa 8 yêu cầu mỗi mô hình, đầy thì `503` |
+| Đồng thời | Mỗi họ mô hình (`yolov5`, `yolov8`, `detr`) có 1 slot suy luận và tối đa 8 yêu cầu chờ. `SIGNA_QUEUE_TIMEOUT_S` mặc định là 4 giây. Hàng chờ đầy hoặc hết hạn chờ slot trả `503` kèm `Retry-After: 1`. [Mã nguồn dịch vụ](../ai/service/app.py) |
 | Đầu ra | Box theo toạ độ ảnh gốc (pixel), mã, độ tin cậy, `inferenceMs`, `modelName`, `modelVersion`, `labelMapVersion` |
 | Thẻ mô hình | `GET /v1/models` trả thẻ mô hình (§8) của cả ba, dùng cho FR-37 |
 
-API chi tiết: [API §7](07-api.md#7-dịch-vụ-nhận-diện-nội-bộ).
+Mỗi adapter YOLO dùng chung predictor giữa các yêu cầu, nên mỗi họ YOLO chỉ suy luận một ảnh tại một thời điểm.
+Cần đo lại thông lượng YOLO trên server tham chiếu theo [Q7](02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ).
+
+Xem hợp đồng tại [API §7](07-api.md#7-dịch-vụ-nhận-diện-nội-bộ).
 
 ## 8. Phiên bản và thẻ mô hình
 
