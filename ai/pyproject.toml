@@ -24,13 +24,23 @@ train = [
     "signa-ai[detr]", "ultralytics==8.3.203", "albumentations==2.0.8", "scipy==1.17.1",
 ]
 # Dịch vụ nhận diện (docs/04 §7, docs/07 §7)
-serve = [
+serve-api = [
     "fastapi", "starlette>=1.10", "uvicorn[standard]", "python-multipart>=0.0.34",
-    "pillow>=10", "numpy>=1.26", "ultralytics==8.3.203",
+    "pillow>=10", "numpy>=1.26",
 ]
+serve = ["signa-ai[serve-api]", "ultralytics==8.3.203"]
+# Ba mô hình. DETR dùng extra detr để cùng phiên bản với lượt đánh giá. YOLOv5 gốc cần
+# ultralytics>=8.4, khác bản 8.3.203 đã dùng khi đánh giá YOLOv8 (ai/README.md).
+serve-all = ["signa-ai[serve-api,detr]", "ultralytics==8.4.201", "pandas>=1.1.4"]
 dev = [
     "signa-ai[eval]", "albumentations==2.0.8", "pytest>=8.0", "ruff>=0.6", "httpx>=0.27", "pillow>=10", "numpy>=1.26",
     "fastapi", "starlette>=1.10", "python-multipart>=0.0.34",
+]
+
+[tool.uv]
+conflicts = [
+    [{ extra = "serve-all" }, { extra = "serve" }],
+    [{ extra = "serve-all" }, { extra = "train" }],
 ]
 
 [tool.hatch.build.targets.wheel]

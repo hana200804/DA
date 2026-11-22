@@ -6,7 +6,7 @@ from typing import BinaryIO
 
 import numpy as np
 from fastapi import HTTPException, Request
-from PIL import Image
+from PIL import Image, ImageOps
 from python_multipart.multipart import parse_options_header
 from starlette.datastructures import FormData
 from starlette.formparsers import MultiPartException, MultiPartParser
@@ -15,6 +15,8 @@ from starlette.requests import ClientDisconnect
 MAX_IMAGE_BYTES = 10_000_000
 MAX_REQUEST_BYTES = MAX_IMAGE_BYTES + 64 * 1024
 MAX_IMAGE_PIXELS = 25_000_000
+# AutoShape của YOLOv5 coi mảng cao dưới 5 px là CHW, nên chặn ảnh quá nhỏ.
+MIN_IMAGE_EDGE = 8
 
 
 class InMemoryMultipart(MultiPartParser):
@@ -62,7 +64,12 @@ def decode_image(file: BinaryIO) -> np.ndarray:
         with Image.open(file, formats=("JPEG", "PNG", "WEBP")) as image:
             if image.width * image.height > MAX_IMAGE_PIXELS:
                 raise HTTPException(413, "Ảnh nhận diện tối đa 25 triệu pixel")
-            return np.array(image.convert("RGB"))
+            # Xoay theo thẻ EXIF Orientation một lần cho cả ba mô hình. Box trả về tính theo
+            # pixel của ảnh đã xoay, tức hướng người dùng nhìn thấy.
+            upright = ImageOps.exif_transpose(image)
+            if min(upright.size) < MIN_IMAGE_EDGE:
+                raise HTTPException(400, f"Mỗi cạnh ảnh phải từ {MIN_IMAGE_EDGE} px")
+            return np.array(upright.convert("RGB"))
     except Image.DecompressionBombError as exc:
         raise HTTPException(413, "Ảnh nhận diện tối đa 25 triệu pixel") from exc
     except (OSError, ValueError, SyntaxError) as exc:
