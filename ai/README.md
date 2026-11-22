@@ -71,9 +71,8 @@ Lấy checkpoint của nhóm từ My Drive và đặt mỗi trọng số trong m
 (`yolov5`, `yolov8` hoặc `detr`), phiên bản duy nhất và phiên bản danh mục nhãn khớp
 `ai/data/labels.yaml`. Dịch vụ đọc ngưỡng mặc định từ `operating_point.threshold`.
 
-Ba thẻ của lượt chính nằm trong PR #16 (nhánh `ai/3-evaluation`), **chưa có trên `main`**.
-Khi PR #16 chưa merge, lấy thẻ từ nhánh đó. Ngưỡng là ngưỡng F1 tối đa trên val, lấy từ
-`metrics.json` của từng lượt.
+Ba thẻ của lượt chính có trong `experiments/`. Ngưỡng là ngưỡng F1 tối đa trên val, lấy từ
+`metrics.json` của từng lượt. [Kiểm chứng HTTP với trọng số thật](experiments/service-v1.1/README.md).
 
 | Mô hình | Thẻ | `modelVersion` | Ngưỡng |
 | --- | --- | --- | --- |
@@ -145,9 +144,9 @@ DETR lấy phụ thuộc từ extra `detr`, nên cùng `transformers` và `timm`
 `serve-all` phục vụ YOLOv8 bằng `ultralytics==8.4.201`, vì checkout YOLOv5 gốc cần
 `ultralytics>=8.4`. Lượt huấn luyện và `predictions-val.json` của YOLOv8 dùng `8.3.203`
 (`experiments/yolov8s-640-v1.1-main-s0/meta.json`). Hai bản có thể khác nhau ở tiền xử lý
-hoặc NMS. Độ lệch giữa hai bản **chưa đo**. Phiên bản đã đánh giá giữ nguyên.
-Trước khi so ba mô hình qua dịch vụ, chạy bước kiểm tương đương sau **trên Colab**,
-không chạy trên laptop của nhóm.
+hoặc NMS. Trên val qua adapter, mAP@0.5:0.95 lệch 0,0051 điểm phần trăm giữa hai bản trên RTX 3050. Phiên bản và ngưỡng đánh giá chính giữ nguyên. [Số liệu kiểm tương đương](experiments/service-v1.1/README.md#đối-chiếu-hai-phiên-bản-ultralytics-cho-yolov8s)
+
+Để đối chiếu trên môi trường khác, dùng quy trình Colab dưới đây hoặc chạy hai môi trường riêng trên máy có GPU.
 
 1. Mở runtime Colab mới, clone repo vào `/content/signa-source` (như notebook), giải nén `signa-v1.1.zip` vào `/content/v1.1` và đặt
    `best.pt` của YOLOv8s ở `/content/yolov8s/best.pt`.
