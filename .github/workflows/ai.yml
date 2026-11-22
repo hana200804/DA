@@ -22,6 +22,9 @@ jobs:
         working-directory: ai
     steps:
       - uses: actions/checkout@v6
+        with:
+          # tests/test_predict_test_notebook.py đọc REPO_COMMIT và lịch sử notebook train.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
       - name: Install
         run: |
