@@ -34,6 +34,12 @@ dev = [
     "fastapi", "starlette>=1.10", "python-multipart>=0.0.34",
 ]
 
+[tool.uv]
+conflicts = [
+    [{ extra = "serve-all" }, { extra = "serve" }],
+    [{ extra = "serve-all" }, { extra = "train" }],
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/signa_ai"]
 
