@@ -1,6 +1,6 @@
 # Lượt so sánh chính trên v1.1
 
-Kết quả lượt so sánh chính theo [Thiết kế AI §3](../../docs/04-thiet-ke-ai.md#3-giao-thức-huấn-luyện): ảnh 640, khởi tạo COCO, seed 0, dừng sớm khi mAP@0.5:0.95 trên val không tăng sau 30 epoch, cùng bảng tăng cường [`configs/augment.md`](../configs/augment.md). Mọi số đo dưới đây do bộ đánh giá chung `signa_ai.evaluate` chấm trên **val** v1.1 (1599 ảnh, 2685 box), dự đoán xuất ở conf 0,001. Chưa chấm tập test.
+Kết quả lượt so sánh chính theo [Thiết kế AI §3](../../docs/04-thiet-ke-ai.md#3-giao-thức-huấn-luyện): ảnh 640, khởi tạo COCO, seed 0, dừng sớm khi mAP@0.5:0.95 trên val không tăng sau 30 epoch, cùng bảng tăng cường [`configs/augment.md`](../configs/augment.md). Mọi số đo dưới đây do bộ đánh giá chung `signa_ai.evaluate` chấm trên **val** v1.1 (1599 ảnh, 2685 box), dự đoán xuất ở conf 0,001. [Kết quả trên test](test-v1.1.md) có báo cáo riêng.
 
 | Mô hình | Epoch chạy / chọn | mAP@0.5 | mAP@0.5:0.95 | AP box nhỏ | F1 tối đa (ngưỡng) | Recall biển cấm | GPU · giờ |
 | --- | --- | --- | --- | --- | --- | --- | --- |

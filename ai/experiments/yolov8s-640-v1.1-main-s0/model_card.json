@@ -56,7 +56,23 @@
     },
     "prohibitory_recall": 0.7974947807933194
   },
-  "test": null,
+  "test": {
+    "map_50": 0.8111271131629008,
+    "map_50_95": 0.6649621966325571,
+    "ap_by_size": {
+      "small": 0.5237105404468623,
+      "medium": 0.7138989202301763,
+      "large": 0.7532805530665404
+    },
+    "operating_point": {
+      "threshold": 0.5279324054718018,
+      "precision": 0.8999165971643036,
+      "recall": 0.81006006006006,
+      "f1": 0.852627419992098
+    },
+    "prohibitory_recall": 0.8053408292340126,
+    "metricsPath": "evaluation/metrics-test.json"
+  },
   "field": null,
   "inputSize": 640,
   "weightsSha256": "49012dc0aa68865114f3a09545cab371978e5a52567cced52ebb050f49bf219d",
@@ -73,7 +89,7 @@
   },
   "limitations": [
     "Lượt so sánh chính dùng một seed.",
-    "Chưa đo trên tập test và tập thực địa.",
+    "Chưa đo trên tập thực địa.",
     "Chưa đo thời gian xử lý đầu cuối trên server tham chiếu."
   ]
 }

@@ -1,0 +1,19 @@
+{
+  "origin": "My Drive/Signa/experiments/yolov8s-640-v1.1-main-s0/evaluation",
+  "repo_worktree_commit": "7083053ee7f75a394bc6ce7e7573c689ed3861b7",
+  "predictions_test_sha256": "05f9cff270995855a3c78cb32cb8a5ef3cf13673427924989e6672606f12d780",
+  "label_map_sha256": "4e1f2693711693566ea6374e1eff9078fefa7521cde0ef3a10db837d30dd1586",
+  "artifacts_sha256": {
+    "metrics-test.json": "2627435242edcc2508929afa335f798bf4a43e8ea66a7b7a048d348693a00c31",
+    "test-config.json": "f5b47e97e44e77bd40bf7b93be8633ead1ed0765b125cadc3c79759d5658588c",
+    "reproduce-val.json": "fcadb1f4e17407769af9f17a82b8a13205fba5839371761013bee1758ab8c7f2",
+    "latency.json": "d04490b00e95b110b103e5f5620b89878dbff4ef124311fba6cb56b189d2c60c"
+  },
+  "evaluation_identical": true,
+  "archives_sha256": {
+    "predictions-test.json.gz": {
+      "original_sha256": "05f9cff270995855a3c78cb32cb8a5ef3cf13673427924989e6672606f12d780",
+      "gzip_sha256": "9cb890170d263db8501ab0b2b7e6b9536358332db9edf5212a78ee3bf9f92ff0"
+    }
+  }
+}
