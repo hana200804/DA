@@ -17,6 +17,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      CUDA_VISIBLE_DEVICES: ''
     defaults:
       run:
         working-directory: ai
@@ -30,7 +32,10 @@ jobs:
         run: |
           uv venv --python 3.11
           uv pip install -e '.[dev]'
+          uv pip install 'torch==2.15.0+cpu' --index https://download.pytorch.org/whl/cpu
       - name: Lint
-        run: uv run ruff check .
+        run: uv run --no-sync ruff check .
       - name: Test
-        run: uv run pytest
+        run: |
+          uv run --no-sync python -c 'import torch; assert torch.version.cuda is None'
+          uv run --no-sync pytest

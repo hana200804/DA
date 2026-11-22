@@ -30,9 +30,11 @@ from .yolov8 import DEFAULT_CONFIDENCE as YOLOV8_CONFIDENCE
 from .yolov8 import YoloV8Detector
 
 logger = logging.getLogger(__name__)
-MODEL_SLOTS = {"yolov5": 4, "yolov8": 4, "detr": 1}
+# Các adapter YOLO dùng chung predictor, mỗi họ chỉ suy luận một ảnh một lúc.
+MODEL_SLOTS = {"yolov5": 1, "yolov8": 1, "detr": 1}
 DEFAULT_MODEL = "yolov8"
 QUEUE_SIZE = 8
+DEFAULT_QUEUE_TIMEOUT_S = 4
 ERROR_CODES = {
     400: "VALIDATION_ERROR",
     413: "PAYLOAD_TOO_LARGE",
@@ -147,9 +149,14 @@ def load_models() -> list[LoadedModel]:
                 raise ValueError(f"{weights_var} phải trỏ đến checkpoint .pt cục bộ")
             labels = load_label_map()
             card = json.loads(weights.with_name("model_card.json").read_text(encoding="utf-8"))
+            expected_digest = card.get("weightsSha256")
+            if expected_digest is None:
+                raise CheckpointIntegrityError(
+                    f"model_card.json của {weights_var} thiếu weightsSha256"
+                )
             with weights.open("rb") as stream:
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
-            if digest != card.get("weightsSha256"):
+            if digest != expected_digest:
                 raise CheckpointIntegrityError(
                     f"SHA-256 của {weights_var} không khớp weightsSha256 trong model_card.json"
                 )
@@ -199,6 +206,14 @@ def resolve_default_model(selector: str, models: dict[str, LoadedModel]) -> str:
 def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        queue_timeout_var = "SIGNA_QUEUE_TIMEOUT_S"
+        try:
+            queue_timeout = float(os.getenv(queue_timeout_var, str(DEFAULT_QUEUE_TIMEOUT_S)))
+            if not 0 < queue_timeout < float("inf"):
+                raise ValueError
+        except ValueError as exc:
+            raise ValueError(f"{queue_timeout_var} phải là số dương hữu hạn") from exc
+        app.state.queue_timeout = queue_timeout
         app.state.models = {item.detector.name: item for item in loader()}
         app.state.default_model = resolve_default_model(
             os.getenv("SIGNA_DEFAULT_MODEL") or DEFAULT_MODEL, app.state.models
@@ -293,8 +308,17 @@ def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI
 
             loaded.pending += 1
             try:
-                async with loaded.slots:
+                try:
+                    async with asyncio.timeout(request.app.state.queue_timeout):
+                        await loaded.slots.acquire()
+                except TimeoutError as exc:
+                    raise HTTPException(
+                        503, "Hết hạn chờ slot nhận diện", headers={"Retry-After": "1"}
+                    ) from exc
+                try:
                     return await run_in_threadpool(loaded.infer, image, params)
+                finally:
+                    loaded.slots.release()
             finally:
                 loaded.pending -= 1
 

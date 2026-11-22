@@ -1,6 +1,8 @@
 import asyncio
 import hashlib
 import json
+import subprocess
+import sys
 import tempfile
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -11,7 +13,7 @@ import pytest
 from PIL import Image
 
 from service import images
-from service.app import MODEL_SLOTS, QUEUE_SIZE, LoadedModel, create_app
+from service.app import MODEL_SLOTS, QUEUE_SIZE, CheckpointIntegrityError, LoadedModel, create_app
 from signa_ai.detection import Box, Detection
 
 pytestmark = pytest.mark.anyio
@@ -225,7 +227,8 @@ async def test_starts_without_existing_weights(monkeypatch, tmp_path, configured
         assert (await client.get("/v1/models")).json() == {"defaultModel": "yolov8", "models": []}
 
 
-async def test_refuses_startup_with_wrong_checkpoint_hash(monkeypatch, tmp_path):
+@pytest.mark.parametrize("has_hash", [False, True])
+async def test_checkpoint_hash_rejection_and_migration(monkeypatch, tmp_path, has_hash):
     class UnloadableAdapter:
         name = "yolov8"
 
@@ -233,20 +236,52 @@ async def test_refuses_startup_with_wrong_checkpoint_hash(monkeypatch, tmp_path)
             pytest.fail("Adapter đã đọc checkpoint sai")
 
     weights = tmp_path / "best.pt"
-    weights.write_bytes(b"wrong checkpoint")
+    weights.write_bytes(b"legacy checkpoint")
     card = {
         "modelName": "yolov8",
-        "modelVersion": "yolov8s-v1.0",
+        "modelVersion": "yolov8n-v1.1-temp",
         "labelMapVersion": 1,
-        "weightsSha256": hashlib.sha256(b"expected checkpoint").hexdigest(),
     }
-    weights.with_name("model_card.json").write_text(json.dumps(card), encoding="utf-8")
+    message = "model_card.json của SIGNA_YOLOV8_WEIGHTS thiếu weightsSha256"
+    if has_hash:
+        card["weightsSha256"] = hashlib.sha256(b"expected checkpoint").hexdigest()
+        message = "SHA-256 của SIGNA_YOLOV8_WEIGHTS không khớp"
+    card_path = weights.with_name("model_card.json")
+    original = json.dumps(card)
+    card_path.write_text(original, encoding="utf-8")
     monkeypatch.setenv("SIGNA_YOLOV8_WEIGHTS", str(weights))
     monkeypatch.setattr("service.app.YoloV8Detector", UnloadableAdapter)
 
-    with pytest.raises(ValueError, match="SHA-256 của SIGNA_YOLOV8_WEIGHTS không khớp"):
+    with pytest.raises(CheckpointIntegrityError, match=message):
         async with running(create_app()):
-            pytest.fail("Dịch vụ đã khởi động với checkpoint sai")
+            pytest.fail("Dịch vụ đã khởi động với thẻ thiếu SHA hoặc checkpoint sai")
+
+    migration = [sys.executable, "scripts/add_card_sha.py", str(weights)]
+    result = subprocess.run(migration, capture_output=True, text=True, check=False)
+    if has_hash:
+        assert result.returncode != 0
+        assert "không khớp SHA-256" in result.stderr
+        assert card_path.read_text(encoding="utf-8") == original
+        return
+
+    assert result.returncode == 0, result.stderr
+    card["weightsSha256"] = hashlib.sha256(b"legacy checkpoint").hexdigest()
+    updated = card_path.read_text(encoding="utf-8")
+    assert json.loads(updated) == card
+    subprocess.run(migration, check=True, capture_output=True)
+    assert card_path.read_text(encoding="utf-8") == updated
+
+    class LegacyAdapter(FakeDetector):
+        name = "yolov8"
+
+        def __init__(self, *_args):
+            super().__init__(self.name)
+
+    monkeypatch.setattr("service.app.YoloV8Detector", LegacyAdapter)
+    async with running(create_app()) as client:
+        response = await client.get("/v1/models")
+        assert response.status_code == 200
+        assert response.json()["models"][0]["modelCard"] == card
 
 
 @pytest.mark.parametrize(
@@ -392,9 +427,8 @@ async def wait_until(condition, seconds=5):
             await asyncio.sleep(0.001)
 
 
-@pytest.mark.parametrize(("name", "slots"), [("yolov5", 4), ("yolov8", 4), ("detr", 1)])
-async def test_semaphore_limits_concurrent_inference_and_queue(name, slots, monkeypatch):
-    assert MODEL_SLOTS[name] == slots
+@pytest.mark.parametrize("name", ["yolov5", "yolov8", "detr"])
+async def test_semaphore_limits_concurrent_inference_and_queue(name, monkeypatch):
     release = Event()
     lock = Lock()
     running_now = peak = 0
@@ -417,16 +451,16 @@ async def test_semaphore_limits_concurrent_inference_and_queue(name, slots, monk
     other = "yolov8" if name != "yolov8" else "yolov5"
     available = LoadedModel(FakeDetector(other), {}, 0.40)
     request = {"data": {"model": name}, "files": {"image": image_file()}}
-    capacity = slots + QUEUE_SIZE
+    capacity = 1 + QUEUE_SIZE
     async with running(create_app(lambda: [blocked, available])) as queue_client:
         active = [
             asyncio.create_task(queue_client.post("/v1/detect", **request)) for _ in range(capacity)
         ]
         try:
-            await wait_until(lambda: blocked.pending == capacity and running_now == slots)
+            await wait_until(lambda: blocked.pending == capacity and running_now == 1)
             # Cho các request đang chờ cơ hội vượt semaphore nếu nó không chặn.
             await asyncio.sleep(0.05)
-            assert peak == slots
+            assert peak == 1
             request["data"] = {"model": blocked.detector.version}
             busy = await queue_client.post("/v1/detect", **request)
             assert busy.status_code == 503
@@ -440,8 +474,41 @@ async def test_semaphore_limits_concurrent_inference_and_queue(name, slots, monk
             release.set()
             responses = await asyncio.gather(*active)
         assert all(response.status_code == 200 for response in responses)
-        assert peak == slots and blocked.pending == 0
+        assert peak == 1 and blocked.pending == 0
         assert (await queue_client.post("/v1/detect", **request)).status_code == 200
+
+
+async def test_queue_timeout_drops_image_and_frees_capacity(monkeypatch):
+    monkeypatch.setenv("SIGNA_QUEUE_TIMEOUT_S", "0.025")
+    release = Event()
+    started = Event()
+    calls = 0
+    loaded = LoadedModel(FakeDetector(), {}, 0.40)
+    predict = loaded.detector.predict
+
+    def blocked_predict(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        started.set()
+        assert release.wait(timeout=5)
+        return predict(*args, **kwargs)
+
+    monkeypatch.setattr(loaded.detector, "predict", blocked_predict)
+    request = {"files": {"image": image_file()}}
+    async with asyncio.timeout(5), running(create_app(lambda: [loaded])) as client:
+        active = asyncio.create_task(client.post("/v1/detect", **request))
+        try:
+            await wait_until(started.is_set)
+            expired = await client.post("/v1/detect", **request)
+            assert expired.status_code == 503
+            assert expired.json()["code"] == "RECOGNITION_UNAVAILABLE"
+            assert expired.headers["Retry-After"] == "1"
+            assert calls == 1 and loaded.pending == 1
+        finally:
+            release.set()
+            assert (await active).status_code == 200
+        assert (await client.post("/v1/detect", **request)).status_code == 200
+        assert calls == 2 and loaded.pending == 0
 
 
 @pytest.mark.parametrize("name", ["yolov8", "detr"])

@@ -98,7 +98,7 @@
 | UT-A05 | Bộ đánh giá | Dự đoán của 3 adapter trên cùng ảnh mẫu | Cùng định dạng COCO, cùng `category_id` cho cùng mã |
 | UT-A06 | Danh mục nhãn | `labels.yaml` có `id` trùng hoặc mã trùng | Kiểm tra báo lỗi |
 | IT-A01 | Dịch vụ | `POST /v1/detect` với mỗi mô hình | Box theo toạ độ ảnh gốc, đúng `modelVersion`, `labelMapVersion` |
-| IT-A02 | Dịch vụ | Gửi 20 yêu cầu DETR cùng lúc | Một phần trả `503`, không yêu cầu nào treo quá 10 giây |
+| IT-A02 | Dịch vụ | Gửi 20 yêu cầu DETR cùng lúc. Giữ slot bằng detector giả để kiểm tra hết hạn | Một phần trả `503`, không yêu cầu nào treo quá 10 giây. Hàng chờ đầy hoặc hết hạn có `Retry-After`. Ảnh hết hạn chờ không được suy luận |
 
 ### 2.4. Web quản trị
 
@@ -212,7 +212,7 @@ k6 trên môi trường Docker Compose giống bản demo.
 | --- | --- | --- |
 | Biển theo vùng | 50 người dùng ảo, vùng 500 biển | p95 < 300 ms (NFR-03) |
 | Gửi đề xuất | Tăng dần tới 50 đề xuất/giây | Tiếp nhận đủ theo NFR-04. Sau khi ngừng tải, hàng đợi phải xử lý hết đề xuất còn `RECEIVED`, không để mục chưa xác nhận |
-| Nhận diện ảnh | 2 yêu cầu/giây với mỗi mô hình | NFR-02; quá tải trả `503` thay vì timeout |
+| Nhận diện ảnh | 2 yêu cầu/giây với mỗi mô hình | NFR-02; hàng chờ đầy hoặc hết hạn trả `503` theo [hợp đồng nội bộ](07-api.md#7-dịch-vụ-nhận-diện-nội-bộ) |
 
 ## 9. Truy vết yêu cầu
 
