@@ -20,11 +20,17 @@ from starlette.datastructures import UploadFile
 from signa_ai.detection import Box, Detector
 from signa_ai.labels import load_label_map
 
+from .detr import DEFAULT_CONFIDENCE as DETR_CONFIDENCE
+from .detr import DetrDetector
 from .images import MAX_IMAGE_BYTES, decode_image, image_form
-from .yolov8 import DEFAULT_CONFIDENCE, YoloV8Detector
+from .yolov5 import DEFAULT_CONFIDENCE as YOLOV5_CONFIDENCE
+from .yolov5 import YoloV5Detector
+from .yolov8 import DEFAULT_CONFIDENCE as YOLOV8_CONFIDENCE
+from .yolov8 import YoloV8Detector
 
 logger = logging.getLogger(__name__)
 MODEL_SLOTS = {"yolov5": 4, "yolov8": 4, "detr": 1}
+DEFAULT_MODEL = "yolov8"
 QUEUE_SIZE = 8
 ERROR_CODES = {
     400: "VALIDATION_ERROR",
@@ -38,9 +44,11 @@ ERROR_CODES = {
 class DetectForm(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    model: str
+    model: str | None = Field(
+        default=None, description="yolov5, yolov8, detr hoặc modelVersion đã nạp"
+    )
     conf: float | None = Field(default=None, ge=0, le=1)
-    iou: float | None = Field(default=None, ge=0, le=1)
+    iou: float | None = Field(default=None, ge=0, le=1, description="Ngưỡng NMS, DETR bỏ qua")
 
 
 class ModelInfo(BaseModel):
@@ -55,6 +63,7 @@ class ModelEntry(ModelInfo):
 
 
 class ModelList(BaseModel):
+    defaultModel: str = Field(description="Họ mô hình dùng khi request bỏ trường model")
     models: list[ModelEntry]
 
 
@@ -111,49 +120,76 @@ class LoadedModel:
 
 
 def load_models() -> list[LoadedModel]:
-    configured_path = os.getenv("SIGNA_YOLOV8_WEIGHTS")
-    if not configured_path:
-        logger.warning("Chưa cấu hình SIGNA_YOLOV8_WEIGHTS")
-        return []
+    adapters = (
+        (YoloV5Detector, YOLOV5_CONFIDENCE),
+        (YoloV8Detector, YOLOV8_CONFIDENCE),
+        (DetrDetector, DETR_CONFIDENCE),
+    )
+    loaded = []
+    device = os.getenv("SIGNA_DEVICE")
+    for adapter, fallback_conf in adapters:
+        name = adapter.name
+        env_prefix = f"SIGNA_{name.upper()}"
+        weights_var = f"{env_prefix}_WEIGHTS"
+        configured_path = os.getenv(weights_var)
+        if not configured_path:
+            logger.warning("Chưa cấu hình %s", weights_var)
+            continue
 
-    try:
-        weights = Path(configured_path).resolve()
-        if weights.suffix != ".pt" or not weights.is_file():
-            raise ValueError("SIGNA_YOLOV8_WEIGHTS phải trỏ đến checkpoint .pt cục bộ")
-        labels = load_label_map()
-        card = json.loads(weights.with_name("model_card.json").read_text(encoding="utf-8"))
-        info = ModelInfo.model_validate(card, strict=True)
-        if (
-            info.modelName != YoloV8Detector.name
-            or not info.modelVersion.strip()
-            or info.labelMapVersion != labels.version
-        ):
-            raise ValueError("Thông tin mô hình trong model_card.json không khớp cấu hình")
+        try:
+            weights = Path(configured_path).resolve()
+            if weights.suffix != ".pt" or not weights.is_file():
+                raise ValueError(f"{weights_var} phải trỏ đến checkpoint .pt cục bộ")
+            labels = load_label_map()
+            card = json.loads(weights.with_name("model_card.json").read_text(encoding="utf-8"))
+            info = ModelInfo.model_validate(card, strict=True)
+            if (
+                info.modelName != name
+                or not info.modelVersion.strip()
+                or info.labelMapVersion != labels.version
+            ):
+                raise ValueError("Thông tin mô hình trong model_card.json không khớp cấu hình")
 
-        operating_point = card.get("operating_point")
-        if operating_point is not None and not isinstance(operating_point, dict):
-            raise ValueError("operating_point trong model_card.json phải là một đối tượng")
-        default_conf = (operating_point or {}).get("threshold")
-        if default_conf is None:
-            default_conf = float(os.getenv("SIGNA_YOLOV8_CONF", str(DEFAULT_CONFIDENCE)))
-        if (
-            isinstance(default_conf, bool)
-            or not isinstance(default_conf, (float, int))
-            or not 0 <= default_conf <= 1
-        ):
-            raise ValueError("Ngưỡng vận hành YOLOv8 phải là số trong khoảng [0, 1]")
+            operating_point = card.get("operating_point")
+            if operating_point is not None and not isinstance(operating_point, dict):
+                raise ValueError("operating_point trong model_card.json phải là một đối tượng")
+            default_conf = (operating_point or {}).get("threshold")
+            if default_conf is None:
+                default_conf = float(os.getenv(f"{env_prefix}_CONF", str(fallback_conf)))
+            if (
+                isinstance(default_conf, bool)
+                or not isinstance(default_conf, (float, int))
+                or not 0 <= default_conf <= 1
+            ):
+                raise ValueError(f"Ngưỡng vận hành {name} phải là số trong khoảng [0, 1]")
 
-        detector = YoloV8Detector(weights, labels, info.modelVersion, os.getenv("SIGNA_DEVICE"))
-        return [LoadedModel(detector, card, default_conf)]
-    except Exception:
-        logger.exception("Không thể nạp mô hình yolov8")
-        return []
+            detector = adapter(weights, labels, info.modelVersion, device)
+            loaded.append(LoadedModel(detector, card, default_conf))
+        except Exception:
+            logger.exception("Không thể nạp mô hình %s", name)
+    return loaded
+
+
+def resolve_default_model(selector: str, models: dict[str, LoadedModel]) -> str:
+    """Đổi SIGNA_DEFAULT_MODEL thành họ mô hình. Giá trị sai làm dịch vụ dừng khi khởi động."""
+    if selector in MODEL_SLOTS:
+        return selector
+    matches = [name for name, item in models.items() if item.detector.version == selector]
+    if len(matches) != 1:
+        raise ValueError(
+            f"SIGNA_DEFAULT_MODEL={selector!r} phải là yolov5, yolov8, detr "
+            "hoặc modelVersion của một mô hình đã nạp"
+        )
+    return matches[0]
 
 
 def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.models = {item.detector.name: item for item in loader()}
+        app.state.default_model = resolve_default_model(
+            os.getenv("SIGNA_DEFAULT_MODEL") or DEFAULT_MODEL, app.state.models
+        )
         yield
 
     app = FastAPI(title="Signa Recognition", lifespan=lifespan)
@@ -188,18 +224,18 @@ def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI
     async def models(request: Request) -> ModelList:
         loaded = request.app.state.models.values()
         return ModelList(
+            defaultModel=request.app.state.default_model,
             models=[
                 ModelEntry(
                     **item.info.model_dump(), defaultConf=item.default_conf, modelCard=item.card
                 )
                 for item in loaded
-            ]
+            ],
         )
 
     form_schema = DetectForm.model_json_schema()
     form_schema["properties"]["image"] = {"type": "string", "format": "binary"}
-    form_schema["properties"]["model"]["enum"] = list(MODEL_SLOTS)
-    form_schema["required"].append("image")
+    form_schema["required"] = ["image"]
 
     @app.post(
         "/v1/detect",
@@ -226,14 +262,20 @@ def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI
                     {key: value for key, value in form.items() if key != "image"}
                 )
             except ValidationError as exc:
-                raise HTTPException(400, "Cần model hợp lệ; conf và iou phải thuộc [0, 1]") from exc
-            if params.model not in MODEL_SLOTS:
-                raise HTTPException(400, "model phải là yolov5, yolov8 hoặc detr")
+                raise HTTPException(400, "Trường model, conf hoặc iou không hợp lệ") from exc
 
-            loaded = request.app.state.models.get(params.model)
+            selected = params.model if params.model is not None else request.app.state.default_model
+            models = request.app.state.models
+            loaded = models.get(selected)
+            if loaded is None and selected not in MODEL_SLOTS:
+                matches = [item for item in models.values() if item.detector.version == selected]
+                if len(matches) == 1:
+                    loaded = matches[0]
+                elif params.model is not None:
+                    raise HTTPException(400, "model phải là yolov5, yolov8, detr hoặc modelVersion")
             if loaded is None:
-                raise HTTPException(503, f"Mô hình {params.model} chưa được nạp")
-            if loaded.pending >= MODEL_SLOTS[params.model] + QUEUE_SIZE:
+                raise HTTPException(503, f"Mô hình {selected} chưa được nạp")
+            if loaded.pending >= MODEL_SLOTS[loaded.detector.name] + QUEUE_SIZE:
                 raise HTTPException(503, "Hàng chờ nhận diện đã đầy", headers={"Retry-After": "1"})
 
             loaded.pending += 1

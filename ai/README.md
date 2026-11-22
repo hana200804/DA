@@ -53,24 +53,154 @@ Khi cần suy luận, cài `uv pip install -e '.[detr]'` rồi dùng `load_detr_
 
 ## Chạy dịch vụ nhận diện
 
-Lấy `best.pt` và `model_card.json` từ `My Drive/Signa/experiments/yolov8n-640-v1.1-temp-s0/handoff/`
-và đặt cạnh nhau trong `ai/models/`. Dịch vụ đối chiếu lớp trong checkpoint với
-`ai/data/labels.yaml` v1 và dùng phiên bản bàn giao `yolov8n-v1.1-temp`.
+### Ba mô hình
 
-Ví dụ chạy trên CPU từ thư mục gốc của repo.
+Cấu hình đề xuất cho server gồm YOLOv5s, YOLOv8s và DETR-R50. YOLOv8s có
+mAP@0.5:0.95 cao nhất trên val v1.1 trong [lượt so sánh chính](experiments/main-v1.1.md).
+Thời gian trên server tham chiếu chưa đo. Lựa chọn AI-04 đang chờ chốt.
+
+Lấy checkpoint của nhóm từ My Drive và đặt mỗi trọng số trong một thư mục riêng.
+
+| Mô hình | Nguồn trên My Drive | Tệp cục bộ trong `ai/` |
+| --- | --- | --- |
+| YOLOv5s | `Signa/experiments/yolov5s-640-v1.1-main-s0/weights/best.pt` | `models/yolov5s/best.pt` |
+| YOLOv8s | `Signa/experiments/yolov8s-640-v1.1-main-s0/weights/best.pt` | `models/yolov8s/best.pt` |
+| DETR-R50 | `Signa/experiments/detr-r50-640-v1.1-main-s0/best.pt` | `models/detr-r50/best.pt` |
+
+Đặt `model_card.json` bên cạnh từng `best.pt`. Thẻ cần tên họ mô hình
+(`yolov5`, `yolov8` hoặc `detr`), phiên bản duy nhất và phiên bản danh mục nhãn khớp
+`ai/data/labels.yaml`. Dịch vụ đọc ngưỡng mặc định từ `operating_point.threshold`.
+
+Ba thẻ của lượt chính nằm trong PR #16 (nhánh `ai/3-evaluation`), **chưa có trên `main`**.
+Khi PR #16 chưa merge, lấy thẻ từ nhánh đó. Ngưỡng là ngưỡng F1 tối đa trên val, lấy từ
+`metrics.json` của từng lượt.
+
+| Mô hình | Thẻ | `modelVersion` | Ngưỡng |
+| --- | --- | --- | --- |
+| YOLOv5s | `experiments/yolov5s-640-v1.1-main-s0/model_card.json` | `yolov5s-v1.0` | 0,4176 |
+| YOLOv8s | `experiments/yolov8s-640-v1.1-main-s0/model_card.json` | `yolov8s-v1.0` | 0,5279 |
+| DETR-R50 | `experiments/detr-r50-640-v1.1-main-s0/model_card.json` | `detr-r50-v1.0` | 0,7065 |
+
+Chép mỗi thẻ thành `models/<thư mục>/model_card.json` cạnh `best.pt` tương ứng ở bảng trên.
+Các trường tối thiểu dịch vụ cần, ví dụ YOLOv8s:
+
+```json
+{
+  "modelName": "yolov8",
+  "modelVersion": "yolov8s-v1.0",
+  "labelMapVersion": 1,
+  "operating_point": {"threshold": 0.5279324054718018}
+}
+```
+
+Nội dung khác của [thẻ mô hình](../docs/04-thiet-ke-ai.md#8-phiên-bản-và-thẻ-mô-hình)
+được trả nguyên vẹn qua API. Chỉ cấu hình checkpoint và checkout đáng tin cậy của nhóm.
+
+Ví dụ cài đặt và chạy trên máy CPU. Trên server CUDA, cài bản PyTorch tương ứng
+và bỏ `SIGNA_DEVICE=cpu` để dịch vụ tự chọn thiết bị.
 
 ```sh
 cd ai
 uv venv --python 3.11
 uv pip install --index https://download.pytorch.org/whl/cpu torch torchvision
-uv pip install -e '.[serve]'
-SIGNA_YOLOV8_WEIGHTS=models/best.pt SIGNA_DEVICE=cpu \
+uv pip install -e '.[serve-all]'
+git clone https://github.com/ultralytics/yolov5.git models/yolov5-source
+git -C models/yolov5-source checkout --detach 1e7cf74cb64d719b34f7315aa13eab9e32cde672
+SIGNA_YOLOV5_REPO=models/yolov5-source \
+  SIGNA_YOLOV5_WEIGHTS=models/yolov5s/best.pt \
+  SIGNA_YOLOV8_WEIGHTS=models/yolov8s/best.pt \
+  SIGNA_DETR_WEIGHTS=models/detr-r50/best.pt \
+  SIGNA_DEVICE=cpu \
   uv run --no-sync uvicorn service.app:app --host 127.0.0.1 --port 8000
 ```
 
-`SIGNA_YOLOV8_WEIGHTS` trỏ đến checkpoint `.pt` cục bộ. Dịch vụ chọn CUDA nếu
-PyTorch hỗ trợ CUDA và GPU khả dụng, ngược lại dùng CPU. Dùng `SIGNA_DEVICE`
-để chọn thiết bị cụ thể, ví dụ `cpu` hoặc `cuda:0`.
+`serve-all` dùng bản `ultralytics` mà checkout YOLOv5 yêu cầu. Dùng môi trường ảo
+riêng cho `train` hoặc `serve`, vì hai nhóm đó ghim phiên bản `ultralytics` khác.
+DETR lấy phụ thuộc từ extra `detr`, nên cùng `transformers` và `timm` với lượt đánh giá.
+
+| Biến môi trường | Ý nghĩa |
+| --- | --- |
+| `SIGNA_YOLOV5_WEIGHTS`, `SIGNA_YOLOV8_WEIGHTS`, `SIGNA_DETR_WEIGHTS` | Đường dẫn đến từng checkpoint `.pt` cục bộ |
+| `SIGNA_YOLOV5_REPO` | Đường dẫn đến checkout YOLOv5 gốc ở commit trên |
+| `SIGNA_DEVICE` | `cpu` hoặc thiết bị CUDA như `cuda:0`. Tự chọn `cuda:0` nếu khả dụng, nếu không thì dùng CPU |
+| `SIGNA_DEFAULT_MODEL` | Tên họ hoặc `modelVersion` của mô hình mặc định. Khi chưa đặt thì dùng `yolov8`. Giá trị không phải họ mô hình hay `modelVersion` đã nạp làm dịch vụ dừng ngay khi khởi động. `/v1/models` trả họ mô hình này trong `defaultModel` |
+| `SIGNA_YOLOV5_CONF`, `SIGNA_YOLOV8_CONF`, `SIGNA_DETR_CONF` | Ngưỡng khi request và thẻ mô hình đều thiếu ngưỡng. Giá trị dự phòng là 0,42, 0,40 và 0,71 tương ứng |
+
+### Cách dịch vụ xử lý ảnh
+
+- Ảnh được giải mã một lần ở tầng dịch vụ rồi đưa cùng một mảng RGB cho cả ba mô hình.
+  Nếu ảnh còn thẻ EXIF Orientation, dịch vụ xoay ảnh theo thẻ trước khi suy luận
+  (`ImageOps.exif_transpose`). Box trả về tính theo pixel của ảnh đã xoay. Ảnh có cạnh
+  dưới 8 px bị từ chối với `400`.
+- DETR chạy qua `load_detr_checkpoint` và `predict_detr` của `signa_ai.detr`, giống lúc chọn
+  ngưỡng trên val. Trên CUDA, suy luận dùng autocast fp16. API bỏ box bị cắt về diện tích 0,
+  còn lúc chấm val vẫn giữ chúng.
+- Mỗi họ YOLO có 4 slot, DETR có 1, cộng 8 request chờ. Vượt mức này dịch vụ trả `503` kèm
+  `Retry-After: 1`. Adapter YOLO dùng khoá trong tiến trình, nên thực tế mỗi họ chạy một
+  suy luận một lúc. Dịch vụ chưa có timeout phía server: request mà backend đã bỏ sau 5 giây
+  vẫn giữ chỗ trong hàng chờ cho đến khi chạy xong. Thời gian chờ thực tế chưa đo.
+
+### Hạn chế đã biết: phiên bản Ultralytics của YOLOv8
+
+`serve-all` phục vụ YOLOv8 bằng `ultralytics==8.4.201`, vì checkout YOLOv5 gốc cần
+`ultralytics>=8.4`. Lượt huấn luyện và `predictions-val.json` của YOLOv8 dùng `8.3.203`
+(`experiments/yolov8s-640-v1.1-main-s0/meta.json`). Hai bản có thể khác nhau ở tiền xử lý
+hoặc NMS. Độ lệch giữa hai bản **chưa đo**. Phiên bản đã đánh giá giữ nguyên.
+Trước khi so ba mô hình qua dịch vụ, chạy bước kiểm tương đương sau **trên Colab**,
+không chạy trên laptop của nhóm.
+
+1. Mở runtime Colab mới, clone repo vào `/content/signa-source` (như notebook), giải nén `signa-v1.1.zip` vào `/content/v1.1` và đặt
+   `best.pt` của YOLOv8s ở `/content/yolov8s/best.pt`.
+2. Cài `serve-all` (bản `8.4.201`) rồi xuất dự đoán val qua đúng adapter của dịch vụ với
+   cùng tham số như notebook: `conf` 0,001, `iou` 0,7, `imgsz` 640, `max_det` 300.
+
+   ```sh
+   cd /content/signa-source/ai
+   pip install -e '.[serve-all]'
+   python - <<'EOF'
+   import json
+   from pathlib import Path
+
+   from service.images import decode_image
+   from service.yolov8 import YoloV8Detector
+   from signa_ai.detection import to_coco_predictions
+   from signa_ai.labels import load_label_map
+
+   data = Path("/content/v1.1")
+   labels = load_label_map()
+   model = YoloV8Detector(Path("/content/yolov8s/best.pt"), labels, "yolov8s-v1.0", "cuda:0")
+   truth = json.loads((data / "coco/val.json").read_text())
+   rows = []
+   for image in truth["images"]:
+       with open(data / image["file_name"], "rb") as file:
+           detections = model.predict(decode_image(file), conf=0.001, iou=0.7)
+       rows.extend(to_coco_predictions(image["id"], detections, labels))
+   Path("/content/predictions-val-8.4.201.json").write_text(json.dumps(rows))
+   EOF
+   python -m signa_ai.evaluate --gt /content/v1.1/coco/val.json \
+     --pred /content/predictions-val-8.4.201.json \
+     --manifest /content/v1.1/manifest.csv \
+     --out /content/metrics-8.4.201.json
+   ```
+
+3. So `map_50`, `map_50_95` và `operating_point` trong `/content/metrics-8.4.201.json` với
+   `experiments/yolov8s-640-v1.1-main-s0/metrics.json` (bản `8.3.203`: mAP@0.5:0.95 là 0,6956).
+   So thêm số dự đoán của từng ảnh với `evaluation/predictions-val.json` của lượt trên Drive.
+4. Ghi kết quả vào `experiments/main-v1.1.md`. Nếu lệch rõ, phục vụ YOLOv8 bằng `8.3.203`
+   trong một tiến trình riêng thay vì đổi phiên bản đã đánh giá.
+
+Bước 2 đi qua `decode_image`, nên kết quả gồm cả chênh lệch do giải mã bằng PIL thay vì
+đường dẫn ảnh như notebook.
+
+### Phát triển với một mô hình
+
+Để giữ môi trường YOLOv8 tạm, cài `.[serve]` thay cho `.[serve-all]`. Dùng
+`best.pt` và `model_card.json` trong `My Drive/Signa/experiments/yolov8n-640-v1.1-temp-s0/handoff/`
+với phiên bản `yolov8n-v1.1-temp`. Chỉ đặt `SIGNA_YOLOV8_WEIGHTS` và chạy Uvicorn
+như trên. API nhận diện dùng được với mô hình đã nạp. `/healthz` vẫn trả `503`
+khi thiếu một trong ba mô hình.
+
+### Gọi API
 
 ```sh
 curl -i http://127.0.0.1:8000/healthz
@@ -80,22 +210,26 @@ curl --fail-with-body --max-time 5 \
   http://127.0.0.1:8000/v1/detect
 ```
 
-- `POST /v1/detect` nhận multipart với `image`, `model` và hai trường tuỳ chọn
-  `conf`, `iou` trong khoảng [0, 1]. Mặc định của YOLOv8n tạm là `conf=0.40`
-  (làm tròn từ ngưỡng F1 tối đa 0,401663 trên val v1.1) và `iou=0.7`.
-  Khi request bỏ qua `conf`, dịch vụ ưu tiên `operating_point.threshold` trong
-  `model_card.json`, sau đó đến biến `SIGNA_YOLOV8_CONF`, rồi giá trị mặc định.
-  Ảnh JPEG, PNG hoặc WebP có giới hạn 10 MB và 25 triệu pixel. Dịch vụ xử lý ảnh trong bộ nhớ.
+- `POST /v1/detect` nhận multipart với `image` và các trường tuỳ chọn
+  `model`, `conf`, `iou`. Chọn `yolov5`, `yolov8`, `detr` hoặc phiên bản đã
+  nạp ghi trong `modelVersion`. Bỏ trường `model` để dùng mô hình mặc định.
+  `conf` và `iou` nằm trong khoảng [0, 1]. Nếu thiếu `conf`, dịch vụ ưu tiên
+  `operating_point.threshold` rồi dùng cấu hình ngưỡng ở bảng trên. Hai họ YOLO
+  dùng ngưỡng IoU mặc định 0,7. DETR bỏ qua `iou`.
+  Ảnh JPEG, PNG hoặc WebP có giới hạn 10 MB và 25 triệu pixel.
+  Dịch vụ xử lý ảnh trong bộ nhớ.
 - Kết quả gồm `modelName`, `modelVersion`, `labelMapVersion`, `inferenceMs` và
   `detections`. Mỗi phát hiện có `signTypeCode`, `confidence` và `box`
   với `x`, `y`, `width`, `height` theo pixel ảnh gốc.
 - `GET /v1/models` trả `models` gồm các mô hình đã nạp cùng `modelCard` và
   `defaultConf` là ngưỡng đang dùng khi request bỏ qua `conf`.
-  Dịch vụ vẫn khởi động khi thiếu trọng số. `GET /healthz` báo các mô hình
-  còn thiếu bằng HTTP `503` và chỉ trả `200` khi đủ ba mô hình.
-  Bản tạm vẫn nhận yêu cầu `model=yolov8` khi YOLOv8 đã nạp.
-- Yêu cầu chọn mô hình chưa nạp nhận `503 RECOGNITION_UNAVAILABLE`.
-  Khi hàng chờ đầy, API trả cùng mã lỗi với `Retry-After: 1`.
+  `GET /healthz` báo các mô hình còn thiếu bằng HTTP `503` và chỉ trả `200`
+  khi đủ ba mô hình.
+- API trả `400` nếu giá trị `model` không hợp lệ hoặc không khớp phiên bản đã nạp.
+  Nếu họ mô hình được chọn hoặc mô hình mặc định chưa nạp, API trả
+  `503 RECOGNITION_UNAVAILABLE`.
+- Mỗi họ YOLO có tối đa 4 yêu cầu giữ semaphore. DETR có 1. Mỗi họ có thêm
+  tối đa 8 yêu cầu chờ. Khi đầy, API trả `503` kèm `Retry-After: 1`.
 
 Backend gọi dịch vụ trong mạng nội bộ. Xem [hợp đồng API nội bộ](../docs/07-api.md#7-dịch-vụ-nhận-diện-nội-bộ)
 và OpenAPI ở `/openapi.json` của dịch vụ.
@@ -136,6 +270,13 @@ chọn `best.pt` theo mAP@0.5:0.95 trên val. Chọn GPU rồi **Run all**. Mấ
 run xong được bỏ qua, run dở tiếp tục từ `last.pt`. Mỗi run kết thúc bằng dự đoán val và
 `metrics.json` của bộ đánh giá chung. Notebook không xuất test.
 
+Notebook YOLOv8 đọc kích thước ảnh, cỡ mô hình và batch từ biến môi trường `SIGNA_IMGSZ`
+(mặc định 640), `SIGNA_SIZES` (mặc định `n,s`) và `SIGNA_BATCH` (mặc định 16).
+Tên run là `yolov8{size}-{IMGSZ}-v1.1-main-s0`. Thí nghiệm AI-07 về biển nhỏ thêm
+`%env SIGNA_IMGSZ=960` và `%env SIGNA_SIZES=s` vào ô `%env` đầu notebook, cạnh
+`%env SIGNA_NOTEBOOK_COMMIT=<SHA>`, chọn L4 (hoặc A100) rồi **Run all**. Xem
+[`yolov8s-960-v1.1-main-s0`](experiments/yolov8s-960-v1.1-main-s0/README.md).
+
 ## Chấm test và đo thời gian · v1.1
 
 [`predict_test_v1.1.ipynb`](notebooks/predict_test_v1.1.ipynb) chấm test 5 lượt chính theo
@@ -146,12 +287,18 @@ giống notebook train của nhóm đó và các nhóm xung đột phụ thuộc
 | `SIGNA_GROUP` | Lượt | Môi trường |
 | --- | --- | --- |
 | `yolov8` | `yolov8{n,s}-640-v1.1-main-s0` | `ultralytics==8.3.203` |
-| `yolov5` | `yolov5{n,s}-640-v1.1-main-s0` | repo YOLOv5 gốc `1e7cf74…` và `requirements.txt` của repo |
+| `yolov5` | `yolov5{n,s}-640-v1.1-main-s0` | repo YOLOv5 gốc `1e7cf74…`, `requirements.txt` của repo và `ultralytics` ghim (xem dưới) |
 | `detr` | `detr-r50-640-v1.1-main-s0` | `signa_ai.detr`, `transformers==4.57.6` như extra `detr` |
 
 1. Mở notebook trên Colab, chọn **T4 GPU**. `signa-v1.1.zip` ở gốc My Drive.
 2. Sửa ô mã đầu: `%env SIGNA_GROUP=<nhóm>`. Đặt `SIGNA_NOTEBOOK_COMMIT` theo SHA trên permalink.
 3. **Run all**. Đổi nhóm thì chọn **Disconnect and delete runtime** rồi mở lại.
+
+`requirements.txt` của YOLOv5 `1e7cf74` chỉ ghi `ultralytics>=8.4.201`, mà `AutoShape` gọi
+`ultralytics.utils.ops` khi NMS và chiếu box. `meta.json` của lượt train YOLOv5 không ghi bản
+`ultralytics`. Notebook đọc `My Drive/Signa/experiments/yolov5{n,s}-…/requirements.txt` do lượt
+train ghi rồi ghim đúng bản đó. Thiếu tệp thì ghim `8.4.201`, cận dưới trên và cũng là bản
+notebook xuất TFLite YOLOv5 dùng. Bản đã ghim và nguồn ghi trong `test-config.json`.
 
 Notebook lấy mã tại `REPO_COMMIT` cố định. GT là `coco/val.json` và `coco/test.json` trong ZIP,
 cùng tệp notebook train dùng để chấm val. SHA-256 của `coco/val.json` phải bằng
@@ -169,6 +316,8 @@ cùng tệp notebook train dùng để chấm val. SHA-256 của `coco/val.json`
    JPEG trong bộ nhớ qua giải mã, tiền xử lý, suy luận, hậu xử lý tới box theo pixel ảnh gốc,
    ở ngưỡng vận hành. Đo trên GPU rồi CPU của runtime, PyTorch dùng tối đa 4 luồng. Ghi p50, p95,
    mean ms. Đây không phải server tham chiếu (Q7 chưa chốt), số chỉ để tham khảo cho NFR-02.
+   10 ảnh khởi động là 10 ảnh đầu của chính 200 ảnh đo. Trên GPU, DETR chạy FP16 autocast,
+   YOLO chạy FP32, như đường val của từng mô hình. Khi so p95 cần nêu rõ (trường `precision`).
 
 Kết quả ở `My Drive/Signa/experiments/<lượt>/evaluation/`:
 
@@ -181,9 +330,14 @@ Kết quả ở `My Drive/Signa/experiments/<lượt>/evaluation/`:
 
 Nhật ký ở `My Drive/Signa/experiments/predict-test-v1.1-<nhóm>.log`, gồm cả đầu ra của
 `signa_ai.evaluate` và traceback khi lỗi. Chạy lại an toàn: lượt đã có `metrics-test.json` và
-`test-config.json` cùng SHA thì bỏ qua phần test, có `latency.json` cùng SHA trọng số thì bỏ qua
-phần đo. Nếu SHA đã ghi khác SHA hiện tại, notebook dừng để không ghi đè kết quả test.
+`test-config.json` cùng SHA thì bỏ qua phần test. Có `latency.json` cùng SHA trọng số, cùng
+số ảnh, số ảnh khởi động và số luồng CPU thì bỏ qua phần đo. Nếu SHA đã ghi khác SHA hiện
+tại, notebook dừng để không ghi đè kết quả test.
+Lỗi ở ô cài đặt và ô dữ liệu chỉ hiện trong ô Colab, chưa vào nhật ký Drive. Một lượt rớt
+cổng val thì cả nhóm dừng, lượt sau không chạy.
 Kiểm thử CPU ở [`tests/test_predict_test_notebook.py`](tests/test_predict_test_notebook.py).
+Hàm xuất được so với mọi bản notebook train tới `REPO_COMMIT` qua `git`, nên CI checkout
+toàn bộ lịch sử (`fetch-depth: 0`).
 Chưa chạy notebook này trên Colab. Kết quả test và thời gian **chưa đo**.
 
 ## Huấn luyện YOLOv8n trên Colab · v1.1

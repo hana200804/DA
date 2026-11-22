@@ -94,8 +94,13 @@ def detr_detections(
     geometry: Letterbox,
     id2label: Mapping[int, str],
     conf: float = EVAL_CONFIDENCE,
+    *,
+    drop_empty: bool = False,
 ) -> list[Detection]:
-    """Lấy lớp biển tốt nhất mỗi query, tính softmax gồm cả lớp nền ở cột cuối."""
+    """Lấy lớp biển tốt nhất mỗi query, tính softmax gồm cả lớp nền ở cột cuối.
+
+    Mặc định giữ query bị cắt về diện tích 0 như lúc chấm val. ``drop_empty`` bỏ chúng cho API.
+    """
     if (
         logits.ndim != 2
         or logits.shape[1] != len(id2label) + 1
@@ -111,6 +116,8 @@ def detr_detections(
     detections = []
     for index in np.flatnonzero(scores >= conf):
         box = geometry.to_original(*map(float, boxes[index]))
+        if drop_empty and box.area <= 0:
+            continue
         # COCO cần diện tích dương. Query nằm trọn trong padding vẫn tính là dự đoán.
         box = Box(box.x, box.y, box.width or 1e-6, box.height or 1e-6)
         detections.append(Detection(box, id2label[class_ids[index]], float(scores[index])))
@@ -152,15 +159,20 @@ def load_detr_checkpoint(
 
 
 def predict_detr(
-    model: nn.Module, image: Image.Image, *, conf: float = EVAL_CONFIDENCE
+    model: nn.Module,
+    image: Image.Image,
+    *,
+    conf: float = EVAL_CONFIDENCE,
+    drop_empty: bool = False,
 ) -> list[Detection]:
     """Chạy mô hình đã nạp trên thiết bị của nó và trả box theo pixel ảnh gốc."""
     import torch
 
     pixels, mask, geometry = _prepare_image(image.convert("RGB"))
     device = next(model.parameters()).device
-    with torch.inference_mode(), torch.autocast(
-        device.type, dtype=torch.float16, enabled=device.type == "cuda"
+    with (
+        torch.inference_mode(),
+        torch.autocast(device.type, dtype=torch.float16, enabled=device.type == "cuda"),
     ):
         outputs = model(
             pixel_values=torch.from_numpy(pixels).unsqueeze(0).to(device),
@@ -172,6 +184,7 @@ def predict_detr(
         geometry,
         model.config.id2label,
         conf,
+        drop_empty=drop_empty,
     )
 
 

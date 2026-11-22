@@ -1,4 +1,4 @@
-"""Adapter YOLOv8 cho checkpoint YOLOv8n tạm."""
+"""Adapter cho checkpoint YOLOv8."""
 
 from pathlib import Path
 from threading import Lock

@@ -24,18 +24,29 @@ AI_ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK = "predict_test_v1.1.ipynb"
 
 
-def code_cells(filename):
-    notebook = json.loads((AI_ROOT / "notebooks" / filename).read_text(encoding="utf-8"))
+def git_show(commit, path):
+    """Đọc tệp tại commit. CI cần fetch-depth: 0 (.github/workflows/ai.yml); không bỏ qua."""
+    result = subprocess.run(
+        ["git", "show", f"{commit}:{path}"], cwd=AI_ROOT, capture_output=True, text=True
+    )
+    assert result.returncode == 0, f"không đọc được {commit}:{path}: {result.stderr.strip()}"
+    return result.stdout
+
+
+def code_cells(filename, text=None):
+    if text is None:
+        text = (AI_ROOT / "notebooks" / filename).read_text(encoding="utf-8")
+    notebook = json.loads(text)
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
             source = "".join(cell["source"])
             yield "\n".join(line for line in source.splitlines() if not line.startswith("%"))
 
 
-def top_level(filename):
+def top_level(filename, text=None):
     """Hằng literal viết hoa và các hàm ở mức đầu của mọi ô mã."""
     constants, functions = {}, {}
-    for source in code_cells(filename):
+    for source in code_cells(filename, text):
         for node in ast.parse(source).body:
             if isinstance(node, ast.FunctionDef):
                 functions[node.name] = node
@@ -60,6 +71,9 @@ def nb():
     namespace = {
         **CONSTANTS,
         "LOG": None,
+        "CPU_THREADS": 2,
+        "gc": __import__("gc"),
+        "subprocess": subprocess,
         # predict_val chỉ cần decorator khi định nghĩa; không chạy mô hình trong kiểm thử.
         "torch": SimpleNamespace(inference_mode=lambda: lambda function: function),
         "Path": Path,
@@ -159,25 +173,9 @@ def test_detr_batch_matches_training_config():
 def test_repo_commit_has_detr_inference_and_evaluate_threshold():
     commit = CONSTANTS["REPO_COMMIT"]
     assert re.fullmatch(r"[0-9a-f]{40}", commit)
-    try:
-        detr = subprocess.run(
-            ["git", "show", f"{commit}:ai/src/signa_ai/detr.py"],
-            cwd=AI_ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
-        evaluate = subprocess.run(
-            ["git", "show", f"{commit}:ai/src/signa_ai/evaluate.py"],
-            cwd=AI_ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
-    except (OSError, subprocess.CalledProcessError):
-        pytest.skip("không đọc được REPO_COMMIT từ git cục bộ")
+    detr = git_show(commit, "ai/src/signa_ai/detr.py")
     assert "def load_detr_checkpoint" in detr and "def predict_detr" in detr
-    assert '"--threshold"' in evaluate
+    assert '"--threshold"' in git_show(commit, "ai/src/signa_ai/evaluate.py")
 
 
 @pytest.mark.parametrize(
@@ -190,11 +188,26 @@ def test_repo_commit_has_detr_inference_and_evaluate_threshold():
     ],
 )
 def test_prediction_code_is_verbatim_from_train_notebook(train_notebook, train_name, name):
-    original = deepcopy(top_level(train_notebook)[1][train_name])
+    """So với mọi bản notebook train tới REPO_COMMIT, vì meta.json không ghi bản nào đã chạy.
+
+    Sau REPO_COMMIT, notebook YOLOv8 đổi imgsz=640 thành IMGSZ cho lượt 960; lượt 640 vẫn
+    được xuất bằng bản cũ nên không so với main.
+    """
+    path = f"ai/notebooks/{train_notebook}"
+    commits = subprocess.run(
+        ["git", "log", "--format=%H", CONSTANTS["REPO_COMMIT"], "--", path],
+        cwd=AI_ROOT.parent,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert commits, f"không có lịch sử của {path}"
     copy = deepcopy(FUNCTIONS[name])
-    for node in (original, copy):
-        node.name = "f"
-    assert ast.dump(copy) == ast.dump(original)
+    copy.name = "f"
+    for commit in commits:
+        original = deepcopy(top_level(train_notebook, git_show(commit, path))[1][train_name])
+        original.name = "f"
+        assert ast.dump(copy) == ast.dump(original), commit
 
 
 def test_check_weights_returns_sha_and_stops_on_mismatch(nb, tmp_path):
@@ -236,11 +249,156 @@ def test_test_done_skips_only_matching_sha(nb, tmp_path):
         test_done(tmp_path, "w", "other")
 
 
-def test_latency_done_requires_same_weights(nb, tmp_path):
+def test_latency_done_requires_same_weights_and_settings(nb, tmp_path):
     assert not nb["latency_done"](tmp_path, "w")
-    (tmp_path / "latency.json").write_text(json.dumps({"weights_sha256": "w"}))
+    report = {"weights_sha256": "w", "images": 200, "warmup": 10, "cpu": {"torch_threads": 2}}
+    path = tmp_path / "latency.json"
+    path.write_text(json.dumps(report))
     assert nb["latency_done"](tmp_path, "w")
     assert not nb["latency_done"](tmp_path, "other")
+    for change in ({"images": 100}, {"warmup": 5}, {"cpu": {"torch_threads": 4}}, {"cpu": None}):
+        path.write_text(json.dumps({**report, **change}))
+        assert not nb["latency_done"](tmp_path, "w")
+
+
+def test_training_pin_reads_drive_requirements_or_falls_back(nb):
+    pin = nb["training_pin"]
+    frozen = "torch==2.9.0\nUltralytics==8.4.205\nultralytics-thop==2.0.18\n"
+    assert pin([frozen, frozen]) == ("8.4.205", "requirements.txt của lượt train trên Drive")
+    version, source = pin([])
+    assert version == CONSTANTS["YOLOV5_ULTRALYTICS_FALLBACK"] == "8.4.201"
+    assert "cận dưới" in source
+    with pytest.raises(RuntimeError, match="nhiều bản"):
+        pin([frozen, "ultralytics==8.4.201\n"])
+
+
+def test_yolov5_requirements_lower_bound_is_the_fallback():
+    """Cận dưới ultralytics của YOLOv5 1e7cf74, theo export_tflite_yolov5_v1.1.ipynb."""
+    text = (AI_ROOT / "notebooks/export_tflite_yolov5_v1.1.ipynb").read_text(encoding="utf-8")
+    assert "ultralytics==8.4.201" in text
+    assert CONSTANTS["YOLOV5_COMMIT"] in text
+
+
+RUN = "yolov8s-640-v1.1-main-s0"
+
+
+def gate_namespace(nb, tmp_path, delta):
+    """process() với mô hình, CLI chấm và đo thời gian giả; ghi lại thứ tự gọi."""
+    reference = json.loads((AI_ROOT / f"experiments/{RUN}/metrics.json").read_text())
+    calls = []
+    weights = tmp_path / "experiments" / RUN / "weights/best.pt"
+    weights.parent.mkdir(parents=True)
+    weights.write_bytes(b"fake")
+    locked = deepcopy(nb["LOCKED"])
+    locked[RUN]["weights_sha256"] = hashlib.sha256(b"fake").hexdigest()
+
+    def make_predictor(path):
+        def predict_split(split):
+            calls.append(("predict", split))
+            return [{"image_id": 0, "category_id": 0, "bbox": [0, 0, 1, 1], "score": 0.5}]
+
+        return predict_split
+
+    def evaluate_cli(gt, predictions, out, threshold=None):
+        calls.append(("evaluate", out.name, threshold))
+        if out.name == "metrics-val-repro.json":
+            metrics = {**reference, "map_50_95": reference["map_50_95"] + delta}
+        else:
+            metrics = reference
+        out.write_text(json.dumps(metrics))
+        return metrics
+
+    def measure_latency(path, conf):
+        calls.append(("latency", conf))
+        return {"cuda": {}, "cpu": {"torch_threads": 2}}
+
+    nb.update(
+        GROUP="yolov8",
+        LOCKED=locked,
+        EXPERIMENTS=tmp_path / "experiments",
+        REPO=AI_ROOT.parent,
+        GT_PATHS={"val": tmp_path / "val.json", "test": tmp_path / "test.json"},
+        GT_SHA256={"val": "val-sha", "test": "test-sha"},
+        MANIFEST=AI_ROOT / "data/manifests/v1.1.csv",
+        GPU="fake",
+        NOTEBOOK_COMMIT=None,
+        EVAL_CONFIDENCE=0.001,
+        label_map=SimpleNamespace(version=1),
+        torch=SimpleNamespace(
+            version=SimpleNamespace(cuda="fake"), cuda=SimpleNamespace(empty_cache=lambda: None)
+        ),
+        make_predictor=make_predictor,
+        evaluate_cli=evaluate_cli,
+        measure_latency=measure_latency,
+    )
+    return calls, tmp_path / "experiments" / RUN / "evaluation"
+
+
+def test_failed_val_reproduction_stops_before_test(nb, tmp_path):
+    calls, evaluation = gate_namespace(nb, tmp_path, delta=0.0021)
+    with pytest.raises(RuntimeError, match="Không chạy test"):
+        nb["process"](RUN)
+    assert calls == [("predict", "val"), ("evaluate", "metrics-val-repro.json", None)]
+    assert not json.loads((evaluation / "reproduce-val.json").read_text())["passed"]
+    for name in ("predictions-test.json", "metrics-test.json", "test-config.json"):
+        assert not (evaluation / name).exists()
+
+
+def test_passed_val_reproduction_scores_test_at_locked_threshold_then_skips(nb, tmp_path):
+    calls, evaluation = gate_namespace(nb, tmp_path, delta=0.0019)
+    threshold = CONSTANTS["LOCKED"][RUN]["threshold"]
+    nb["process"](RUN)
+    assert calls == [
+        ("predict", "val"),
+        ("evaluate", "metrics-val-repro.json", None),
+        ("predict", "test"),
+        ("evaluate", "metrics-test.json", threshold),
+        ("latency", threshold),
+    ]
+    config = json.loads((evaluation / "test-config.json").read_text())
+    assert config["weights_sha256"] == nb["LOCKED"][RUN]["weights_sha256"]
+    assert config["test_gt_sha256"] == "test-sha"
+    assert config["operating_threshold"] == threshold and config["reproduction"]["passed"]
+
+    calls.clear()
+    nb["process"](RUN)
+    assert calls == []
+
+
+def test_evaluate_cli_logs_stderr_and_keeps_output_on_failure(nb, tmp_path):
+    nb.update(MANIFEST=AI_ROOT / "data/manifests/v1.1.csv", LABELS=AI_ROOT / "data/labels.yaml")
+    out = tmp_path / "metrics.json"
+    out.write_text("cũ")
+    with pytest.raises(subprocess.CalledProcessError), nb["logged"](tmp_path / "e.log", "cli"):
+        nb["evaluate_cli"](tmp_path / "missing.json", tmp_path / "pred.json", out)
+    assert "Đánh giá thất bại" in (tmp_path / "e.log").read_text(encoding="utf-8")
+    assert out.read_text() == "cũ"
+
+
+def test_evaluate_cli_passes_locked_threshold(nb, tmp_path):
+    from signa_ai.labels import load_label_map
+
+    names = load_label_map().names
+    gt = {
+        "info": {"label_map_version": 1},
+        "images": [{"id": 0, "file_name": "images/test/0.jpg", "width": 100, "height": 100}],
+        "categories": [{"id": key, "name": value} for key, value in names.items()],
+        "annotations": [{"id": 1, "image_id": 0, "category_id": 0, "bbox": [10, 10, 20, 20]}],
+    }
+    predictions = [
+        {"image_id": 0, "category_id": 0, "bbox": [10, 10, 20, 20], "score": 0.9},
+        {"image_id": 0, "category_id": 1, "bbox": [50, 50, 20, 20], "score": 0.3},
+    ]
+    (tmp_path / "gt.json").write_text(json.dumps(gt))
+    (tmp_path / "pred.json").write_text(json.dumps(predictions))
+    nb.update(MANIFEST=AI_ROOT / "data/manifests/v1.1.csv", LABELS=AI_ROOT / "data/labels.yaml")
+    threshold = 0.390178382396698
+    metrics = nb["evaluate_cli"](
+        tmp_path / "gt.json", tmp_path / "pred.json", tmp_path / "m.json", threshold=threshold
+    )
+    assert metrics["operating_point"]["threshold"] == threshold
+    assert metrics["operating_point"]["precision"] == 1.0 and metrics["max_f1"] is None
+    assert not (tmp_path / ".m.json.tmp").exists()
 
 
 @pytest.mark.parametrize("values", [[5.0], [3.0, 1.0], list(np.random.default_rng(0).random(200))])
