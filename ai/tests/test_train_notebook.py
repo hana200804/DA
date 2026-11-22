@@ -4,17 +4,28 @@ import ast
 import csv
 import hashlib
 import json
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
+import numpy as np
 import pytest
 import yaml
 
 from signa_ai.augment import ULTRALYTICS_ARGS
 from signa_ai.detection import Box, Detection, to_coco_predictions
 from signa_ai.labels import load_label_map
+from signa_ai.yolo_training import (
+    check_resume_config,
+    file_sha256,
+    freeze_requirements,
+    load_stop_state,
+    restore_stop_state,
+    save_stop_state,
+    write_run_file,
+)
 
 AI_ROOT = Path(__file__).resolve().parents[1]
 
@@ -55,6 +66,17 @@ def load_main_notebook(version):
             "torch": SimpleNamespace(load=Mock(), __version__="fake"),
             "datetime": datetime,
             "UTC": UTC,
+            "Path": Path,
+            "time": time,
+            "yaml": yaml,
+            "patch": patch,
+            "check_resume_config": check_resume_config,
+            "file_sha256": file_sha256,
+            "freeze_requirements": freeze_requirements,
+            "load_stop_state": load_stop_state,
+            "restore_stop_state": restore_stop_state,
+            "save_stop_state": save_stop_state,
+            "write_run_file": write_run_file,
             "REPO_COMMIT": "repo-sha",
             "NOTEBOOK_COMMIT": None,
             "GPU": "fake",
@@ -256,7 +278,12 @@ def test_yolov5_records_gpu_time_at_checkpoint(tmp_path):
     functions = load_main_notebook("v5")
     functions["time"] = SimpleNamespace(monotonic=Mock(side_effect=[0, 0, 3600, 7200]))
     functions["YOLOV5_COMMIT"] = "upstream-sha"
-    register = Mock()
+    functions["ultralytics"] = SimpleNamespace(__version__="8.4.215")
+    registered = {}
+
+    def register(name, callback):
+        registered[name] = callback
+
     functions["Callbacks"] = Mock(return_value=SimpleNamespace(register_action=register))
     meta_path = tmp_path / "meta.json"
     resume = str(tmp_path / "weights/last.pt")
@@ -264,22 +291,211 @@ def test_yolov5_records_gpu_time_at_checkpoint(tmp_path):
     def train(opt, callbacks):
         assert opt.resume == resume
         assert callbacks is functions["Callbacks"].return_value
-        register.call_args.kwargs["callback"](None, 5, False, 0.5, 0.5)
+        registered["on_model_save"](None, 5, False, 0.5, 0.5)
         session = json.loads(meta_path.read_text())["sessions"][0]
         assert session["gpu_hours"] == 1
         assert session["epoch"] == 6
 
     functions["yolov5_train"] = SimpleNamespace(
-        parse_opt=Mock(return_value=SimpleNamespace()), main=train
+        parse_opt=Mock(return_value=SimpleNamespace()), main=train,
+        EarlyStopping=Mock(),
     )
 
-    functions["train_with_tracking"](tmp_path, resume=resume)
+    functions["train_with_tracking"](tmp_path, {"patience": 30}, {}, stop_state={})
 
-    assert register.call_args.args == ("on_model_save",)
+    assert "on_model_save" in registered
     meta = json.loads(meta_path.read_text())
     assert meta["notebook_commit"] is None
     assert "SIGNA_NOTEBOOK_COMMIT" in meta["notebook_commit_note"]
     assert meta["sessions"][0]["gpu_hours"] == 2
+
+
+class StopperProbe:
+    def __init__(self, patience):
+        self.patience = patience
+        self.best_fitness = 0.0
+        self.best_epoch = 0
+        self.possible_stop = False
+
+    def __call__(self, epoch, fitness):
+        if fitness > self.best_fitness:
+            self.best_fitness = fitness
+            self.best_epoch = epoch
+        elapsed = epoch - self.best_epoch
+        self.possible_stop = elapsed >= self.patience - 1
+        return elapsed >= self.patience
+
+
+def main_training_namespace(version, run_dir):
+    functions = load_main_notebook(version)
+    functions.update(
+        BATCH=16,
+        SEED=0,
+        EPOCHS=200,
+        SMOKE=False,
+        MAIN_BATCH=16,
+        IMGSZ=960,
+        DRIVE_ROOT=run_dir.parent,
+        config_path=run_dir.parent / "data.yaml",
+        data_path=run_dir.parent / "data.yaml",
+        HYP=AI_ROOT / "configs/yolov5-hyp.yaml",
+        ULTRALYTICS_ARGS=ULTRALYTICS_ARGS,
+        NOTEBOOK_COMMIT="notebook-sha",
+        YOLOV5_COMMIT="yolov5-sha",
+        ALLOW_BATCH_CHANGE=False,
+        ultralytics=SimpleNamespace(__version__="test"),
+    )
+    return functions
+
+
+@pytest.mark.parametrize("version", ["v5", "v8"])
+@pytest.mark.parametrize(
+    ("batch", "allow", "invalid"),
+    [(2, False, None), (16, False, "batch"), (8, True, None), (8, True, "seed")],
+)
+def test_main_resume_checks_checkpoint_and_restores_patience(
+    tmp_path, version, batch, allow, invalid
+):
+    run_dir = tmp_path / f"yolo{version}s-{960 if version == 'v8' else 640}-v1.1-main-s0"
+    run_dir.mkdir()
+    functions = main_training_namespace(version, run_dir)
+    args = functions["train_args"]("s")
+    config_file = run_dir / "config.yaml"
+    original_config = yaml.safe_dump({"dataset_version": "v1.1", "label_map_version": 1, **args})
+    config_file.write_text(original_config)  # Cấu hình có thể mới hơn checkpoint.
+    batch_key = "batch" if version == "v8" else "batch_size"
+    saved = {**args, batch_key: 2}
+    if invalid == "seed":
+        saved["seed"] = 1
+    epoch_offset = int(version == "v8")
+    saved_stopper = StopperProbe(args["patience"])
+    peak = np.array([0.75]) if version == "v5" else 0.75
+    assert not saved_stopper(10, peak)
+    for epoch in range(11, 36):
+        assert not saved_stopper(epoch, 0.5)
+    save_stop_state(run_dir, saved_stopper, 35 - epoch_offset, epoch_offset=epoch_offset)
+    # Phiên mất ngay trước khi last.pt được ghi lại vẫn giữ trạng thái epoch cũ.
+    saved_stopper(36, 0.8)
+    save_stop_state(run_dir, saved_stopper, 36 - epoch_offset, epoch_offset=epoch_offset)
+    functions.update(BATCH=batch, ALLOW_BATCH_CHANGE=allow)
+    events = {}
+    observed_batch = []
+
+    def finish(stopper):
+        assert stopper.best_epoch == 10 and stopper.best_fitness == 0.75
+        for epoch in range(36, 40):
+            assert not stopper(epoch, 0.5)
+        assert stopper.possible_stop
+        assert stopper(40, 0.5)
+
+    if version == "v8":
+        saved.update(device="0", fraction=1.0)
+        checkpoint = {"train_args": saved, "epoch": 34}
+        trainer = SimpleNamespace(
+            stopper=StopperProbe(args["patience"]), epoch=39, save_model=Mock(),
+        )
+
+        def train(**kwargs):
+            assert kwargs["resume"] is True
+            observed_batch.append(kwargs["batch"])
+            events["on_train_start"](trainer)
+            finish(trainer.stopper)
+            trainer.save_model()
+
+        functions["YOLO"] = Mock(return_value=SimpleNamespace(
+            ckpt=checkpoint, add_callback=events.__setitem__, train=train
+        ))
+    else:
+        saved["hyp"] = yaml.safe_load(Path(args["hyp"]).read_text())
+        saved["optimizer"] = "SGD"
+        checkpoint = {"opt": saved, "epoch": 35}
+        functions["torch"].load.return_value = checkpoint
+        opt_yaml = run_dir / "opt.yaml"
+        stale_opts = yaml.safe_dump({**saved, batch_key: 16, "optimizer": "Adam"})
+        opt_yaml.write_text(stale_opts)
+
+        def main(opt, callbacks):
+            assert opt.resume == str(run_dir / "weights/last.pt")
+            native_opt = yaml.safe_load(opt_yaml.read_text())
+            observed_batch.append(native_opt["batch_size"])
+            assert native_opt["optimizer"] == "SGD"
+            stopper = yolov5.EarlyStopping(native_opt["patience"])
+            events["on_train_start"]()
+            finish(stopper)
+            events["on_fit_epoch_end"]([], 40, 0.75, 0.5)
+
+        def register(name, callback):
+            events[name] = callback
+
+        yolov5 = SimpleNamespace(
+            parse_opt=Mock(return_value=SimpleNamespace()), main=main,
+            EarlyStopping=StopperProbe,
+        )
+        functions["yolov5_train"] = yolov5
+        functions["Callbacks"] = Mock(return_value=SimpleNamespace(register_action=register))
+
+    if invalid:
+        with pytest.raises(ValueError, match=invalid):
+            functions["train_run"](run_dir, "s", "resume")
+        assert config_file.read_text() == original_config
+        if version == "v5":
+            assert opt_yaml.read_text() == stale_opts
+        assert not (run_dir / "meta.json").exists()
+        assert not observed_batch
+        return
+
+    original_session = {"batch": 2, "epoch": 35}
+    meta_file = run_dir / "meta.json"
+    meta_file.write_text(json.dumps({
+        "coco_weights_sha256": "original-coco-sha",
+        "sessions": [original_session],
+    }))
+    functions["train_run"](run_dir, "s", "resume")
+
+    assert observed_batch == [batch]
+    assert yaml.safe_load(config_file.read_text())[batch_key] == batch
+    meta = json.loads(meta_file.read_text())
+    assert meta["coco_weights_sha256"] == "original-coco-sha"
+    previous_session, session = meta["sessions"]
+    assert previous_session == original_session
+    assert session["batch"] == batch and session["checkpoint_batch"] == 2
+    requirements = (run_dir / "requirements.txt").read_bytes()
+    assert requirements == (run_dir / session["requirements_file"]).read_bytes()
+    assert b"pytest==" in requirements
+    state = load_stop_state(run_dir, 40 - epoch_offset, epoch_offset=epoch_offset)
+    assert state == {"best_epoch": 10, "best_fitness": 0.75, "epochs_without_improvement": 30}
+
+
+@pytest.mark.parametrize("version", ["v5", "v8"])
+def test_main_new_run_records_notebook_and_initial_coco_sha(tmp_path, version):
+    functions = main_training_namespace(version, tmp_path)
+    weights = tmp_path / f"yolo{version}s.pt"
+    weights.write_bytes(b"initial-coco-weights")
+    train = Mock()
+    if version == "v8":
+        functions["YOLO"] = Mock(return_value=SimpleNamespace(
+            ckpt_path=str(weights), add_callback=Mock(), train=train
+        ))
+    else:
+        functions["attempt_download"] = Mock(return_value=str(weights))
+        functions["yolov5_train"] = SimpleNamespace(
+            parse_opt=Mock(return_value=SimpleNamespace()),
+            main=train, EarlyStopping=StopperProbe,
+        )
+        functions["Callbacks"] = Mock()
+
+    functions["train_run"](tmp_path, "s", "new")
+
+    train.assert_called_once()
+    meta = json.loads((tmp_path / "meta.json").read_text())
+    assert meta["notebook_commit"] == "notebook-sha"
+    assert meta["coco_weights_sha256"] == hashlib.sha256(weights.read_bytes()).hexdigest()
+    assert meta["sessions"][0]["batch"] == 16
+
+
+def test_resume_rejects_missing_epoch_state(tmp_path):
+    with pytest.raises(ValueError, match="Thiếu trạng thái dừng sớm"):
+        load_stop_state(tmp_path, 18)
 
 
 def test_yolov8_train_end_preserves_best_selection(tmp_path):
@@ -288,7 +504,7 @@ def test_yolov8_train_end_preserves_best_selection(tmp_path):
     functions["ultralytics"] = SimpleNamespace(__version__="8.3.203")
     functions["NOTEBOOK_COMMIT"] = "notebook-sha"
     callbacks = {}
-    functions["track"](SimpleNamespace(add_callback=callbacks.__setitem__), tmp_path)
+    functions["track"](SimpleNamespace(add_callback=callbacks.__setitem__), tmp_path, {})
     trainer = SimpleNamespace(
         epoch=6,
         fitness=0.6,

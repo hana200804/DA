@@ -12,7 +12,7 @@ Thí nghiệm AI-07 về biển nhỏ ([Thiết kế AI §3](../../../docs/04-th
 
 Hai phép đo dùng toàn bộ 1.599 ảnh val v1.1 và cùng `best.pt` của YOLOv8s 640, với confidence xuất COCO 0,001, NMS IoU 0,7 và ngưỡng vận hành khóa 0,5279324054718018. Chỉ thay kích thước đầu vào khi suy luận. [Cấu hình và hash](inference-val/comparison-config.json)
 
-`base_commit` là commit nền của PR #22. `script_sha256` ghi hash của bản `compare_val_sizes.py` đã chạy. Bản đó khác bản script tại head ban đầu `8b39640` ở cách tìm tệp nhãn và định dạng mã. [Script tại head ban đầu](https://github.com/hana200804/DA/blob/8b39640d8e37ae005fec03747de39ecc1e0424eb/ai/scripts/compare_yolov8s_val_sizes.py)
+`base_commit` là commit nền của PR #22. `script_sha256` khớp từng byte với bản `compare_val_sizes.executed.py` lưu dưới đây. Bản tại head ban đầu `8b39640` có cách tìm tệp nhãn và định dạng mã khác. [Bản đã chạy](inference-val/compare_val_sizes.executed.py), [Script tại head ban đầu](https://github.com/hana200804/DA/blob/8b39640d8e37ae005fec03747de39ecc1e0424eb/ai/scripts/compare_yolov8s_val_sizes.py)
 
 | Chỉ số | 640 px | 960 px | Thay đổi |
 | --- | ---: | ---: | ---: |
@@ -32,13 +32,28 @@ Từ thư mục này, giải nén hai tệp dự đoán để chấm lại bằn
 gunzip -k inference-val/predictions-val-640.json.gz inference-val/predictions-val-960.json.gz
 ```
 
-Chạy từ `ai/` với extra `train,eval`, bản PyTorch CUDA và đúng `best.pt` của lượt chính 640:
+Chạy các lệnh sau từ `ai/` với extra `train,eval`, PyTorch CUDA và đúng `best.pt` của lượt chính 640. Lệnh này dùng [script hiện hành](../../scripts/compare_yolov8s_val_sizes.py).
 
 ```sh
 uv run --no-sync python scripts/compare_yolov8s_val_sizes.py \
   --dataset data/processed/v1.1 \
   --weights /đường/dẫn/yolov8s-640-v1.1-main-s0/weights/best.pt \
   --out /tmp/signa-yolov8s-val-sizes
+```
+
+Lệnh sau chạy đúng bản mã đã lưu theo SHA-256. Đặt bản sao trong thư mục tạm có liên kết tới `data/` để giữ cách script tìm danh mục nhãn.
+
+```sh
+replay_dir=$(mktemp -d)
+mkdir "$replay_dir/scripts"
+ln -s "$PWD/data" "$replay_dir/data"
+cp experiments/yolov8s-960-v1.1-main-s0/inference-val/compare_val_sizes.executed.py \
+  "$replay_dir/scripts/compare_val_sizes.py"
+sha256sum "$replay_dir/scripts/compare_val_sizes.py"
+uv run --no-sync python "$replay_dir/scripts/compare_val_sizes.py" \
+  --dataset data/processed/v1.1 \
+  --weights /đường/dẫn/yolov8s-640-v1.1-main-s0/weights/best.pt \
+  --out "$replay_dir/results"
 ```
 
 ## Khả năng huấn luyện 960
@@ -60,7 +75,7 @@ Cần phiên GPU chạy đủ lâu để hoàn tất hoặc tiếp tục từ ch
 | Hạng mục | `yolov8s-640-v1.1-main-s0` | Lượt này |
 | --- | --- | --- |
 | Kích thước ảnh train và xuất dự đoán val | 640 | 960 |
-| Batch | 16 | 16. Nếu hết bộ nhớ GPU phải giảm, `config.yaml` ghi `batch_note` và báo cáo khác biệt này |
+| Batch | 16 | Mặc định 16. Khi chọn batch khác, `config.yaml` ghi `batch_note` và `meta.json` ghi batch theo phiên |
 
 Giữ nguyên: dữ liệu v1.1, [tăng cường chung](../../configs/augment.md), khởi tạo COCO `yolov8s.pt`, seed 0, trần 200 epoch, patience 30 theo mAP@0.5:0.95 trên val, cách chọn `best.pt`, ngưỡng xuất dự đoán 0,001.
 
@@ -74,9 +89,11 @@ Mở [`train_yolov8_main_v1.1.ipynb`](../../notebooks/train_yolov8_main_v1.1.ipy
 %env SIGNA_SIZES=s
 ```
 
-Thay `<SHA>` bằng SHA trên liên kết cố định GitHub của notebook, rồi **Run all**. Mất phiên thì giữ ô này và **Run all** lại, run dở tiếp tục từ `last.pt`. Nếu hết bộ nhớ GPU, thêm `%env SIGNA_BATCH=<số nhỏ hơn>`; `config.yaml` sẽ ghi `batch_note`.
+Thay `<SHA>` bằng SHA trên liên kết cố định GitHub của notebook, rồi **Run all**. Mất phiên thì giữ ô này và **Run all** lại. Notebook đối chiếu với cấu hình checkpoint và khôi phục patience từ `early-stopping.json` cùng epoch. Giữ tệp này cạnh `config.yaml`.
 
-Ước lượng thời gian, chưa đo: lượt 640 mất 6,1 giờ L4 ([main-v1.1.md](../main-v1.1.md)). Ảnh 960 có khoảng 2,25 lần số điểm ảnh. Nếu thời gian tăng theo số điểm ảnh, lượt này cần khoảng 13,7 giờ L4. Khi tiếp tục từ checkpoint, bộ đếm dừng sớm khởi tạo lại. Nếu lượt chạy qua nhiều phiên, ghi lại khác biệt này.
+Nếu hết bộ nhớ GPU, đặt `%env SIGNA_BATCH=<số nhỏ hơn>`. Khi đổi batch sau khi đã có checkpoint, thêm `%env SIGNA_ALLOW_BATCH_CHANGE=1` cho phiên đổi batch. `meta.json` ghi batch trong checkpoint, batch của phiên vừa mở và tệp phiên bản phụ thuộc tương ứng. Giữ giá trị `SIGNA_BATCH` cho các phiên sau và báo cáo các mốc đổi batch khi so sánh với lượt 640.
+
+Ước lượng thời gian, chưa đo: lượt 640 mất 6,1 giờ L4. Ảnh 960 có khoảng 2,25 lần số điểm ảnh. Nếu thời gian tăng theo số điểm ảnh, lượt này cần khoảng 13,7 giờ L4. [Lượt 640](../main-v1.1.md)
 
 Sau khi chạy, chép `config.yaml`, `meta.json`, `results.csv`, `best-selection.json`, `metrics.json` từ Drive `Signa/experiments/yolov8s-960-v1.1-main-s0/` vào thư mục này.
 

@@ -278,8 +278,8 @@ uv run --no-sync python -m signa_ai.evaluate \
 
 ## Lượt so sánh chính YOLOv5, YOLOv8 · v1.1
 
-Hai notebook, mỗi notebook một runtime Colab riêng vì repo YOLOv5 gốc cần `ultralytics>=8.4`,
-còn YOLOv8 ghim 8.3.203:
+Mỗi notebook dùng một runtime Colab riêng. YOLOv5 ghim `ultralytics==8.4.215`
+theo hai lượt đã công bố. YOLOv8 ghim `ultralytics==8.3.203`.
 
 | Notebook | Mô hình | Run trên Drive |
 | --- | --- | --- |
@@ -288,9 +288,11 @@ còn YOLOv8 ghim 8.3.203:
 
 Cả hai theo [giao thức huấn luyện](../docs/04-thiet-ke-ai.md#3-giao-thức-huấn-luyện) và
 [bảng tăng cường chung](configs/augment.md): ảnh 640, tối đa 200 epoch, patience 30, seed 0,
-chọn `best.pt` theo mAP@0.5:0.95 trên val. Chọn GPU rồi **Run all**. Mất phiên thì **Run all** lại:
-run xong được bỏ qua, run dở tiếp tục từ `last.pt`. Mỗi run kết thúc bằng dự đoán val và
-`metrics.json` của bộ đánh giá chung. Notebook không xuất test.
+chọn `best.pt` theo mAP@0.5:0.95 trên val. Đặt `%env SIGNA_NOTEBOOK_COMMIT=<SHA>` theo liên kết
+cố định của notebook, chọn GPU rồi **Run all**. Để tiếp tục lượt dở, giữ cấu hình và chạy lại với
+`last.pt` và `early-stopping.json` cùng epoch. Để chủ động đổi batch khi resume, đặt `SIGNA_BATCH`
+và `SIGNA_ALLOW_BATCH_CHANGE=1`. `meta.json` ghi batch và bản phụ thuộc theo phiên.
+Mỗi lượt hoàn tất có dự đoán val và `metrics.json` của bộ đánh giá chung.
 
 Notebook YOLOv8 đọc kích thước ảnh, cỡ mô hình và batch từ biến môi trường `SIGNA_IMGSZ`
 (mặc định 640), `SIGNA_SIZES` (mặc định `n,s`) và `SIGNA_BATCH` (mặc định 16).

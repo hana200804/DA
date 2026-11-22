@@ -7,7 +7,9 @@ Giá trị nằm trong [`signa_ai/augment.py`](../src/signa_ai/augment.py) và [
 ## Cách áp dụng
 
 - **Phép hình học** (co giãn, dịch, xoay) dùng tham số sẵn có của từng bộ công cụ. YOLO áp dụng cho mọi ảnh, nên DETR dùng `A.Affine` với `p=1`.
+- **Lọc box sau phép hình học** dùng quy tắc riêng. DETR giữ box có phần còn thấy đạt `min_visibility=0.3`. YOLOv5 và YOLOv8 dùng `area_thr=0.10`, yêu cầu cả hai cạnh lớn hơn 2 px và tỷ lệ cạnh dài trên cạnh ngắn nhỏ hơn 100. [DETR](../src/signa_ai/augment.py), [YOLOv5](https://github.com/ultralytics/yolov5/blob/1e7cf74cb64d719b34f7315aa13eab9e32cde672/utils/augmentations.py#L183-L245), [YOLOv8](https://github.com/ultralytics/ultralytics/blob/v8.3.203/ultralytics/data/augment.py#L1354-L1394)
 - **Phép ảnh** (độ sáng, nhoè, thời tiết, nhiễu, JPEG) chạy cùng một pipeline Albumentations `photometric_transforms()`. Với YOLO, gọi `patch_ultralytics()` hoặc `patch_yolov5()` trước khi huấn luyện để thay pipeline Albumentations mặc định (Blur, MedianBlur, ToGray, CLAHE xác suất 0,01) bằng pipeline chung. DETR dùng `detr_transforms()`.
+- YOLOv5 đặt seed riêng cho pipeline Albumentations từ phiên bản sửa B4. Thay đổi áp dụng cho lượt huấn luyện sau hai lượt YOLOv5 đã công bố. [Mã đặt seed](../src/signa_ai/augment.py)
 - HSV của YOLO tắt hết (`hsv_h`, `hsv_s`, `hsv_v` bằng 0) vì độ sáng đã do pipeline chung đảm nhận và DETR không có phép tương ứng.
 - Chốt `albumentations==2.0.8` trong extra `train`, vì tên tham số đổi giữa các phiên bản.
 
