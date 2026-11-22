@@ -72,6 +72,8 @@ def detr_transforms(bbox_format: str = "coco") -> Any:
         scale=(1 - SCALE, 1 + SCALE),
         translate_percent=(-TRANSLATE, TRANSLATE),
         rotate=(-DEGREES, DEGREES),
+        keep_ratio=True,
+        fill=114,
         p=1.0,
     )
     return A.Compose(

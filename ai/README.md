@@ -9,7 +9,7 @@ Cần Python 3.11 và [uv](https://docs.astral.sh/uv/).
 ```sh
 cd ai
 uv venv --python 3.11
-uv pip install -e '.[dev]'          # thêm train, serve khi cần
+uv pip install -e '.[dev]'          # thêm detr, train, serve khi cần
 uv run --no-sync pytest
 uv run --no-sync ruff check .
 ```
@@ -29,11 +29,26 @@ uv run --no-sync ruff check .
 | `notebooks/export_tflite*.ipynb`, `scripts/export_tflite.py` | Xuất và chấm các ứng viên TFLite trên Colab | Mô hình điện thoại |
 | `configs/augment.md` | Bảng đối chiếu tăng cường cho ba mô hình | Huấn luyện YOLO, DETR |
 | `configs/yolov5-hyp.yaml` | Siêu tham số YOLOv5 cho lượt so sánh chính | Huấn luyện YOLO |
+| `configs/detr-r50-config.json` | Cấu hình kiến trúc DETR-R50 tại revision đã ghim, dùng khi nạp checkpoint | Huấn luyện và suy luận DETR |
 | `src/signa_ai/augment.py` | Tham số và pipeline Albumentations dùng chung cho ba mô hình | Huấn luyện YOLO, DETR |
+| `src/signa_ai/detr.py` | Dataset COCO, nạp checkpoint và suy luận DETR-R50 | Huấn luyện và suy luận DETR |
+| [`notebooks/train_detr_main_v1.1.ipynb`](notebooks/train_detr_main_v1.1.ipynb) | Huấn luyện và chấm DETR-R50 trên val v1.1 | Huấn luyện DETR |
 | `experiments/` | Cấu hình, log, chỉ số của từng thí nghiệm | Huấn luyện YOLO, DETR |
 | `service/` | Dịch vụ nhận diện FastAPI | Dịch vụ nhận diện |
 
 Ảnh, video và trọng số không đưa vào Git.
+
+## Huấn luyện DETR-R50 trên Colab
+
+1. Mở [notebook DETR](notebooks/train_detr_main_v1.1.ipynb) trong Colab, chọn GPU **L4, A100 hoặc H100** (ưu tiên A100 nếu có) và đặt `signa-v1.1.zip` ở thư mục gốc My Drive.
+2. Đặt `SMOKE = True` ở ô đầu và chọn **Run all** để chạy một epoch với khoảng 2% của train và val. Kết quả thử nằm trong `/content/signa-smoke/`.
+3. Đặt `SMOKE = False` rồi **Run all** cho lượt chính. Notebook dò batch, lưu checkpoint theo epoch ở `MyDrive/Signa/experiments/detr-r50-640-v1.1-main-s0/` và chấm val bằng bộ đánh giá chung.
+
+Khi phiên Colab ngắt, chọn GPU được hỗ trợ và **Run all** để tiếp tục từ `last.pt`. Batch giữ nguyên qua các phiên. GPU của phiên mới cần đủ VRAM cho batch đã lưu. Chạy một runtime cho mỗi lượt. Sau khi có `done.json`, notebook bỏ qua lượt đã hoàn thành. Tập test dành cho đánh giá sau khi chốt cấu hình.
+
+Hồ sơ lượt chính nằm trong [thư mục thí nghiệm](experiments/detr-r50-640-v1.1-main-s0/). Xem [bảng so sánh v1.1](experiments/main-v1.1.md) để đối chiếu kết quả val.
+
+Khi cần suy luận, cài `uv pip install -e '.[detr]'` rồi dùng `load_detr_checkpoint` trong [`signa_ai.detr`](src/signa_ai/detr.py) với `best.pt` và danh mục nhãn đã dùng khi huấn luyện. Hàm không cần mạng. Cấu hình kiến trúc đọc từ [`configs/detr-r50-config.json`](configs/detr-r50-config.json), trọng số đọc từ checkpoint cục bộ. Tệp cấu hình là `config.json` của `facebook/detr-resnet-50` tại revision `1d5f47bd` đã ghim trong notebook, chép nguyên văn (SHA-256 `e7bcf399…17e6`). Hàm ghi đè số lớp, nhãn, `use_pretrained_backbone=False` và `auxiliary_loss=True` như lúc huấn luyện. Truyền `config=` để dùng tệp cấu hình khác. `predict_detr` nhận ảnh PIL, chạy trên thiết bị của mô hình và trả phát hiện theo pixel ảnh gốc. Dùng `to_coco_predictions` cùng danh mục để lấy `category_id`, `bbox` và `score` cho bộ đánh giá.
 
 ## Chạy dịch vụ nhận diện
 
