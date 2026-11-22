@@ -23,9 +23,10 @@ Giá trị nằm trong [`signa_ai/augment.py`](../src/signa_ai/augment.py) và [
 | Mưa, sương mù | `RandomRain` hoặc `RandomFog` mặc định, p = 0,1 | Pipeline chung | Pipeline chung | Pipeline chung |
 | Nhiễu | Gauss, độ lệch chuẩn 1–5% giá trị tối đa, p = 0,2 | Pipeline chung | Pipeline chung | Pipeline chung |
 | Nén JPEG | Chất lượng 40–90, p = 0,3 | Pipeline chung | Pipeline chung | Pipeline chung |
-| Co giãn | ±50% | `scale: 0.5` | `scale=0.5` | `Affine(scale=(0.5, 1.5))` |
+| Co giãn | ±50%, cùng hệ số cho hai trục | `scale: 0.5` | `scale=0.5` | `Affine(scale=(0.5, 1.5), keep_ratio=True)` |
 | Dịch chuyển | ±10% | `translate: 0.1` | `translate=0.1` | `Affine(translate_percent=(-0.1, 0.1))` |
 | Xoay | ≤ 10° | `degrees: 10` | `degrees=10` | `Affine(rotate=(-10, 10))` |
+| Viền sau phép hình học | Xám 114 | Mặc định 114 | Mặc định 114 | `Affine(fill=114)` |
 | Cắt xiên, phối cảnh | **Tắt** | `shear: 0.0`, `perspective: 0.0` | `shear=0.0`, `perspective=0.0` | Không dùng |
 | Mosaic, MixUp, CutMix, Copy-paste | **Tắt** trong lượt so sánh chính | `mosaic: 0.0`, `mixup: 0.0`, `copy_paste: 0.0` | `mosaic=0.0`, `mixup=0.0`, `cutmix=0.0`, `copy_paste=0.0` | Không dùng |
 

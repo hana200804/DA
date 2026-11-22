@@ -8,9 +8,9 @@ Kết quả lượt so sánh chính theo [Thiết kế AI §3](../../docs/04-thi
 | YOLOv5s | 200 / 183 | 81,41% | 65,97% | **52,5%** | 83,5% (0,42) | 82,74% | L4 · 6,9 |
 | YOLOv8n | 187 / 157 | 81,46% | 65,57% | 51,2% | 82,8% (0,43) | 80,45% | L4 · 5,5 |
 | YOLOv8s | 196 / 166 | **84,03%** | **69,56%** | 51,1% | **85,0%** (0,53) | 79,75% | L4 · 6,1 |
-| DETR-R50 | 249 / 219 | 76,09% | 56,79% | 37,4% | 79,1% (0,71) | 75,43% | A100 · 14,6 |
+| [DETR-R50](detr-r50-640-v1.1-main-s0/) | 249 / 219 | 76,09% | 56,79% | 37,4% | 79,1% (0,71) | 75,43% | A100 · 14,6 |
 
-Hồ sơ từng lượt nằm trong thư mục cùng tên: `config.yaml`, `meta.json`, `results.csv`, `best-selection.json`, `metrics.json`. Trọng số ở Drive `Signa/experiments/<mã thí nghiệm>/`. Hồ sơ DETR-R50 đi cùng nhánh `ai/6-detr-training`.
+Hồ sơ từng lượt nằm trong thư mục cùng tên: `config.yaml`, `meta.json`, `results.csv`, `best-selection.json`, `metrics.json`. Trọng số ở Drive `Signa/experiments/<mã thí nghiệm>/`.
 
 ## Ghi chú
 
