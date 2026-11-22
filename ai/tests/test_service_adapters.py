@@ -1,6 +1,7 @@
+import json
 import sys
-from contextlib import nullcontext
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from service.detr import DetrDetector
 from service.yolov5 import YOLOV5_COMMIT, YoloV5Detector
 from signa_ai.detection import Box
+from signa_ai.detr import DETR_CONFIG
 from signa_ai.labels import load_label_map
 
 
@@ -35,59 +37,50 @@ class FakeTensor:
         return self.data
 
 
-def test_detr_loads_state_dict_and_reprojects_queries(monkeypatch, tmp_path):
+def test_detr_uses_shared_loader_and_drops_empty_boxes(monkeypatch, tmp_path):
+    torch = pytest.importorskip("torch")
     labels = load_label_map()
-    weights = tmp_path / "best.pt"
-    state = object()
 
-    def load(path, *, map_location, weights_only):
-        assert (path, map_location, weights_only) == (weights, "cpu", True)
-        return {"model": state, "epoch": 219}
-
-    class DetrModel:
+    class FakeDetr(torch.nn.Module):
         def __init__(self, config):
-            assert config.id2label == labels.names
-            assert config.auxiliary_loss
-            assert not config.use_pretrained_backbone
+            super().__init__()
+            self.config = config
+            self.anchor = torch.nn.Parameter(torch.zeros(1))
 
-        def load_state_dict(self, data):
-            assert data is state
-
-        def to(self, device):
-            assert device == "cpu"
-            return self
-
-        def eval(self):
-            return self
-
-        def __call__(self, *, pixel_values, pixel_mask):
-            assert pixel_values.data.shape == (1, 3, 640, 640)
-            assert pixel_mask.data.shape == (1, 640, 640)
-            assert pixel_mask.data[0, 160:480].all()
-            assert not pixel_mask.data[0, :160].any()
-            assert not pixel_mask.data[0, 480:].any()
-            logits = np.full((1, 3, len(labels) + 1), -100.0)
+        def forward(self, *, pixel_values, pixel_mask):
+            assert pixel_values.shape == (1, 3, 640, 640)
+            assert pixel_mask[0, 160:480].all()
+            assert not pixel_mask[0, :160].any() and not pixel_mask[0, 480:].any()
+            logits = torch.full((1, 3, len(labels) + 1), -100.0)
             logits[0, :, 1] = 2
-            logits[0, :, -1] = [0, 4, 0]
+            logits[0, :, -1] = torch.tensor([0.0, 4.0, 0.0])
+            # Query thứ ba nằm trọn trong viền đệm phía trên nên bị cắt về diện tích 0.
             boxes = [[[0.5, 0.25, 0.5, 0.25], [0.5, 0.5, 0.5, 0.5], [0.5, 0.125, 0.5, 0.25]]]
-            return SimpleNamespace(logits=FakeTensor(logits), pred_boxes=FakeTensor(boxes))
+            return SimpleNamespace(logits=logits, pred_boxes=torch.tensor(boxes))
 
-    monkeypatch.setitem(
-        sys.modules,
-        "torch",
-        SimpleNamespace(load=load, from_numpy=FakeTensor, inference_mode=nullcontext),
-    )
+    from_dict = Mock(side_effect=lambda data, **kwargs: SimpleNamespace(source=data, **kwargs))
     monkeypatch.setitem(
         sys.modules,
         "transformers",
-        SimpleNamespace(DetrConfig=SimpleNamespace, DetrForObjectDetection=DetrModel),
+        SimpleNamespace(
+            DetrConfig=SimpleNamespace(from_dict=from_dict), DetrForObjectDetection=FakeDetr
+        ),
     )
-    detector = DetrDetector(weights, labels, "detr-r50-v1.1", "cpu")
-    results = detector.predict(np.zeros((160, 320, 3), dtype=np.uint8), conf=0.5, iou=0)
-    assert len(results) == 1
-    assert results[0].box == Box(80, 0, 160, 40)
-    assert results[0].sign_type_code == labels.by_id(1).code
-    assert results[0].confidence == pytest.approx(1 / (1 + np.exp(-2)))
+    weights = tmp_path / "best.pt"
+    torch.save({"epoch": 219, "model": {"anchor": torch.zeros(1)}}, weights)
+
+    detector = DetrDetector(weights, labels, "detr-r50-v1.0", "cpu")
+    [(source,), options] = from_dict.call_args
+    assert source == json.loads(DETR_CONFIG.read_text(encoding="utf-8"))
+    assert options["id2label"] == labels.names and options["use_pretrained_backbone"] is False
+    image = np.zeros((160, 320, 3), dtype=np.uint8)
+    [result] = detector.predict(image, conf=0.5, iou=0)
+    assert result.box == Box(80, 0, 160, 40)
+    assert result.sign_type_code == labels.by_id(1).code
+    assert result.confidence == pytest.approx(1 / (1 + np.exp(-2)))
+    # Ngưỡng dự phòng 0,71 vẫn giữ query đầu (0,88).
+    assert len(detector.predict(image)) == 1
+    assert detector.predict(image, conf=0.9) == []
 
 
 def test_yolov5_uses_original_autoshape_and_rgb_pixels(monkeypatch, tmp_path):
@@ -126,3 +119,33 @@ def test_yolov5_uses_original_autoshape_and_rgb_pixels(monkeypatch, tmp_path):
     assert len(results) == 1
     assert results[0].box == Box(2, 3, 10, 12)
     assert results[0].sign_type_code == labels.by_id(1).code
+
+
+@pytest.mark.parametrize(
+    ("repo", "commit", "names", "message"),
+    [
+        (None, YOLOV5_COMMIT, None, "SIGNA_YOLOV5_REPO"),
+        ("set", "0" * 40, None, "commit"),
+        ("set", YOLOV5_COMMIT, {0: "P.123a"}, "không khớp"),
+    ],
+)
+def test_yolov5_rejects_wrong_setup(monkeypatch, tmp_path, repo, commit, names, message):
+    labels = load_label_map()
+    if repo is None:
+        monkeypatch.delenv("SIGNA_YOLOV5_REPO", raising=False)
+    else:
+        monkeypatch.setenv("SIGNA_YOLOV5_REPO", str(tmp_path))
+    monkeypatch.setattr(
+        "service.yolov5.subprocess.check_output", lambda *args, **kwargs: commit + "\n"
+    )
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(device=str))
+    monkeypatch.setitem(
+        sys.modules,
+        "models.common",
+        SimpleNamespace(
+            AutoShape=lambda model: SimpleNamespace(names=names or labels.names),
+            DetectMultiBackend=lambda path, device: (path, device),
+        ),
+    )
+    with pytest.raises(ValueError, match=message):
+        YoloV5Detector(tmp_path / "best.pt", labels, "yolov5s-v1.0", "cpu")

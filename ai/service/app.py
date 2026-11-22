@@ -63,6 +63,7 @@ class ModelEntry(ModelInfo):
 
 
 class ModelList(BaseModel):
+    defaultModel: str = Field(description="Họ mô hình dùng khi request bỏ trường model")
     models: list[ModelEntry]
 
 
@@ -169,11 +170,26 @@ def load_models() -> list[LoadedModel]:
     return loaded
 
 
+def resolve_default_model(selector: str, models: dict[str, LoadedModel]) -> str:
+    """Đổi SIGNA_DEFAULT_MODEL thành họ mô hình. Giá trị sai làm dịch vụ dừng khi khởi động."""
+    if selector in MODEL_SLOTS:
+        return selector
+    matches = [name for name, item in models.items() if item.detector.version == selector]
+    if len(matches) != 1:
+        raise ValueError(
+            f"SIGNA_DEFAULT_MODEL={selector!r} phải là yolov5, yolov8, detr "
+            "hoặc modelVersion của một mô hình đã nạp"
+        )
+    return matches[0]
+
+
 def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.models = {item.detector.name: item for item in loader()}
-        app.state.default_model = os.getenv("SIGNA_DEFAULT_MODEL") or DEFAULT_MODEL
+        app.state.default_model = resolve_default_model(
+            os.getenv("SIGNA_DEFAULT_MODEL") or DEFAULT_MODEL, app.state.models
+        )
         yield
 
     app = FastAPI(title="Signa Recognition", lifespan=lifespan)
@@ -208,12 +224,13 @@ def create_app(loader: Callable[[], list[LoadedModel]] = load_models) -> FastAPI
     async def models(request: Request) -> ModelList:
         loaded = request.app.state.models.values()
         return ModelList(
+            defaultModel=request.app.state.default_model,
             models=[
                 ModelEntry(
                     **item.info.model_dump(), defaultConf=item.default_conf, modelCard=item.card
                 )
                 for item in loaded
-            ]
+            ],
         )
 
     form_schema = DetectForm.model_json_schema()

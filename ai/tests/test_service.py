@@ -3,14 +3,14 @@ import json
 import tempfile
 from contextlib import asynccontextmanager
 from io import BytesIO
-from threading import Event
+from threading import Event, Lock
 
 import httpx
 import pytest
 from PIL import Image
 
 from service import images
-from service.app import LoadedModel, create_app
+from service.app import MODEL_SLOTS, QUEUE_SIZE, LoadedModel, create_app
 from signa_ai.detection import Box, Detection
 
 pytestmark = pytest.mark.anyio
@@ -94,6 +94,7 @@ async def test_detect_returns_original_pixel_box_and_versions(client, loaded, fo
 
 async def test_available_models_and_partial_readiness(client):
     assert (await client.get("/v1/models")).json() == {
+        "defaultModel": "yolov8",
         "models": [
             {
                 "modelName": "yolov8",
@@ -102,7 +103,7 @@ async def test_available_models_and_partial_readiness(client):
                 "defaultConf": 0.40,
                 "modelCard": {"status": "temporary", "datasetVersion": "v1.1"},
             }
-        ]
+        ],
     }
     health = await client.get("/healthz")
     assert health.status_code == 503
@@ -144,8 +145,24 @@ async def test_model_selection_and_default(monkeypatch):
 
     monkeypatch.setenv("SIGNA_DEFAULT_MODEL", "detr-r50-v1.1")
     async with running(create_app(lambda: loaded)) as client:
+        assert (await client.get("/v1/models")).json()["defaultModel"] == "detr"
         response = await client.post("/v1/detect", files={"image": image_file()})
         assert response.json()["modelName"] == "detr"
+
+    # Họ mô hình hợp lệ nhưng chưa nạp: dịch vụ vẫn chạy, /healthz báo thiếu.
+    monkeypatch.setenv("SIGNA_DEFAULT_MODEL", "detr")
+    async with running(create_app(lambda: loaded[:2])) as client:
+        assert (await client.get("/v1/models")).json()["defaultModel"] == "detr"
+        assert (await client.get("/healthz")).status_code == 503
+
+
+@pytest.mark.parametrize("selector", ["yolov7", "detr-r50-v9.9", "YOLOV8"])
+async def test_invalid_default_model_stops_startup(monkeypatch, selector):
+    loaded = [LoadedModel(FakeDetector(name), {}, 0.40) for name in ("yolov5", "detr")]
+    monkeypatch.setenv("SIGNA_DEFAULT_MODEL", selector)
+    with pytest.raises(ValueError, match="SIGNA_DEFAULT_MODEL"):
+        async with running(create_app(lambda: loaded)):
+            pass
 
 
 async def test_loads_configured_models_and_keeps_others_on_failure(monkeypatch, tmp_path):
@@ -203,7 +220,7 @@ async def test_starts_without_existing_weights(monkeypatch, tmp_path, configured
 
     async with running(create_app()) as client:
         assert (await client.get("/healthz")).status_code == 503
-        assert (await client.get("/v1/models")).json() == {"models": []}
+        assert (await client.get("/v1/models")).json() == {"defaultModel": "yolov8", "models": []}
 
 
 @pytest.mark.parametrize(
@@ -308,6 +325,32 @@ async def test_large_valid_upload_stays_in_memory(client, monkeypatch):
         assert response.json()["code"] == "PAYLOAD_TOO_LARGE"
 
 
+def test_decode_image_applies_exif_orientation():
+    buffer = BytesIO()
+    exif = Image.Exif()
+    exif[0x0112] = 6  # Orientation: xoay 90° theo chiều kim đồng hồ khi hiển thị
+    source = Image.new("RGB", (32, 24), (230, 40, 10))
+    source.paste((0, 0, 255), (0, 0, 8, 8))
+    source.save(buffer, format="JPEG", exif=exif, quality=100)
+    pixels = images.decode_image(BytesIO(buffer.getvalue()))
+    assert pixels.shape == (32, 24, 3)
+    # Góc trên trái của ảnh gốc sang góc trên phải sau khi xoay.
+    assert pixels[3, -4, 2] > 200 and pixels[3, -4, 0] < 60
+    assert pixels[3, 3, 0] > 200
+
+
+async def test_rejects_tiny_image(client):
+    buffer = BytesIO()
+    Image.new("RGB", (32, images.MIN_IMAGE_EDGE - 1)).save(buffer, format="PNG")
+    response = await client.post(
+        "/v1/detect",
+        data={"model": "yolov8"},
+        files={"image": ("tiny.png", buffer.getvalue(), "image/png")},
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "VALIDATION_ERROR"
+
+
 async def test_rejects_image_with_too_many_pixels(client, monkeypatch):
     monkeypatch.setattr(images, "MAX_IMAGE_PIXELS", 100)
     response = await client.post(
@@ -316,37 +359,89 @@ async def test_rejects_image_with_too_many_pixels(client, monkeypatch):
     assert response.status_code == 413
 
 
-@pytest.mark.parametrize(("name", "capacity"), [("yolov8", 12), ("detr", 9)])
-async def test_queue_returns_retry_after_and_drains(name, capacity, monkeypatch):
+async def wait_until(condition, seconds=5):
+    async with asyncio.timeout(seconds):
+        while not condition():
+            await asyncio.sleep(0.001)
+
+
+@pytest.mark.parametrize(("name", "slots"), [("yolov5", 4), ("yolov8", 4), ("detr", 1)])
+async def test_semaphore_limits_concurrent_inference_and_queue(name, slots, monkeypatch):
+    assert MODEL_SLOTS[name] == slots
     release = Event()
+    lock = Lock()
+    running_now = peak = 0
     blocked = LoadedModel(FakeDetector(name), {}, 0.40)
     predict = blocked.detector.predict
 
     def blocked_predict(*args, **kwargs):
-        assert release.wait(timeout=10)
-        return predict(*args, **kwargs)
+        nonlocal running_now, peak
+        with lock:
+            running_now += 1
+            peak = max(peak, running_now)
+        try:
+            assert release.wait(timeout=10)
+            return predict(*args, **kwargs)
+        finally:
+            with lock:
+                running_now -= 1
 
     monkeypatch.setattr(blocked.detector, "predict", blocked_predict)
-    available = LoadedModel(FakeDetector("yolov5"), {}, 0.40)
+    other = "yolov8" if name != "yolov8" else "yolov5"
+    available = LoadedModel(FakeDetector(other), {}, 0.40)
     request = {"data": {"model": name}, "files": {"image": image_file()}}
+    capacity = slots + QUEUE_SIZE
     async with running(create_app(lambda: [blocked, available])) as queue_client:
         active = [
             asyncio.create_task(queue_client.post("/v1/detect", **request)) for _ in range(capacity)
         ]
         try:
-            async with asyncio.timeout(5):
-                while blocked.pending < capacity:
-                    await asyncio.sleep(0.001)
+            await wait_until(lambda: blocked.pending == capacity and running_now == slots)
+            # Cho các request đang chờ cơ hội vượt semaphore nếu nó không chặn.
+            await asyncio.sleep(0.05)
+            assert peak == slots
             request["data"] = {"model": blocked.detector.version}
             busy = await queue_client.post("/v1/detect", **request)
             assert busy.status_code == 503
+            assert busy.json()["code"] == "RECOGNITION_UNAVAILABLE"
             assert busy.headers["Retry-After"] == "1"
             response = await queue_client.post(
-                "/v1/detect", data={"model": "yolov5"}, files={"image": image_file()}
+                "/v1/detect", data={"model": other}, files={"image": image_file()}
             )
             assert response.status_code == 200
         finally:
             release.set()
             responses = await asyncio.gather(*active)
         assert all(response.status_code == 200 for response in responses)
+        assert peak == slots and blocked.pending == 0
         assert (await queue_client.post("/v1/detect", **request)).status_code == 200
+
+
+@pytest.mark.parametrize("name", ["yolov8", "detr"])
+async def test_inference_error_returns_500_and_releases_slot(name, monkeypatch):
+    loaded = LoadedModel(FakeDetector(name), {}, 0.40)
+    predict = loaded.detector.predict
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("CUDA out of memory")
+
+    monkeypatch.setattr(loaded.detector, "predict", broken)
+    request = {"data": {"model": name}, "files": {"image": image_file()}}
+    attempts = MODEL_SLOTS[name] + QUEUE_SIZE + 1
+    # Slot bị giữ lại sẽ làm request sau treo, nên cả ca thử có giới hạn thời gian.
+    async with asyncio.timeout(5), running(create_app(lambda: [loaded])) as client:
+        failed = await asyncio.gather(
+            *(client.post("/v1/detect", **request) for _ in range(attempts))
+        )
+        assert {response.status_code for response in failed} <= {500, 503}
+        assert any(response.status_code == 500 for response in failed)
+        errors = [response.json() for response in failed if response.status_code == 500]
+        assert {error["code"] for error in errors} == {"INTERNAL_ERROR"}
+        assert loaded.pending == 0
+
+        monkeypatch.setattr(loaded.detector, "predict", predict)
+        responses = await asyncio.gather(
+            *(client.post("/v1/detect", **request) for _ in range(MODEL_SLOTS[name]))
+        )
+        assert all(response.status_code == 200 for response in responses)
+        assert loaded.pending == 0

@@ -68,14 +68,27 @@ Lấy checkpoint của nhóm từ My Drive và đặt mỗi trọng số trong m
 
 Đặt `model_card.json` bên cạnh từng `best.pt`. Thẻ cần tên họ mô hình
 (`yolov5`, `yolov8` hoặc `detr`), phiên bản duy nhất và phiên bản danh mục nhãn khớp
-`ai/data/labels.yaml`. Ví dụ các trường dùng để nạp YOLOv8s và đặt ngưỡng val đã làm tròn.
+`ai/data/labels.yaml`. Dịch vụ đọc ngưỡng mặc định từ `operating_point.threshold`.
+
+Ba thẻ của lượt chính nằm trong PR #16 (nhánh `ai/3-evaluation`), **chưa có trên `main`**.
+Khi PR #16 chưa merge, lấy thẻ từ nhánh đó. Ngưỡng là ngưỡng F1 tối đa trên val, lấy từ
+`metrics.json` của từng lượt.
+
+| Mô hình | Thẻ | `modelVersion` | Ngưỡng |
+| --- | --- | --- | --- |
+| YOLOv5s | `experiments/yolov5s-640-v1.1-main-s0/model_card.json` | `yolov5s-v1.0` | 0,4176 |
+| YOLOv8s | `experiments/yolov8s-640-v1.1-main-s0/model_card.json` | `yolov8s-v1.0` | 0,5279 |
+| DETR-R50 | `experiments/detr-r50-640-v1.1-main-s0/model_card.json` | `detr-r50-v1.0` | 0,7065 |
+
+Chép mỗi thẻ thành `models/<thư mục>/model_card.json` cạnh `best.pt` tương ứng ở bảng trên.
+Các trường tối thiểu dịch vụ cần, ví dụ YOLOv8s:
 
 ```json
 {
   "modelName": "yolov8",
-  "modelVersion": "yolov8s-v1.1",
+  "modelVersion": "yolov8s-v1.0",
   "labelMapVersion": 1,
-  "operating_point": {"threshold": 0.53}
+  "operating_point": {"threshold": 0.5279324054718018}
 }
 ```
 
@@ -102,14 +115,81 @@ SIGNA_YOLOV5_REPO=models/yolov5-source \
 
 `serve-all` dùng bản `ultralytics` mà checkout YOLOv5 yêu cầu. Dùng môi trường ảo
 riêng cho `train` hoặc `serve`, vì hai nhóm đó ghim phiên bản `ultralytics` khác.
+DETR lấy phụ thuộc từ extra `detr`, nên cùng `transformers` và `timm` với lượt đánh giá.
 
 | Biến môi trường | Ý nghĩa |
 | --- | --- |
 | `SIGNA_YOLOV5_WEIGHTS`, `SIGNA_YOLOV8_WEIGHTS`, `SIGNA_DETR_WEIGHTS` | Đường dẫn đến từng checkpoint `.pt` cục bộ |
 | `SIGNA_YOLOV5_REPO` | Đường dẫn đến checkout YOLOv5 gốc ở commit trên |
 | `SIGNA_DEVICE` | `cpu` hoặc thiết bị CUDA như `cuda:0`. Tự chọn `cuda:0` nếu khả dụng, nếu không thì dùng CPU |
-| `SIGNA_DEFAULT_MODEL` | Tên họ hoặc `modelVersion` của mô hình mặc định. Khi chưa đặt thì dùng `yolov8` |
+| `SIGNA_DEFAULT_MODEL` | Tên họ hoặc `modelVersion` của mô hình mặc định. Khi chưa đặt thì dùng `yolov8`. Giá trị không phải họ mô hình hay `modelVersion` đã nạp làm dịch vụ dừng ngay khi khởi động. `/v1/models` trả họ mô hình này trong `defaultModel` |
 | `SIGNA_YOLOV5_CONF`, `SIGNA_YOLOV8_CONF`, `SIGNA_DETR_CONF` | Ngưỡng khi request và thẻ mô hình đều thiếu ngưỡng. Giá trị dự phòng là 0,42, 0,40 và 0,71 tương ứng |
+
+### Cách dịch vụ xử lý ảnh
+
+- Ảnh được giải mã một lần ở tầng dịch vụ rồi đưa cùng một mảng RGB cho cả ba mô hình.
+  Nếu ảnh còn thẻ EXIF Orientation, dịch vụ xoay ảnh theo thẻ trước khi suy luận
+  (`ImageOps.exif_transpose`). Box trả về tính theo pixel của ảnh đã xoay. Ảnh có cạnh
+  dưới 8 px bị từ chối với `400`.
+- DETR chạy qua `load_detr_checkpoint` và `predict_detr` của `signa_ai.detr`, giống lúc chọn
+  ngưỡng trên val. Trên CUDA, suy luận dùng autocast fp16. API bỏ box bị cắt về diện tích 0,
+  còn lúc chấm val vẫn giữ chúng.
+- Mỗi họ YOLO có 4 slot, DETR có 1, cộng 8 request chờ. Vượt mức này dịch vụ trả `503` kèm
+  `Retry-After: 1`. Adapter YOLO dùng khoá trong tiến trình, nên thực tế mỗi họ chạy một
+  suy luận một lúc. Dịch vụ chưa có timeout phía server: request mà backend đã bỏ sau 5 giây
+  vẫn giữ chỗ trong hàng chờ cho đến khi chạy xong. Thời gian chờ thực tế chưa đo.
+
+### Hạn chế đã biết: phiên bản Ultralytics của YOLOv8
+
+`serve-all` phục vụ YOLOv8 bằng `ultralytics==8.4.201`, vì checkout YOLOv5 gốc cần
+`ultralytics>=8.4`. Lượt huấn luyện và `predictions-val.json` của YOLOv8 dùng `8.3.203`
+(`experiments/yolov8s-640-v1.1-main-s0/meta.json`). Hai bản có thể khác nhau ở tiền xử lý
+hoặc NMS. Độ lệch giữa hai bản **chưa đo**. Phiên bản đã đánh giá giữ nguyên.
+Trước khi so ba mô hình qua dịch vụ, chạy bước kiểm tương đương sau **trên Colab**,
+không chạy trên laptop của nhóm.
+
+1. Mở runtime Colab mới, clone repo vào `/content/signa-source` (như notebook), giải nén `signa-v1.1.zip` vào `/content/v1.1` và đặt
+   `best.pt` của YOLOv8s ở `/content/yolov8s/best.pt`.
+2. Cài `serve-all` (bản `8.4.201`) rồi xuất dự đoán val qua đúng adapter của dịch vụ với
+   cùng tham số như notebook: `conf` 0,001, `iou` 0,7, `imgsz` 640, `max_det` 300.
+
+   ```sh
+   cd /content/signa-source/ai
+   pip install -e '.[serve-all]'
+   python - <<'EOF'
+   import json
+   from pathlib import Path
+
+   from service.images import decode_image
+   from service.yolov8 import YoloV8Detector
+   from signa_ai.detection import to_coco_predictions
+   from signa_ai.labels import load_label_map
+
+   data = Path("/content/v1.1")
+   labels = load_label_map()
+   model = YoloV8Detector(Path("/content/yolov8s/best.pt"), labels, "yolov8s-v1.0", "cuda:0")
+   truth = json.loads((data / "coco/val.json").read_text())
+   rows = []
+   for image in truth["images"]:
+       with open(data / image["file_name"], "rb") as file:
+           detections = model.predict(decode_image(file), conf=0.001, iou=0.7)
+       rows.extend(to_coco_predictions(image["id"], detections, labels))
+   Path("/content/predictions-val-8.4.201.json").write_text(json.dumps(rows))
+   EOF
+   python -m signa_ai.evaluate --gt /content/v1.1/coco/val.json \
+     --pred /content/predictions-val-8.4.201.json \
+     --manifest /content/v1.1/manifest.csv \
+     --out /content/metrics-8.4.201.json
+   ```
+
+3. So `map_50`, `map_50_95` và `operating_point` trong `/content/metrics-8.4.201.json` với
+   `experiments/yolov8s-640-v1.1-main-s0/metrics.json` (bản `8.3.203`: mAP@0.5:0.95 là 0,6956).
+   So thêm số dự đoán của từng ảnh với `evaluation/predictions-val.json` của lượt trên Drive.
+4. Ghi kết quả vào `experiments/main-v1.1.md`. Nếu lệch rõ, phục vụ YOLOv8 bằng `8.3.203`
+   trong một tiến trình riêng thay vì đổi phiên bản đã đánh giá.
+
+Bước 2 đi qua `decode_image`, nên kết quả gồm cả chênh lệch do giải mã bằng PIL thay vì
+đường dẫn ảnh như notebook.
 
 ### Phát triển với một mô hình
 
