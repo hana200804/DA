@@ -19,7 +19,15 @@ Giữ nguyên: dữ liệu v1.1, [tăng cường chung](../../configs/augment.md
 
 ## Cách chạy
 
-Mở [`train_yolov8_main_v1.1.ipynb`](../../notebooks/train_yolov8_main_v1.1.ipynb), đặt `IMGSZ = 960` và `SIZES = ["s"]` ở ô mã đầu, chọn GPU L4 (hoặc A100), rồi **Run all**. Mất phiên thì **Run all** lại, run dở tiếp tục từ `last.pt`.
+Mở [`train_yolov8_main_v1.1.ipynb`](../../notebooks/train_yolov8_main_v1.1.ipynb) trên Colab và chọn GPU L4 (hoặc A100). Thêm một ô mã ở đầu notebook, không sửa ô mã nào khác:
+
+```text
+%env SIGNA_NOTEBOOK_COMMIT=<SHA>
+%env SIGNA_IMGSZ=960
+%env SIGNA_SIZES=s
+```
+
+Thay `<SHA>` bằng SHA trên liên kết cố định GitHub của notebook, rồi **Run all**. Mất phiên thì giữ ô này và **Run all** lại, run dở tiếp tục từ `last.pt`. Nếu hết bộ nhớ GPU, thêm `%env SIGNA_BATCH=<số nhỏ hơn>`; `config.yaml` sẽ ghi `batch_note`.
 
 Ước lượng thời gian, chưa đo: lượt 640 mất 6,1 giờ L4 ([main-v1.1.md](../main-v1.1.md)). Ảnh 960 có khoảng 2,25 lần số điểm ảnh. Nếu thời gian tăng theo số điểm ảnh, lượt này cần khoảng 13,7 giờ L4. Khi tiếp tục từ checkpoint, bộ đếm dừng sớm khởi tạo lại. Nếu lượt chạy qua nhiều phiên, ghi lại khác biệt này.
 

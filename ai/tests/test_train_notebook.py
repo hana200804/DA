@@ -104,11 +104,44 @@ def load_yolov8_main(imgsz, **extra):
     return functions
 
 
+SETTINGS = {"IMGSZ", "SIZES", "MAIN_BATCH", "BATCH"}
+
+
+def yolov8_settings(environ):
+    """Chạy các dòng cấu hình đọc biến môi trường, kèm assert kiểm tra chúng."""
+    notebook = json.loads((AI_ROOT / "notebooks" / "train_yolov8_main_v1.1.ipynb").read_text())
+    nodes = []
+    for cell in notebook["cells"]:
+        if cell["cell_type"] != "code":
+            continue
+        for node in ast.parse("".join(cell["source"])).body:
+            names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+            assigned = isinstance(node, ast.Assign) and {
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            } & SETTINGS
+            checked = isinstance(node, ast.Assert) and names & SETTINGS
+            if assigned or checked:
+                nodes.append(node)
+    namespace = {"os": SimpleNamespace(environ=environ)}
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), "settings", "exec"), namespace)
+    return {name: namespace[name] for name in SETTINGS}
+
+
 def test_yolov8_defaults_keep_main_run():
-    constants = notebook_constants("train_yolov8_main_v1.1.ipynb")
-    assert constants["IMGSZ"] == 640
-    assert constants["SIZES"] == ["n", "s"]
-    assert constants["MAIN_BATCH"] == 16
+    assert yolov8_settings({}) == {"IMGSZ": 640, "SIZES": ["n", "s"], "MAIN_BATCH": 16, "BATCH": 16}
+
+
+def test_yolov8_settings_from_environment():
+    settings = yolov8_settings({"SIGNA_IMGSZ": "960", "SIGNA_SIZES": "s"})
+    assert settings == {"IMGSZ": 960, "SIZES": ["s"], "MAIN_BATCH": 16, "BATCH": 16}
+    assert yolov8_settings({"SIGNA_SIZES": " n , s "})["SIZES"] == ["n", "s"]
+    assert yolov8_settings({"SIGNA_BATCH": "8"})["BATCH"] == 8
+
+
+@pytest.mark.parametrize("environ", [{"SIGNA_IMGSZ": "1000"}, {"SIGNA_SIZES": "m"}])
+def test_yolov8_settings_reject_invalid(environ):
+    with pytest.raises(AssertionError):
+        yolov8_settings(environ)
 
 
 @pytest.mark.parametrize("size", ["n", "s"])
