@@ -1,0 +1,27 @@
+{
+  "origin": "Laptop RTX 3050, notebook 9c5ef17",
+  "repo_worktree_commit": "7083053ee7f75a394bc6ce7e7573c689ed3861b7",
+  "predictions_test_sha256": "936166fd05d67820aa188c4c16b54e8b76054daf99eb89352da84a3e8918fd9d",
+  "label_map_sha256": "4e1f2693711693566ea6374e1eff9078fefa7521cde0ef3a10db837d30dd1586",
+  "artifacts_sha256": {
+    "metrics-test.json": "2f11c4334d1662a1113b06c7abba109443d1207bdea93f33870af4878dafb201",
+    "test-config.json": "912551cf7af8fc5332a3d0896c8d5bf879f483414fb43e49ab8e4549b5198dea",
+    "reproduce-val.json": "88b2b543a004fe26b4a9ad1c519f718fde30dc08af38031cbabf9b5a33b6d918",
+    "latency.json": "a72ca3fdde799f5285407138098aed648792c381ff47c780ea912e30f7b03fd9"
+  },
+  "evaluation_identical": true,
+  "archives_sha256": {
+    "predictions-test.json.gz": {
+      "original_sha256": "936166fd05d67820aa188c4c16b54e8b76054daf99eb89352da84a3e8918fd9d",
+      "gzip_sha256": "8deab57bd26a1fa3949b041c7262d1a86803f7dc9e69c170c8272ec51407a9a7"
+    },
+    "predictions-val-repro.json.gz": {
+      "original_sha256": "62f9812b523a1a27a6557a961d1db90e159ecc432a725f8ef7f89843e790f57d",
+      "gzip_sha256": "9f2fa23b967e4b8198bc96ffa2ea6a9e316768cb5fd3a3ecc18b8077988ed1fa"
+    },
+    "../../predict-test-v1.1-yolov5.log.gz": {
+      "original_sha256": "2fcd99b0dde8aa88709d4a78940d6fe4f9ce07e3eb9baa18946434ce8fd20aad",
+      "gzip_sha256": "3befe01854139d2befa9d1c185f66ef0b9e43b7a52bdc64022c8bb01dcfeca57"
+    }
+  }
+}

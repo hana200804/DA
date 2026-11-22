@@ -117,7 +117,10 @@ Mỗi cấu hình chỉ dùng một seed. Chưa có độ lệch giữa các see
 [Kiểm thử §3](../../docs/08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình) yêu cầu thêm AP theo điều kiện và chi phí của từng mô hình. Các phần dưới đây **chưa đo**:
 
 - AP theo ngày, đêm, mưa. Cột `tags` của manifest v1.1 trống ở cả 1599 ảnh val, nên `by_condition` trong `metrics.json` là `null`. Cần gắn thẻ điều kiện cho val rồi chấm lại.
-- Số tham số, GFLOPs, ms/ảnh CPU và GPU của checkpoint PyTorch. Các trường `cost` trong `metrics.json` là `null`. Giờ GPU huấn luyện có trong [hồ sơ huấn luyện](main-v1.1.md). Số ms/ảnh của bản TFLite trên CPU Colab có trong [đề xuất triển khai](model-selection-v1.1.md#điện-thoại-fr-03).
+- Số tham số và GFLOPs của checkpoint PyTorch. Hai trường tương ứng trong `metrics.json` là `null`.
+- Độ trễ HTTP trên server tham chiếu theo NFR-02. Đã có số đo pipeline CPU và GPU trong tiến trình Python trên ảnh val ở laptop và Colab. [Thời gian pipeline tham khảo](test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có)
+
+Giờ GPU huấn luyện và số ms/ảnh TFLite trên CPU Colab có trong báo cáo riêng. [Hồ sơ huấn luyện](main-v1.1.md), [Đề xuất triển khai](model-selection-v1.1.md#điện-thoại-fr-03)
 
 ## Chạy lại
 
