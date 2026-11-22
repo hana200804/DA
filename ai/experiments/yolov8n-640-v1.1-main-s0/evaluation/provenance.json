@@ -14,6 +14,12 @@
     "predictions-test.json.gz": {
       "original_sha256": "5cf804407eb8b7ccf8c1a0fb29febd350791a298cc87ac7791cd0ceb6950bb21",
       "gzip_sha256": "8f99f8f3d5c7ce8aa1fe04da11e9f4ce6f6c28b1546479f6c202be74208bdf7a"
+    },
+    "predictions-val-repro.json.gz": {
+      "original_sha256": "4aacbe467c1cbdcf14d96aa0f207dae2760df4ab6c9aea0f4f14bf7cbd675b84",
+      "gzip_sha256": "7580d769d4bfea591f64d49ac34e2e52b32e5ebb8b76c01de471d6c390f6d9b6",
+      "source": "My Drive/Signa/experiments/yolov8n-640-v1.1-main-s0/evaluation/predictions-val-repro.json",
+      "verified": "Chấm lại trên CPU cho đúng hai chỉ số reproduced trong reproduce-val.json"
     }
   }
 }

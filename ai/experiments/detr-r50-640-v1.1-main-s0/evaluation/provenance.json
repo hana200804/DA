@@ -14,6 +14,12 @@
     "predictions-test.json.gz": {
       "original_sha256": "1c6c73a23761e31939a0a23163734e2cbbb836f9339d1a285b124d0cdc6420b3",
       "gzip_sha256": "fd94db8f71b5f02b0ee1244ce5d9cf8d22a89af7f27f9869b60af4a8e2807761"
+    },
+    "predictions-val-repro.json.gz": {
+      "original_sha256": "a3355fa2ae23ea409a7bddf012d70dccfc24a48845c0bee4314b6080f367d761",
+      "gzip_sha256": "576e881cc78429ac936f1e74151568e5c60b4066737bb3edc78913fd50573294",
+      "source": "My Drive/Signa/experiments/detr-r50-640-v1.1-main-s0/evaluation/predictions-val-repro.json",
+      "verified": "Chấm lại trên CPU cho đúng hai chỉ số reproduced trong reproduce-val.json"
     }
   }
 }

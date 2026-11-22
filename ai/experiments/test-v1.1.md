@@ -45,11 +45,11 @@ Các số đo phục vụ tham khảo vì khác máy, số luồng và tải n�
 | --- | --- | --- |
 | YOLOv5n | [`predictions-test.json.gz`](yolov5n-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | [`predictions-val-repro.json.gz`](yolov5n-640-v1.1-main-s0/evaluation/predictions-val-repro.json.gz) |
 | YOLOv5s | [`predictions-test.json.gz`](yolov5s-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | [`predictions-val-repro.json.gz`](yolov5s-640-v1.1-main-s0/evaluation/predictions-val-repro.json.gz) |
-| YOLOv8n | [`predictions-test.json.gz`](yolov8n-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | Thiếu tệp gốc Colab |
-| YOLOv8s | [`predictions-test.json.gz`](yolov8s-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | Thiếu tệp gốc Colab |
-| DETR-R50 | [`predictions-test.json.gz`](detr-r50-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | Thiếu tệp gốc Colab |
+| YOLOv8n | [`predictions-test.json.gz`](yolov8n-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | [`predictions-val-repro.json.gz`](yolov8n-640-v1.1-main-s0/evaluation/predictions-val-repro.json.gz) |
+| YOLOv8s | [`predictions-test.json.gz`](yolov8s-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | [`predictions-val-repro.json.gz`](yolov8s-640-v1.1-main-s0/evaluation/predictions-val-repro.json.gz) |
+| DETR-R50 | [`predictions-test.json.gz`](detr-r50-640-v1.1-main-s0/evaluation/predictions-test.json.gz) | [`predictions-val-repro.json.gz`](detr-r50-640-v1.1-main-s0/evaluation/predictions-val-repro.json.gz) |
 
-Năm tệp dự đoán test khớp SHA-256 đã ghi trước khi nén. Hồ sơ cũ của hai tệp tái tạo val YOLOv5 chưa có hash. Chấm lại trên CPU cho cùng số dự đoán và hai chỉ số AP trong `reproduce-val.json`. Bản tải về thiếu nhật ký đo của các lượt Colab. `latency.json` của cả năm lượt lưu thống kê gộp. Các lượt đo chưa lưu mẫu thời gian từng ảnh.
+Năm tệp dự đoán test khớp SHA-256 đã ghi trước khi nén. Hồ sơ cũ của các tệp tái tạo val chưa có hash. Ba tệp của YOLOv8n, YOLOv8s và DETR-R50 tải từ `evaluation/` của từng lượt trên Drive, `provenance.json` ghi hash sau khi tải. Chấm lại trên CPU cho cùng số dự đoán và hai chỉ số AP trong `reproduce-val.json`. Bản tải về thiếu nhật ký đo của các lượt Colab. `latency.json` của cả năm lượt lưu thống kê gộp. Các lượt đo chưa lưu mẫu thời gian từng ảnh.
 
 Để chấm lại dự đoán đã có, chạy từ `ai/` với extra `eval`. Lấy ngưỡng đầy đủ từ `test-config.json` của đúng lượt.
 
