@@ -224,7 +224,8 @@ sau mỗi cấu hình hoàn tất.
 
 Checkpoint `yolov5n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
 **78,35% / 61,58%** trên val với PyTorch và bộ chấm chung. Lượt xuất dùng
-mã tại `0939673` trên Colab CPU 2 vCPU, với 2 luồng suy luận.
+mã tại `0939673` trên Colab CPU 2 vCPU (Intel Xeon 2,20 GHz), với 2 luồng
+suy luận.
 [CSV kết quả YOLOv5n](experiments/yolov5n-640-v1.1-main-s0/tflite-summary.csv).
 
 | Cấu hình | Kích thước (MB) | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Recall biển cấm (%) | Ngưỡng F1 tối đa | ms/ảnh |
@@ -275,8 +276,7 @@ Checkpoint `yolov8n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
 **81,46% / 65,57%** trên val với PyTorch và bộ chấm chung.
 [Kết quả PyTorch](experiments/main-v1.1.md).
 
-Metadata `identity.repo_commit` ghi mã xuất `9659c32487c378867d8ae12cd7e2b79328056c21`
-cho cả bốn cấu hình. Lượt xuất chạy trên Colab CPU 2 vCPU (Intel Xeon 2,20 GHz),
+Metadata `identity.repo_commit` ghi mã xuất `9659c32` cho cả bốn cấu hình. Lượt xuất chạy trên Colab CPU 2 vCPU (Intel Xeon 2,20 GHz),
 với 2 luồng suy luận. [CSV kết quả YOLOv8n](experiments/yolov8n-640-v1.1-main-s0/tflite-summary.csv).
 
 | Cấu hình | Kích thước (MB) | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Recall biển cấm (%) | Ngưỡng F1 tối đa | ms/ảnh |
@@ -290,25 +290,41 @@ Lần chạy đầu lỗi vì môi trường xuất không nhận backend Matplo
 của Colab. Commit `62ac220` sửa lỗi bằng cách đặt `MPLBACKEND=Agg` cho
 tiến trình xuất. Nhật ký `export-yolov8n.log` ghi lần chạy lại hoàn tất cả
 bốn cấu hình và thoát với mã `0` lúc `2026-11-21T05:42:44Z`.
+`62ac220` chỉ sửa notebook. Còn `9659c32` là mã xuất mà notebook ghim qua
+`REPO_COMMIT`, nên cả hai lần chạy đều ghi `9659c32`. Nhật ký không ghi
+commit notebook của lần chạy lại.
 
 ### So sánh ứng viên điện thoại (AI-04)
 
-| Cấu hình | YOLOv5n mAP@0.5 val (%) | YOLOv5n (MB) | YOLOv8n mAP@0.5 val (%) | YOLOv8n (MB) |
-| --- | ---: | ---: | ---: | ---: |
-| 640 FP16 | 78,34 | 3,763 | **81,50** | 6,201 |
-| 640 INT8 | 58,46 | 2,061 | 74,62 | 3,284 |
-| 480 FP16 | 75,82 | 3,753 | 78,47 | 6,157 |
-| 480 INT8 | 53,31 | 2,054 | 70,40 | 3,262 |
+Recall biển cấm đo ở ngưỡng F1 tối đa của từng cấu hình.
+
+| Cấu hình | YOLOv5n mAP@0.5 val (%) | YOLOv5n recall biển cấm (%) | YOLOv5n (MB) | YOLOv8n mAP@0.5 val (%) | YOLOv8n recall biển cấm (%) | YOLOv8n (MB) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 640 FP16 | 78,34 | **83,44** | 3,763 | **81,50** | 80,45 | 6,201 |
+| 640 INT8 | 58,46 | 63,12 | 2,061 | 74,62 | 70,63 | 3,284 |
+| 480 FP16 | 75,82 | 78,57 | 3,753 | 78,47 | 75,30 | 6,157 |
+| 480 INT8 | 53,31 | 51,98 | 2,054 | 70,40 | 65,69 | 3,262 |
+
+Ở ngưỡng F1 tối đa, chưa cấu hình nào đạt NFR-06 (recall biển cấm ≥ 0,85).
+Cao nhất là YOLOv5n 640 FP16 với 83,44%, còn YOLOv8n 640 FP16 đạt 80,45%.
+Trên val, chỉ YOLOv8n 640 FP16 vượt 80% mAP@0.5. NFR-05 đo trên test, nên
+số val này chưa kết luận được NFR-05. `docs/04` §4 chọn ngưỡng điện thoại
+thấp hơn F1 tối đa để ưu tiên recall. Phân tích ngưỡng này đang làm trong
+`ai/experiments/model-selection-v1.1.md` trên nhánh `ai/3-evaluation`. Cần
+đo lại recall ở ngưỡng điện thoại trước khi chốt.
 
 Ở 640 px, khi chuyển từ FP16 sang INT8, mAP@0.5 val giảm 6,88 điểm phần trăm
 với YOLOv8n và 19,87 điểm phần trăm với YOLOv5n. Ở 480 px, mức giảm lần lượt
-là 8,07 và 22,51 điểm phần trăm.
+là 8,07 và 22,51 điểm phần trăm. Hai luồng xuất khác số ảnh hiệu chỉnh
+(300 / 101), công cụ (TF 2.19 + onnx2tf / TF 2.15) và kiểu đầu ra
+(`int8` / `uint8`). Vì vậy chưa quy được chênh lệch này cho kiến trúc.
 
 Cả tám cấu hình đều dưới 15 MB. FPS toàn chuỗi trên Android **chưa đo**.
 Thành viên 3 phụ trách đo trên thiết bị tham chiếu sau khi chốt Q7.
-Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chọn cấu hình này
-nếu đạt ≥ 15 FPS. Nếu không đạt, chọn cấu hình có mAP@0.5 val cao nhất trong
-số các cấu hình đạt cả hai ngưỡng.
+Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chỉ chọn cấu hình
+này nếu đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và NFR-06 ở ngưỡng điện
+thoại. Nếu không đạt, chọn cấu hình có mAP@0.5 val cao nhất trong số các
+cấu hình đạt NFR-01, NFR-07 và NFR-06 ở ngưỡng điện thoại.
 [Quy tắc AI-04](../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04),
 [Đặc tả · Q7](../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ).
 
@@ -345,8 +361,9 @@ số các cấu hình đạt cả hai ngưỡng.
    delegate và CPU XNNPACK, ghi FPS toàn chuỗi, độ trễ từng bước và FPS
    sau 20 phút. Ghi tên thiết bị, bản Android, bản app/TFLite, video,
    cấu hình, delegate thực tế, số luồng, trạng thái nhiệt và log.
-3. Giữ các cấu hình đạt ≥ 15 FPS toàn chuỗi (NFR-01) và < 15 MB
-   (NFR-07), rồi chọn mAP@0.5 val lớn nhất trong số đó. Đối chiếu
+3. Giữ các cấu hình đạt ≥ 15 FPS toàn chuỗi (NFR-01), < 15 MB
+   (NFR-07) và recall biển cấm ≥ 0,85 ở ngưỡng điện thoại (NFR-06),
+   rồi chọn mAP@0.5 val lớn nhất trong số đó. Đối chiếu
    [quy tắc chọn mô hình](../docs/04-thiet-ke-ai.md#4-giao-thức-đánh-giá-và-chọn-mô-hình)
    và [giao thức đo thiết bị](../docs/08-kiem-thu.md#4-đánh-giá-trên-thiết-bị).
 
