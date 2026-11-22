@@ -9,6 +9,7 @@ Mỗi lượt huấn luyện có một thư mục `ai/experiments/<mã thí nghi
 | `config.yaml` | Toàn bộ siêu tham số, phiên bản dữ liệu, phiên bản danh mục nhãn | Có |
 | `meta.json` | Commit, thời điểm, GPU, số giờ GPU, epoch dừng | Có |
 | `metrics.json` | Kết quả của bộ đánh giá chung trên val | Có |
+| `evaluation/{metrics-test,test-config,reproduce-val,latency,provenance}.json` | Chỉ số test, cấu hình, đối chiếu val, phép đo thời gian và hash đối chiếu | Có |
 | `error-analysis-val.json` | Phân tích lỗi tại ngưỡng F1 tối đa và SHA-256 của đầu vào trên val | Có |
 | `log.txt` hoặc `results.csv` | Log huấn luyện | Có nếu nhỏ hơn 5 MB |
 | `tflite-summary.csv` | Kết quả val, kích thước và thời gian CPU Colab theo cấu hình TFLite của ứng viên điện thoại | Có |
@@ -17,7 +18,7 @@ Mỗi lượt huấn luyện có một thư mục `ai/experiments/<mã thí nghi
 
 Không chạy bộ đánh giá trên test hoặc tập thực địa trước khi chốt cấu hình ([Thiết kế AI §4](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04)).
 
-Các báo cáo v1.1 gồm [kết quả lượt chính](main-v1.1.md), [phân tích lỗi trên val](error-analysis-v1.1-val.md) và [đề xuất triển khai](model-selection-v1.1.md).
+Các báo cáo v1.1 gồm [kết quả lượt chính](main-v1.1.md), [phân tích lỗi trên val](error-analysis-v1.1-val.md), [kết quả test PyTorch](test-v1.1.md) và [đề xuất triển khai](model-selection-v1.1.md).
 
 ## Sinh thẻ mô hình
 

@@ -1,0 +1,13 @@
+{
+  "origin": "Laptop RTX 3050, notebook 9c5ef17",
+  "repo_worktree_commit": "7083053ee7f75a394bc6ce7e7573c689ed3861b7",
+  "predictions_test_sha256": "f541814cd91655c5bcec9cf2b3f9c4a47ffd299554276a607f07246b31d15a85",
+  "label_map_sha256": "4e1f2693711693566ea6374e1eff9078fefa7521cde0ef3a10db837d30dd1586",
+  "artifacts_sha256": {
+    "metrics-test.json": "f0e80b3abb4201fd4d804de3da990daec1abc7066b5dfcf7e37558c4e1afab2e",
+    "test-config.json": "6ad643c3b2e985fb3ae02b51ad37eb838fc577cd6cc918f1cd2cc2f167e2f07f",
+    "reproduce-val.json": "2133ab09532ab62063475312a9d3689ac0e406375fb1c4fb208942ca90de5647",
+    "latency.json": "cd3e018bfb8827eb4b093a01d5c5441d5b842022ad0f05edc293447198d8dc04"
+  },
+  "evaluation_identical": true
+}

@@ -79,12 +79,13 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 - [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
 - [x] Bộ đánh giá chung bằng `pycocotools` (AI-03)
-- [x] Bảng so sánh và phân tích lỗi trên val ([Kết quả v1.1](../ai/experiments/error-analysis-v1.1-val.md), [Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình)). AP theo ngày/đêm/mưa, số tham số, GFLOPs và ms/ảnh CPU/GPU chưa đo ([lý do](../ai/experiments/error-analysis-v1.1-val.md#phần-chưa-đo)).
+- [x] Bảng so sánh và phân tích lỗi trên val ([Kết quả v1.1](../ai/experiments/error-analysis-v1.1-val.md), [Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình)). Tập VN82 thiếu thẻ ngày/đêm/mưa nên chưa có AP theo điều kiện.
+- [x] [Chấm test năm checkpoint v1.1 và đo thời gian pipeline trên máy sẵn có](../ai/experiments/test-v1.1.md). Ứng viên server còn thiếu 3,89 điểm phần trăm so với NFR-05.
 - [x] Xuất [bản TFLite INT8/FP16 của các ứng viên điện thoại](../ai/README.md#so-sánh-ứng-viên-điện-thoại-ai-04) (AI-05)
 - [ ] Đo TFLite trên thiết bị Android tham chiếu (AI-05). Thành viên 3 phụ trách sau khi chốt Q7.
 - [ ] Thí nghiệm 960 px, dữ liệu tổng hợp (AI-07)
 - [ ] Chọn mô hình triển khai kèm lý do (AI-04). Đã đề xuất theo val, chờ đo FPS và NFR-02. [Đề xuất v1.1](../ai/experiments/model-selection-v1.1.md)
-- [ ] Thẻ mô hình (AI-06). Thẻ ứng viên đã có cho năm lượt chính, kèm hai bản TFLite 640 FP16, chờ test/thực địa và đo tốc độ. [Hồ sơ thí nghiệm](../ai/experiments/README.md#sinh-thẻ-mô-hình)
+- [ ] Thẻ mô hình (AI-06). Đã cập nhật điểm test của năm checkpoint PyTorch, còn thiếu số liệu thực địa và tốc độ trên thiết bị tham chiếu. [Hồ sơ thí nghiệm](../ai/experiments/README.md#sinh-thẻ-mô-hình)
 
 **Hoàn thành khi:** đạt NFR-05, NFR-06; bảng kết quả đủ cả ba mô hình.
 

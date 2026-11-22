@@ -1,0 +1,13 @@
+{
+  "origin": "My Drive/Signa/experiments/detr-r50-640-v1.1-main-s0/evaluation",
+  "repo_worktree_commit": "7083053ee7f75a394bc6ce7e7573c689ed3861b7",
+  "predictions_test_sha256": "1c6c73a23761e31939a0a23163734e2cbbb836f9339d1a285b124d0cdc6420b3",
+  "label_map_sha256": "4e1f2693711693566ea6374e1eff9078fefa7521cde0ef3a10db837d30dd1586",
+  "artifacts_sha256": {
+    "metrics-test.json": "27636db2538e3d94dabe3133358121aa7a9153b9d46a3fa6753a14c6cdbf294b",
+    "test-config.json": "e12c876c5622c6e5ac71262bc97d189cda74cee0d6f6bd1bf4227ac4e99b4515",
+    "reproduce-val.json": "210dc9fec912a8a19bdc919ea1a10b27aedd1c0c7a8a5d236f4a3fd4a0b7abb0",
+    "latency.json": "79cccf21cfefd303b0bdd221daccd40df77f0e785d43cd3abd0de48d8037b037"
+  },
+  "evaluation_identical": true
+}

@@ -39,7 +39,23 @@
     },
     "prohibitory_recall": 0.8357689631176062
   },
-  "test": null,
+  "test": {
+    "map_50": 0.7775294296484435,
+    "map_50_95": 0.6026806895826675,
+    "ap_by_size": {
+      "small": 0.5157625839765174,
+      "medium": 0.6477960110534055,
+      "large": 0.6532323605245881
+    },
+    "operating_point": {
+      "threshold": 0.390178382396698,
+      "precision": 0.8351519875292284,
+      "recall": 0.8044294294294294,
+      "f1": 0.8195028680688337
+    },
+    "prohibitory_recall": 0.842586085734364,
+    "metricsPath": "evaluation/metrics-test.json"
+  },
   "field": null,
   "inputSize": 640,
   "weightsSha256": "1a41dfc18db0a00f2455b9159a902830de2b203d1b9c858a26a7d016be9a9936",
@@ -56,7 +72,7 @@
   },
   "limitations": [
     "Lượt so sánh chính dùng một seed.",
-    "Chưa đo trên tập test và tập thực địa.",
+    "Chưa đo trên tập thực địa.",
     "Chưa đo thời gian xử lý đầu cuối trên server tham chiếu."
   ],
   "tflite": {

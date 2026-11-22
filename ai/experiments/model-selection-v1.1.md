@@ -4,7 +4,7 @@
 
 Chọn mô hình có mAP@0.5:0.95 val cao nhất trong các mô hình đạt NFR-02. Đề xuất **YOLOv8s** theo val vì đứng đầu với **69,56%**. Ở ngưỡng F1 tối đa **0,528**, precision là **90,31%**, recall **80,22%** và F1 **84,97%**. [Phân tích năm lượt val](error-analysis-v1.1-val.md)
 
-Chưa đo p95 trên server tham chiếu. Q7 chưa chốt. Ở bước sau, dùng notebook đo thời gian đầu cuối từ nhận ảnh đến trả kết quả. Xác nhận p95 ≤ 1 s cho YOLO và ≤ 3 s cho DETR trước khi chốt. [NFR-02](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng), [Q7](../../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)
+Notebook đã đo pipeline trên Colab và laptop. Xác nhận p95 ≤ 1 s cho YOLO và ≤ 3 s cho DETR trên server demo trước khi chốt. Q7 còn mở. [Số đo pipeline](test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có), [NFR-02](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng), [Q7](../../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)
 
 ## Điện thoại (FR-03)
 
@@ -49,11 +49,11 @@ Với YOLOv8n 640 FP16, precision toàn bộ mã giảm từ 86,67% xuống 71,9
 | Server · YOLOv8s | 84,03% | ≥ 85,00% | −0,97 điểm phần trăm |
 | Điện thoại · YOLOv8n 640 FP16 | 81,50% | ≥ 80,00% | +1,50 điểm phần trăm |
 
-Val chỉ ước lượng kết quả. NFR-05 được quyết định bằng mAP@0.5 trên test. [Đặc tả NFR-05](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
+Trên test, ứng viên server YOLOv8s đạt **81,11%**, thiếu **3,89 điểm phần trăm** so với NFR-05. YOLOv5s đạt 82,19% mAP@0.5 trên test, trong khi YOLOv8s vẫn cao nhất trên val theo chỉ số chọn mAP@0.5:0.95. Giữ đề xuất YOLOv8s cho đến khi kiểm thử NFR-02 và đối chiếu phương án cải thiện bằng val. NFR-05 cho điện thoại cần điểm của chính file TFLite. [So sánh trên test](test-v1.1.md), [Đặc tả NFR-05](../../docs/02-dac-ta-yeu-cau.md#9-yêu-cầu-phi-chức-năng)
 
 ## Chốt cấu hình trước khi đo test
 
-Các cấu hình dự kiến dưới đây dùng ngưỡng vận hành chọn trên val. Năm lượt PyTorch dùng điểm F1 tối đa. Bản điện thoại dự kiến dùng điểm ưu tiên recall. Cấu hình triển khai còn chờ các phép đo hiệu năng. Nếu đề xuất thay đổi sau khi đo, cập nhật cấu hình ở đây trước khi chấm test. **Tập test chưa được chấm.**
+Các cấu hình dưới đây lưu quyết định trước khi đo test. Năm lượt PyTorch dùng điểm F1 tối đa trên val. Bản điện thoại dùng điểm ưu tiên recall đã chọn trên val. Việc chọn cấu hình triển khai còn chờ các phép đo hiệu năng trên thiết bị tham chiếu.
 
 | Mô hình | Cạnh ảnh (px) | Ngưỡng vận hành (đầy đủ) | SHA-256 trọng số nguồn |
 | --- | --- | --- | --- |
@@ -68,6 +68,6 @@ SHA-256 trọng số nguồn lấy từ `My Drive/Signa/experiments/<lượt>/ev
 
 ## Việc còn mở
 
-- Chốt thiết bị, server tham chiếu (Q7), đo FPS thiết bị (NFR-01) và p95 đầu cuối trên server bằng notebook (NFR-02).
-- Chấm test theo cấu hình đã chốt để kiểm tra NFR-05. Tập thực địa cho AI-03 chưa có.
+- Chốt thiết bị và server tham chiếu (Q7), đo FPS thiết bị (NFR-01) và p95 đầu cuối trên server demo (NFR-02).
+- Thử phương án 960 px trên val (AI-07). Tập thực địa cho AI-03 còn thiếu video, GPS đồng bộ và nhãn chuẩn.
 - Mỗi lượt chính chỉ dùng một seed. Chưa có độ lệch giữa các seed. [Hồ sơ huấn luyện](main-v1.1.md)

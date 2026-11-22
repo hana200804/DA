@@ -1,0 +1,49 @@
+{
+  "weights_sha256": "1a41dfc18db0a00f2455b9159a902830de2b203d1b9c858a26a7d016be9a9936",
+  "val_gt_sha256": "e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2",
+  "reference_path": "ai/experiments/yolov5n-640-v1.1-main-s0/metrics.json",
+  "reference": {
+    "map_50_95": 0.6158053498843072,
+    "map_50": 0.7834593580922468
+  },
+  "reproduced": {
+    "map_50_95": 0.6156654963836734,
+    "map_50": 0.7833628405898435
+  },
+  "delta": {
+    "map_50_95": -0.00013985350063383528,
+    "map_50": -9.65175024032483e-05
+  },
+  "delta_points": {
+    "map_50_95": -0.013985350063383528,
+    "map_50": -0.00965175024032483
+  },
+  "tolerance": 0.002,
+  "predictions": {
+    "reference": 10700,
+    "reproduced": 10708
+  },
+  "passed": true,
+  "repo_commit": "fe8723b2c3776b9cb7928b412dd2691d7e6d93c0",
+  "notebook_commit": "9c5ef17369992c9c934d6757598c25c0dd62c986",
+  "yolov5_commit": "1e7cf74cb64d719b34f7315aa13eab9e32cde672",
+  "ultralytics_pin": "8.4.215",
+  "ultralytics_pin_source": "requirements.txt của lượt train trên Drive",
+  "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+  "cuda": "13.2",
+  "python": "3.12.15",
+  "versions": {
+    "torch": "2.15.0",
+    "torchvision": "0.29.2",
+    "numpy": "2.5.5",
+    "pillow": "13.0.0",
+    "opencv-python": "5.1.0.95",
+    "opencv-python-headless": "5.1.0.95",
+    "pycocotools": "2.0.11",
+    "ultralytics": "8.4.215",
+    "transformers": "4.57.6",
+    "timm": "1.0.24",
+    "albumentations": "2.0.8",
+    "scipy": "1.18.1"
+  }
+}
