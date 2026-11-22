@@ -1,0 +1,37 @@
+{
+  "base_commit": "7083053ee7f75a394bc6ce7e7573c689ed3861b7",
+  "script_sha256": "147985dce484a8caa224996807c140cf7747f487f8dcb21286f847f7813863c0",
+  "weights_sha256": "49012dc0aa68865114f3a09545cab371978e5a52567cced52ebb050f49bf219d",
+  "gt_sha256": "e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2",
+  "manifest_sha256": "2b68f6468617048d9f7e94dc9e9e9cc4ae8d5c6c41050f91918ff75ac8e66eba",
+  "label_map_sha256": "4e1f2693711693566ea6374e1eff9078fefa7521cde0ef3a10db837d30dd1586",
+  "split": "val",
+  "started_at": "2026-11-22T13:05:41.290214+00:00",
+  "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+  "cuda": "13.2",
+  "versions": {
+    "ultralytics": "8.3.203",
+    "torch": "2.15.0",
+    "torchvision": "0.29.2",
+    "pycocotools": "2.0.11"
+  },
+  "checkpoint": "yolov8s-640-v1.1-main-s0",
+  "conf_export": 0.001,
+  "threshold": 0.5279324054718018,
+  "nms_iou": 0.7,
+  "max_det": 300,
+  "input_sizes": {
+    "640": {
+      "prediction_wall_s": 26.079952568001318,
+      "predictions_sha256": "732ff5be4b6cd944737776fb7d04cad644379b47074f53a13738da299366d671",
+      "metrics_sha256": "dad328294c966d361b5df8e422fee556dd9a51c7b0489767334a28fc5a518cb6",
+      "predictions_gz_sha256": "0e9933c0c6b83bd0b89cc1bed0235d5a0165014330eb45d513c10fb4062dbc7f"
+    },
+    "960": {
+      "prediction_wall_s": 46.642559654999786,
+      "predictions_sha256": "652bb33fe116ff1ab638813d94b379af5c4129f59a6662a74cd9823b31b4d2db",
+      "metrics_sha256": "0b20e108a52535ef992d278e7b6b09edfd4a61891d36e3b671dec2d8094bc250",
+      "predictions_gz_sha256": "086d71d2fcdaa3fab9a36816dcccd6ab93466406db7cb74eb61d3a7753b5b765"
+    }
+  }
+}
