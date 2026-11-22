@@ -12,6 +12,22 @@ Các lượt chính dùng ảnh 640, khởi tạo COCO, seed 0 và cùng bảng 
 
 Hồ sơ từng lượt nằm trong thư mục cùng tên: `config.yaml`, `meta.json`, `results.csv`, `best-selection.json`, `metrics.json`. Trọng số ở Drive `Signa/experiments/<mã thí nghiệm>/`.
 
+## Chi phí checkpoint
+
+Đếm toàn bộ tham số của mô hình nạp từ checkpoint. Chạy forward ở chế độ eval trên CPU FP32 với một tensor ảnh `1×3×640×640`. Giữ nguyên cấu trúc khi nạp trọng số, gồm các lớp BatchNorm riêng của YOLO. Phạm vi đo bắt đầu từ tensor và kết thúc ở đầu ra mô hình, trước NMS hoặc hậu xử lý ngoài mô hình.
+
+Dùng `torch.utils.flop_counter.FlopCounterMode` cho cả ba họ. Bộ đếm cộng các phép toán có công thức trong PyTorch. GFLOPs = FLOPs / 10⁹, với FLOPs ≈ 2 × MAC. GFLOPs Ultralytics/THOP dùng để tham khảo. Dung lượng là kích thước tệp `best.pt`, tính theo MB thập phân (1 MB = 1.000.000 byte). [Công cụ đo](../scripts/measure_cost.py), [SHA-256 đã chốt](model-selection-v1.1.md#chốt-cấu-hình-trước-khi-đo-test)
+
+| Mô hình | Tham số | GFLOPs | MB | GFLOPs Ultralytics (tham khảo) |
+| --- | ---: | ---: | ---: | ---: |
+| [YOLOv5n](yolov5n-640-v1.1-main-s0/evaluation/cost.json) | 1.826.155 | 4,322 | 4,033 | 4,417 |
+| [YOLOv5s](yolov5s-640-v1.1-main-s0/evaluation/cost.json) | 7.143.691 | 16,141 | 14,686 | 16,330 |
+| [YOLOv8n](yolov8n-640-v1.1-main-s0/evaluation/cost.json) | 3.019.818 | 8,131 | 6,286 | 8,240 |
+| [YOLOv8s](yolov8s-640-v1.1-main-s0/evaluation/cost.json) | 11.153.402 | 28,530 | 22,573 | 28,739 |
+| [DETR-R50](detr-r50-640-v1.1-main-s0/evaluation/cost.json) | 41.513.203 | 77,118 | 166,684 | — |
+
+Bảng làm tròn GFLOPs và MB đến ba chữ số thập phân. Tệp `cost.json` của từng lượt lưu giá trị đầy đủ, SHA-256, commit và phiên bản thư viện. Bộ chấm COCO chưa có đầu vào chi phí, nên `metrics*.json` vẫn dùng giá trị đã công bố. [Cách đo lại](README.md#đo-chi-phí-checkpoint), [Bộ chấm COCO](../src/signa_ai/evaluate.py)
+
 ## Ghi chú
 
 - Trần epoch là 200 cho YOLO, 300 cho DETR. Hai lượt YOLOv5 chạm trần trước khi đủ 30 epoch không tăng. DETR dừng sớm ở epoch 249.

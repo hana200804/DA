@@ -85,7 +85,8 @@ Cuối tuần 12 **đóng băng tính năng**.
 - [x] Bảng so sánh và phân tích lỗi trên val ([Kết quả v1.1](../ai/experiments/error-analysis-v1.1-val.md), [Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình)). Tập VN82 thiếu thẻ ngày/đêm/mưa nên chưa có AP theo điều kiện.
 - [x] [Chấm test năm checkpoint v1.1](../ai/experiments/test-v1.1.md). Ứng viên server còn thiếu 3,89 điểm phần trăm so với NFR-05. Đã có [thời gian pipeline CPU và GPU trên máy sẵn có](../ai/experiments/test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có).
 - [ ] Chấm ba họ mô hình trên tập thực địa (AI-03). [Giao thức thực địa](08-kiem-thu.md#5-thử-nghiệm-thực-địa)
-- [ ] Đo số tham số, GFLOPs của năm checkpoint và độ trễ qua backend trên server tham chiếu theo NFR-02. [Hồ sơ HTTP tham khảo](../ai/experiments/service-v1.1/README.md)
+- [x] Đo số tham số, GFLOPs và kích thước của năm checkpoint. [Chi phí checkpoint](../ai/experiments/main-v1.1.md#chi-phí-checkpoint)
+- [ ] Đo độ trễ HTTP qua backend trên server tham chiếu theo NFR-02 sau khi chốt Q7. [Hồ sơ HTTP tham khảo](../ai/experiments/service-v1.1/README.md)
 - [x] Xuất [bản TFLite INT8/FP16 của các ứng viên điện thoại](../ai/README.md#so-sánh-ứng-viên-điện-thoại-ai-04) (AI-05)
 - [x] [Chấm test YOLOv8n TFLite 640 FP16](../ai/experiments/yolov8n-640-v1.1-main-s0/tflite-640-fp16-evaluation/README.md). Còn thiếu 1,09 điểm phần trăm so với NFR-05. Recall biển cấm trước tracker đạt 85,80%.
 - [ ] Đo TFLite trên thiết bị Android tham chiếu (AI-05). Thành viên 3 phụ trách sau khi chốt Q7. Nghiệm thu NFR-06 trên video thực địa có tracker.
@@ -93,7 +94,7 @@ Cuối tuần 12 **đóng băng tính năng**.
 - [ ] Huấn luyện đầy đủ ở 960 px và chấm val (AI-07). [Tiêu chí so sánh](../ai/experiments/yolov8s-960-v1.1-main-s0/README.md#tiêu-chí-so-sánh-khi-hoàn-tất-lượt-huấn-luyện-960)
 - [ ] Đối chứng có và không có dữ liệu tổng hợp, sau khi có dữ liệu ở M2.
 - [ ] Chọn mô hình triển khai kèm lý do (AI-04). Đã khóa cấu hình chấm test và đề xuất ứng viên theo val. Chờ FPS và NFR-02. [Đề xuất v1.1](../ai/experiments/model-selection-v1.1.md)
-- [ ] Thẻ mô hình (AI-06). Đã cập nhật điểm test của năm checkpoint PyTorch, còn thiếu số liệu thực địa và tốc độ trên thiết bị tham chiếu. [Hồ sơ thí nghiệm](../ai/experiments/README.md#sinh-thẻ-mô-hình)
+- [ ] Thẻ mô hình (AI-06). Đã có điểm test và chi phí của năm checkpoint PyTorch. Còn thiếu số liệu thực địa và tốc độ trên thiết bị tham chiếu. [Hồ sơ thí nghiệm](../ai/experiments/README.md#sinh-thẻ-mô-hình)
 
 **Hoàn thành khi:** đạt NFR-05, NFR-06; bảng kết quả đủ cả ba mô hình.
 
