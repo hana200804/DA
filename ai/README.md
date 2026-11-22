@@ -223,15 +223,16 @@ sau mỗi cấu hình hoàn tất.
 ### Kết quả YOLOv5n trên Colab CPU
 
 Checkpoint `yolov5n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
-**78,35% / 61,58%** trên val với PyTorch và bộ chấm chung. Notebook ở
-`eb182d9` chạy mã xuất tại `0939673` trên Colab CPU 2 vCPU.
+**78,35% / 61,58%** trên val với PyTorch và bộ chấm chung. Lượt xuất dùng
+mã tại `0939673` trên Colab CPU 2 vCPU, với 2 luồng suy luận.
+[CSV kết quả YOLOv5n](experiments/yolov5n-640-v1.1-main-s0/tflite-summary.csv).
 
-| Cấu hình | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Ngưỡng F1 tối đa | ms/ảnh |
-| --- | ---: | ---: | ---: | ---: |
-| 640 FP16 | 78,34 | 61,47 | 0,398 | 137,40 |
-| 640 INT8 | 58,46 | 36,63 | 0,831 | 164,50 |
-| 480 FP16 | 75,82 | 58,03 | 0,372 | 80,75 |
-| 480 INT8 | 53,31 | 31,15 | 0,848 | 96,66 |
+| Cấu hình | Kích thước (MB) | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Recall biển cấm (%) | Ngưỡng F1 tối đa | ms/ảnh |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 640 FP16 | 3,763 | 78,34 | 61,47 | 83,44 | 0,398 | 137,40 |
+| 640 INT8 | 2,061 | 58,46 | 36,63 | 63,12 | 0,831 | 164,50 |
+| 480 FP16 | 3,753 | 75,82 | 58,03 | 78,57 | 0,372 | 80,75 |
+| 480 INT8 | 2,054 | 53,31 | 31,15 | 51,98 | 0,848 | 96,66 |
 
 YOLOv5 ghép `xywh` đã chuẩn hóa, objectness và xác suất lớp vào một tensor.
 Exporter INT8 xuất tensor đó dưới dạng `uint8` với một cặp `scale` và
@@ -267,6 +268,49 @@ float, sau đó chấm lại cùng val. Đặt riêng `inference_output_type=tf.
 chỉ đổi kiểu đầu ra ở biên khi toán tử tạo dự đoán vẫn chạy INT8. Phép giải
 lượng tử ở biên giữ nguyên sai số đã phát sinh trong đồ thị.
 [Các chế độ lượng tử hóa TensorFlow Lite](https://developers.google.com/edge/litert/conversion/tensorflow/quantization/post_training_quantization).
+
+### Kết quả YOLOv8n trên Colab CPU
+
+Checkpoint `yolov8n-640-v1.1-main-s0` đạt mAP@0.5 / mAP@0.5:0.95
+**81,46% / 65,57%** trên val với PyTorch và bộ chấm chung.
+[Kết quả PyTorch](experiments/main-v1.1.md).
+
+Metadata `identity.repo_commit` ghi mã xuất `9659c32487c378867d8ae12cd7e2b79328056c21`
+cho cả bốn cấu hình. Lượt xuất chạy trên Colab CPU 2 vCPU (Intel Xeon 2,20 GHz),
+với 2 luồng suy luận. [CSV kết quả YOLOv8n](experiments/yolov8n-640-v1.1-main-s0/tflite-summary.csv).
+
+| Cấu hình | Kích thước (MB) | mAP@0.5 (%) | mAP@0.5:0.95 (%) | Recall biển cấm (%) | Ngưỡng F1 tối đa | ms/ảnh |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 640 FP16 | 6,201 | 81,50 | 65,55 | 80,45 | 0,429 | 223,16 |
+| 640 INT8 | 3,284 | 74,62 | 52,91 | 70,63 | 0,796 | 235,45 |
+| 480 FP16 | 6,157 | 78,47 | 62,49 | 75,30 | 0,398 | 130,30 |
+| 480 INT8 | 3,262 | 70,40 | 50,55 | 65,69 | 0,801 | 137,65 |
+
+Lần chạy đầu lỗi vì môi trường xuất không nhận backend Matplotlib inline
+của Colab. Commit `62ac220` sửa lỗi bằng cách đặt `MPLBACKEND=Agg` cho
+tiến trình xuất. Nhật ký `export-yolov8n.log` ghi lần chạy lại hoàn tất cả
+bốn cấu hình và thoát với mã `0` lúc `2026-11-21T05:42:44Z`.
+
+### So sánh ứng viên điện thoại (AI-04)
+
+| Cấu hình | YOLOv5n mAP@0.5 val (%) | YOLOv5n (MB) | YOLOv8n mAP@0.5 val (%) | YOLOv8n (MB) |
+| --- | ---: | ---: | ---: | ---: |
+| 640 FP16 | 78,34 | 3,763 | **81,50** | 6,201 |
+| 640 INT8 | 58,46 | 2,061 | 74,62 | 3,284 |
+| 480 FP16 | 75,82 | 3,753 | 78,47 | 6,157 |
+| 480 INT8 | 53,31 | 2,054 | 70,40 | 3,262 |
+
+Ở 640 px, khi chuyển từ FP16 sang INT8, mAP@0.5 val giảm 6,88 điểm phần trăm
+với YOLOv8n và 19,87 điểm phần trăm với YOLOv5n. Ở 480 px, mức giảm lần lượt
+là 8,07 và 22,51 điểm phần trăm.
+
+Cả tám cấu hình đều dưới 15 MB. FPS toàn chuỗi trên Android **chưa đo**.
+Thành viên 3 phụ trách đo trên thiết bị tham chiếu sau khi chốt Q7.
+Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chọn cấu hình này
+nếu đạt ≥ 15 FPS. Nếu không đạt, chọn cấu hình có mAP@0.5 val cao nhất trong
+số các cấu hình đạt cả hai ngưỡng.
+[Quy tắc AI-04](../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04),
+[Đặc tả · Q7](../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ).
 
 ### Hợp đồng đầu vào, đầu ra và nhãn
 

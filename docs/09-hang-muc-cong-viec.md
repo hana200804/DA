@@ -80,7 +80,8 @@ Cuối tuần 12 **đóng băng tính năng**.
 - [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
 - [x] Bộ đánh giá chung bằng `pycocotools` (AI-03)
 - [ ] Bảng so sánh và phân tích lỗi ([Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình))
-- [ ] Bản TFLite INT8/FP16 của các ứng viên điện thoại (AI-05)
+- [x] Xuất [bản TFLite INT8/FP16 của các ứng viên điện thoại](../ai/README.md#so-sánh-ứng-viên-điện-thoại-ai-04) (AI-05)
+- [ ] Đo TFLite trên thiết bị Android tham chiếu (AI-05). Thành viên 3 phụ trách sau khi chốt Q7.
 - [ ] Thí nghiệm 960 px, dữ liệu tổng hợp (AI-07)
 - [ ] Chọn mô hình triển khai kèm lý do (AI-04); thẻ mô hình (AI-06)
 
