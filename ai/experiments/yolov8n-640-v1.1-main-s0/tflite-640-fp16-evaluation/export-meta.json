@@ -1,0 +1,78 @@
+{
+  "identity": {
+    "repo_commit": "9659c32487c378867d8ae12cd7e2b79328056c21",
+    "weights_sha256": "5cb3927b7e740ac944b09a569c4dc5547553cec8a5cdae635d8148a456f82a03",
+    "manifest_sha256": "2b68f6468617048d9f7e94dc9e9e9cc4ae8d5c6c41050f91918ff75ac8e66eba",
+    "val_gt_sha256": "e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2",
+    "source_run": "yolov8n-640-v1.1-main-s0",
+    "model": "yolov8",
+    "python": "3.11.14",
+    "versions": {
+      "ultralytics": "8.3.203",
+      "tensorflow": "2.19.0",
+      "keras": "3.9.2",
+      "numpy": "1.26.4",
+      "opencv-python": "4.11.0.86",
+      "pillow": "11.3.0",
+      "pyyaml": "6.0.2",
+      "torch": "2.8.0+cpu",
+      "torchvision": "0.23.0+cpu",
+      "pycocotools": "2.0.10",
+      "ultralytics-thop": "2.2.5",
+      "protobuf": "5.29.5",
+      "tf-keras": "2.19.0",
+      "onnx": "1.17.0",
+      "onnx2tf": "1.28.2",
+      "onnxslim": "0.1.71",
+      "onnxruntime": "1.18.1",
+      "onnx-graphsurgeon": "0.5.8",
+      "ai-edge-litert": "1.2.0",
+      "sng4onnx": "1.0.4",
+      "h5py": "3.11.0",
+      "ml-dtypes": "0.5.1"
+    },
+    "label_map_version": 1,
+    "conf": 0.001,
+    "iou": 0.7,
+    "max_det": 300,
+    "cpu_count": 2,
+    "cpu_model": "Intel(R) Xeon(R) CPU @ 2.20GHz",
+    "cpu_threads": 2,
+    "cpu_warmup": 5,
+    "requirements_sha256": "482de13954566725dcaaa27896caff4b158259c4afcbc82cee2d08f808a247b1",
+    "size": 640,
+    "precision": "fp16"
+  },
+  "size_bytes": 6201024,
+  "size_mb": 6.201024,
+  "calibration": null,
+  "evaluation_split": "val",
+  "tensors": {
+    "input": {
+      "shape": [
+        1,
+        640,
+        640,
+        3
+      ],
+      "dtype": "float32",
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    "output": {
+      "shape": [
+        1,
+        50,
+        8400
+      ],
+      "dtype": "float32",
+      "scale": 0.0,
+      "zero_point": 0
+    }
+  },
+  "sha256": {
+    "model.tflite": "0af0fcaef4eefd4899c2ec85bd833bec8aa3f586b04f18acb63728dc074df159",
+    "predictions-val.json": "67b584bd7298de4dbbb3877b2a2f686ff4df1abfa004ac26f529ea0f37a19c63",
+    "metrics.json": "cd87bb9169c6efceeccf73801a733a0bad8a23a8304658dd0fa981f426244f9c"
+  }
+}

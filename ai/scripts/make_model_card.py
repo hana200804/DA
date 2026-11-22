@@ -10,6 +10,8 @@ from pathlib import Path
 import yaml
 
 VAL_FIELDS = ("map_50", "map_50_95", "ap_by_size", "prohibitory_recall")
+NO_TEST = "Chưa đo trên tập test và tập thực địa."
+NO_FIELD = "Chưa đo trên tập thực địa."
 
 
 def read_json(path: Path) -> dict:
@@ -19,7 +21,34 @@ def read_json(path: Path) -> dict:
     return data
 
 
-def tflite_card(paths: list[Path], run: str, card: dict) -> dict:
+def test_result(folder: Path, run: Path, weights_sha: str | None, labels: int, threshold: float):
+    """Đọc kết quả test đã chấm nếu có; kiểm trọng số, nhãn và ngưỡng đã chốt trên val."""
+    metrics_path, config_path = folder / "metrics-test.json", folder / "test-config.json"
+    if not metrics_path.is_file():
+        return None
+    metrics, config = read_json(metrics_path), read_json(config_path)
+    used_sha = config.get("weights_sha256", config.get("model_sha256"))
+    used_threshold = config.get("operating_threshold", config.get("config", {}).get("threshold"))
+    if (
+        metrics["label_map_version"] != labels
+        or (weights_sha is not None and used_sha != weights_sha)
+        or used_threshold is None
+        or not isclose(used_threshold, threshold)
+        or not isclose(metrics["operating_point"]["threshold"], threshold)
+    ):
+        raise ValueError(f"Kết quả test ở {folder} không khớp trọng số, nhãn hoặc ngưỡng đã chốt")
+    return {
+        "map_50": metrics["map_50"],
+        "map_50_95": metrics["map_50_95"],
+        "ap_by_size": metrics["ap_by_size"],
+        "operating_point": metrics["operating_point"],
+        "prohibitory_recall": metrics["prohibitory_recall"],
+        "metricsPath": metrics_path.relative_to(run).as_posix(),
+    }
+
+
+def tflite_card(paths: list[Path], run_dir: Path, card: dict) -> dict:
+    run = run_dir.name
     summary_path, meta_path, analysis_path = paths
     meta, analysis = read_json(meta_path), read_json(analysis_path)
     identity = meta["identity"]
@@ -72,7 +101,13 @@ def tflite_card(paths: list[Path], run: str, card: dict) -> dict:
             **{key: analysis[key] for key in VAL_FIELDS},
             "maxF1": analysis["operating_point"],
         },
-        "test": None,
+        "test": test_result(
+            run_dir / f"tflite-{identity['size']}-{identity['precision']}-evaluation",
+            run_dir,
+            meta["sha256"]["model.tflite"],
+            card["labelMapVersion"],
+            analysis["prohibitory_operating_point"]["threshold"],
+        ),
         "field": None,
         "operating_point": analysis["prohibitory_operating_point"],
         "limitations": [
@@ -117,6 +152,9 @@ def make_card(run: Path, version: str, export_config: Path | None) -> dict:
             raise ValueError("weights_sha256 phải là mã SHA-256")
 
     costs = metrics["cost"]
+    test = test_result(
+        run / "evaluation", run, weights_sha, labels, metrics["operating_point"]["threshold"]
+    )
     return {
         "modelName": variant[:-1] if variant.startswith("yolo") else "detr",
         "modelVersion": f"{variant}-{version}",
@@ -133,7 +171,7 @@ def make_card(run: Path, version: str, export_config: Path | None) -> dict:
             "epoch": selected["epoch"],
         },
         "val": {key: metrics[key] for key in VAL_FIELDS},
-        "test": None,
+        "test": test,
         "field": None,
         "inputSize": image_size,
         "weightsSha256": weights_sha,
@@ -145,7 +183,7 @@ def make_card(run: Path, version: str, export_config: Path | None) -> dict:
         "operating_point": metrics["operating_point"],
         "limitations": [
             "Lượt so sánh chính dùng một seed.",
-            "Chưa đo trên tập test và tập thực địa.",
+            NO_FIELD if test else NO_TEST,
             "Chưa đo thời gian xử lý đầu cuối trên server tham chiếu.",
         ],
     }
@@ -168,7 +206,7 @@ def main() -> None:
     try:
         card = make_card(args.run, args.version, args.export_config)
         if args.tflite:
-            card["tflite"] = tflite_card(args.tflite, args.run.name, card)
+            card["tflite"] = tflite_card(args.tflite, args.run, card)
         output = args.out or args.run / "model_card.json"
         output.write_text(
             json.dumps(card, ensure_ascii=False, indent=2, allow_nan=False) + "\n",

@@ -1,0 +1,81 @@
+{
+  "model_sha256": "0af0fcaef4eefd4899c2ec85bd833bec8aa3f586b04f18acb63728dc074df159",
+  "source_weights_sha256": "5cb3927b7e740ac944b09a569c4dc5547553cec8a5cdae635d8148a456f82a03",
+  "manifest_sha256": "2b68f6468617048d9f7e94dc9e9e9cc4ae8d5c6c41050f91918ff75ac8e66eba",
+  "label_map_sha256": "4e1f2693711693566ea6374e1eff9078fefa7521cde0ef3a10db837d30dd1586",
+  "repo_commit": "7083053ee7f75a394bc6ce7e7573c689ed3861b7",
+  "config": {
+    "imgsz": 640,
+    "precision": "FP16 (float32 I/O)",
+    "export_conf": 0.001,
+    "nms_iou": 0.7,
+    "max_det": 300,
+    "threshold": 0.04258768633008003
+  },
+  "environment": {
+    "cpu": "Intel Core i5-11400H",
+    "os": "Linux-6.8.0-149-generic-x86_64-with-glibc2.35",
+    "threads": 2,
+    "python": "3.11.18",
+    "packages": {
+      "tensorflow-cpu": "2.19.0",
+      "numpy": "2.1.3",
+      "pillow": "13.0.0",
+      "opencv-python-headless": "5.1.0.95",
+      "pycocotools": "2.0.11"
+    }
+  },
+  "splits": {
+    "val": {
+      "gt_sha256": "e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2",
+      "images": 1599,
+      "boxes": 2685,
+      "predictions_sha256": "ff940d0b7f8c11c5e14cc87326535a54478ecfbe1e101ca3da259d0ee5aa47e9",
+      "metrics_sha256": "bcdf593a55fc87c33c234f6518fe4ba77419d631bf618bbe0a79792fe24ab7c7",
+      "invoke_mean_ms": 74.22222902066987,
+      "prediction_wall_s": 218.4997986729977,
+      "delta_points": {
+        "map_50": 0.0,
+        "map_50_95": 0.0
+      },
+      "predictions_gz_sha256": "6d3fba9f3c5edbcb3417d8275fd6dde671948c5532c5e3805f0481843319d2b3"
+    },
+    "test": {
+      "gt_sha256": "38cad06f9b0c2960d4c4049f0ebd0de71f8bcefbef472022af10acc0031a9950",
+      "images": 1700,
+      "boxes": 2664,
+      "predictions_sha256": "7b48b5c48a8e5d37a5b0bdb52f517cb95c3295f620b1a5a8b327a75088f8da47",
+      "metrics_sha256": "bcda9beeef9255e55b847155e6c083490d0790da26debbdb458f9b3661c0cadf",
+      "invoke_mean_ms": 72.58784682884118,
+      "prediction_wall_s": 209.86373879099847,
+      "predictions_gz_sha256": "8b27b404d9d3b08ed9dc83a7bf8dacb2853084fe01b44a25be1ff3ffc9508375"
+    }
+  },
+  "tensors": {
+    "input": {
+      "shape": [
+        1,
+        640,
+        640,
+        3
+      ],
+      "dtype": "float32",
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    "output": {
+      "shape": [
+        1,
+        50,
+        8400
+      ],
+      "dtype": "float32",
+      "scale": 0.0,
+      "zero_point": 0
+    }
+  },
+  "test_rescore_ap_by_size_tolerance": 1e-12,
+  "source_export_meta_sha256": "18e0e8d7458cb7e9dc35efd174f32c7bc57a16fd9dae51f626a35a53e8e55130",
+  "source_metrics_val_sha256": "cd87bb9169c6efceeccf73801a733a0bad8a23a8304658dd0fa981f426244f9c",
+  "completed_at": "2026-11-22T13:04:47.182859+00:00"
+}

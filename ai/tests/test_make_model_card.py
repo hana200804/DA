@@ -4,6 +4,7 @@ import sys
 
 import pytest
 
+from scripts.make_model_card import test_result as load_test_result
 from scripts.make_model_card import tflite_card
 from service.app import ModelInfo
 
@@ -11,6 +12,17 @@ from service.app import ModelInfo
 def write_json(path, data):
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
+
+
+def sample_test_metrics(threshold):
+    return {
+        "label_map_version": 1,
+        "map_50": 0.75,
+        "map_50_95": 0.6,
+        "ap_by_size": {"small": 0.5, "medium": 0.7, "large": 0.7},
+        "operating_point": {"threshold": threshold, "precision": 0.8, "recall": 0.7, "f1": 0.75},
+        "prohibitory_recall": 0.81,
+    }
 
 
 def test_make_model_card_cli(tmp_path):
@@ -70,6 +82,30 @@ def test_make_model_card_cli(tmp_path):
     assert card["operating_point"]["threshold"] == 0.4
     assert card["val"]["map_50_95"] == 0.7
     assert card["test"] is card["field"] is card["serverLatencyP95Ms"] is None
+    assert "Chưa đo trên tập test và tập thực địa." in card["limitations"]
+
+    evaluation = run / "evaluation"
+    evaluation.mkdir()
+    write_json(evaluation / "metrics-test.json", sample_test_metrics(0.4))
+    write_json(
+        evaluation / "test-config.json", {"weights_sha256": "a" * 64, "operating_threshold": 0.4}
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/make_model_card.py",
+            str(run),
+            "--version",
+            "v1.0",
+            "--export-config",
+            str(export),
+        ],
+        check=True,
+    )
+    card = json.loads((run / "model_card.json").read_text(encoding="utf-8"))
+    assert card["test"]["map_50"] == 0.75
+    assert card["test"]["metricsPath"] == "evaluation/metrics-test.json"
+    assert "Chưa đo trên tập thực địa." in card["limitations"]
 
 
 def test_tflite_card_keeps_tensor_contract_and_checks_provenance(tmp_path):
@@ -117,13 +153,54 @@ def test_tflite_card_keeps_tensor_contract_and_checks_provenance(tmp_path):
     }
     paths = [summary, meta, write_json(analysis_path, analysis)]
     base_card = {"modelName": "yolov8", "labelMapVersion": 1, "weightsSha256": "weights"}
-    tflite = tflite_card(paths, "run", base_card)
+    run = tmp_path / "run"
+    run.mkdir()
+    tflite = tflite_card(paths, run, base_card)
     assert tflite["tensors"] == tensors
     assert tflite["cpuMsPerImage"] == 130
     assert tflite["operating_point"]["threshold"] == 0.2
     assert tflite["deviceFps"] is None
+    assert tflite["test"] is None
+
+    # Kết quả test đã chấm được đưa vào thẻ khi trùng file TFLite và ngưỡng đã chốt.
+    evaluation = run / "tflite-640-fp16-evaluation"
+    evaluation.mkdir()
+    write_json(evaluation / "metrics-test.json", sample_test_metrics(0.2))
+    config = write_json(
+        evaluation / "test-config.json", {"model_sha256": "model", "config": {"threshold": 0.2}}
+    )
+    tflite = tflite_card(paths, run, base_card)
+    assert tflite["test"]["map_50"] == 0.75
+    assert tflite["test"]["metricsPath"] == "tflite-640-fp16-evaluation/metrics-test.json"
+
+    write_json(config, {"model_sha256": "other", "config": {"threshold": 0.2}})
+    with pytest.raises(ValueError, match="Kết quả test"):
+        tflite_card(paths, run, base_card)
 
     analysis["sha256"]["predictions"] = "different"
     write_json(analysis_path, analysis)
     with pytest.raises(ValueError, match="Nguồn TFLite không khớp"):
-        tflite_card(paths, "run", base_card)
+        tflite_card(paths, run, base_card)
+
+
+def test_test_result_requires_locked_threshold_and_weights(tmp_path):
+    run = tmp_path / "run"
+    evaluation = run / "evaluation"
+    evaluation.mkdir(parents=True)
+    assert load_test_result(evaluation, run, "w", 1, 0.4) is None
+
+    write_json(evaluation / "metrics-test.json", sample_test_metrics(0.4))
+    config = write_json(
+        evaluation / "test-config.json", {"weights_sha256": "w", "operating_threshold": 0.4}
+    )
+    result = load_test_result(evaluation, run, "w", 1, 0.4)
+    assert result["prohibitory_recall"] == 0.81
+    assert result["operating_point"]["threshold"] == 0.4
+
+    with pytest.raises(ValueError):  # ngưỡng chọn lại trên test
+        load_test_result(evaluation, run, "w", 1, 0.5)
+    with pytest.raises(ValueError):  # danh mục nhãn khác
+        load_test_result(evaluation, run, "w", 2, 0.4)
+    write_json(config, {"weights_sha256": "x", "operating_threshold": 0.4})
+    with pytest.raises(ValueError):  # trọng số khác
+        load_test_result(evaluation, run, "w", 1, 0.4)
