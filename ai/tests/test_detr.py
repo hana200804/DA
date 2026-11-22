@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import ast
 import csv
+import hashlib
 import json
 import math
 import os
+import socket
 import sys
 from contextlib import nullcontext
 from io import StringIO
@@ -19,10 +21,14 @@ from PIL import Image
 
 from signa_ai.detection import Box, to_coco_predictions
 from signa_ai.detr import (
+    DETR_CONFIG,
+    IMAGE_MEAN,
+    IMAGE_STD,
     DetrDataset,
     detr_detections,
     letterbox,
     load_detr_checkpoint,
+    load_detr_config,
     predict_detr,
 )
 from signa_ai.labels import load_label_map
@@ -63,51 +69,124 @@ def test_detr_detections_use_coco_ids_and_keep_queries():
     assert padded["bbox"][1] == 0 and 0 < padded["bbox"][3] < 0.001
 
 
-def test_checkpoint_inference_returns_coco_prediction_on_cpu(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("logits_shape", "boxes_shape", "bad"),
+    [
+        ((47,), (1, 4), None),
+        ((2, 48), (2, 4), None),
+        ((2, 47), (2, 3), None),
+        ((2, 47), (3, 4), None),
+        ((2, 47), (2, 4), "logits"),
+        ((2, 47), (2, 4), "boxes"),
+    ],
+)
+def test_detr_detections_rejects_invalid_outputs(logits_shape, boxes_shape, bad):
+    labels = load_label_map()
+    _, geometry = letterbox(Image.new("RGB", (80, 40)))
+    logits, boxes = np.zeros(logits_shape), np.full(boxes_shape, 0.5)
+    if bad == "logits":
+        logits[0, 0] = np.nan
+    elif bad == "boxes":
+        boxes[1, 2] = np.inf
+    with pytest.raises(ValueError, match="không hợp lệ"):
+        detr_detections(logits, boxes, geometry, labels.names)
+
+
+def install_fake_transformers(monkeypatch, model_class=None):
+    from_dict = Mock(side_effect=lambda data, **kwargs: SimpleNamespace(source=data, **kwargs))
+    from_pretrained = Mock(side_effect=AssertionError("không được tải cấu hình qua mạng"))
+    config_class = SimpleNamespace(from_dict=from_dict, from_pretrained=from_pretrained)
+    module = SimpleNamespace(DetrConfig=config_class, DetrForObjectDetection=model_class)
+    monkeypatch.setitem(sys.modules, "transformers", module)
+    return from_dict, from_pretrained
+
+
+def test_detr_config_is_read_locally_without_network(tmp_path, monkeypatch):
+    labels = load_label_map()
+    from_dict, from_pretrained = install_fake_transformers(monkeypatch)
+    monkeypatch.setattr(socket, "socket", Mock(side_effect=OSError("mạng bị chặn")))
+    # config.json của facebook/detr-resnet-50 tại MODEL_REVISION, chép nguyên văn.
+    assert hashlib.sha256(DETR_CONFIG.read_bytes()).hexdigest() == (
+        "e7bcf3992363f27717a863f14b193140ad2e41d4338ee012730e58a92cae17e6"
+    )
+
+    config = load_detr_config(labels)
+    from_pretrained.assert_not_called()
+    assert config.source == json.loads(DETR_CONFIG.read_text(encoding="utf-8"))
+    assert config.source["backbone"] == "resnet50" and config.source["num_queries"] == 100
+    assert config.num_labels == len(labels) and config.id2label == labels.names
+    assert {config.label2id[code] for code in labels.names.values()} == set(labels.names)
+    assert config.use_pretrained_backbone is False and config.auxiliary_loss is True
+
+    custom = tmp_path / "config.json"
+    custom.write_text('{"model_type": "detr", "num_queries": 7}', encoding="utf-8")
+    assert load_detr_config(labels, str(custom)).source == {"model_type": "detr", "num_queries": 7}
+    assert from_dict.call_count == 2
+    from_pretrained.assert_not_called()
+
+
+LANDSCAPE = (80, 40), [0.25, 0.425, 0.25, 0.15], [10, 8, 20, 12]
+PORTRAIT = (40, 80), [0.425, 0.25, 0.15, 0.25], [8, 10, 12, 20]
+
+
+@pytest.mark.parametrize(
+    ("mode", "color", "rgb", "case"),
+    [
+        ("RGB", (50, 70, 90), (50, 70, 90), LANDSCAPE),
+        ("RGB", (50, 70, 90), (50, 70, 90), PORTRAIT),
+        ("L", 50, (50, 50, 50), LANDSCAPE),
+        # Alpha bị bỏ như DetrDataset, không trộn lên nền 114.
+        ("RGBA", (50, 70, 90, 0), (50, 70, 90), PORTRAIT),
+    ],
+)
+def test_checkpoint_inference_returns_coco_prediction_on_cpu(
+    tmp_path, monkeypatch, mode, color, rgb, case
+):
     torch = pytest.importorskip("torch")
     labels = load_label_map()
-    config_from_pretrained = Mock(side_effect=lambda _model, **kwargs: SimpleNamespace(**kwargs))
+    dimensions, pred_box, expected_bbox = case
+    calls = []
 
     class FakeDetr(torch.nn.Module):
         def __init__(self, config):
             super().__init__()
             self.config = config
+            self.anchor = torch.nn.Parameter(torch.zeros(1))
             self.register_buffer("logits", torch.full((1, 1, len(labels) + 1), -20.0))
 
         def forward(self, *, pixel_values, pixel_mask):
             assert not self.training and not torch.is_grad_enabled()
-            assert pixel_values.shape == (1, 3, 640, 640) and pixel_values.dtype == torch.float32
-            assert pixel_mask.dtype == torch.bool and pixel_mask.sum() == 640 * 320
-            assert not pixel_mask[0, 159, 0] and pixel_mask[0, 160, 0]
-            assert pixel_values[0, 0, 160, 0].item() == pytest.approx((50 / 255 - 0.485) / 0.229)
-            return SimpleNamespace(
-                logits=self.logits,
-                pred_boxes=torch.tensor([[[0.25, 0.425, 0.25, 0.15]]]),
-            )
+            assert pixel_values.device == pixel_mask.device == self.anchor.device
+            calls.append((pixel_values, pixel_mask))
+            return SimpleNamespace(logits=self.logits, pred_boxes=torch.tensor([[pred_box]]))
 
-    monkeypatch.setitem(
-        sys.modules,
-        "transformers",
-        SimpleNamespace(
-            DetrConfig=SimpleNamespace(from_pretrained=config_from_pretrained),
-            DetrForObjectDetection=FakeDetr,
-        ),
-    )
+    from_dict, from_pretrained = install_fake_transformers(monkeypatch, FakeDetr)
     logits = torch.full((1, 1, len(labels) + 1), -20.0)
     logits[0, 0, 17] = 1
     logits[0, 0, -1] = 0
     checkpoint = tmp_path / "best.pt"
-    torch.save({"epoch": 219, "model": {"logits": logits}}, checkpoint)
+    torch.save({"epoch": 219, "model": {"anchor": torch.zeros(1), "logits": logits}}, checkpoint)
 
     model = load_detr_checkpoint(checkpoint, labels)
-    assert config_from_pretrained.call_args.kwargs["use_pretrained_backbone"] is False
-    image = Image.new("RGB", (80, 40), (50, 70, 90))
+    from_pretrained.assert_not_called()
+    assert from_dict.call_args.kwargs["use_pretrained_backbone"] is False
+    image = Image.new(mode, dimensions, color)
     [prediction] = to_coco_predictions(42, predict_detr(model, image), labels)
     assert prediction["image_id"] == 42
     assert prediction["category_id"] == 17
-    assert prediction["bbox"] == pytest.approx([10, 8, 20, 12])
+    assert prediction["bbox"] == pytest.approx(expected_bbox)
     assert prediction["score"] == pytest.approx(1 / (1 + np.exp(-1)))
     assert predict_detr(model, image, conf=0.8) == []
+
+    pixel_values, pixel_mask = calls[0]
+    assert pixel_values.shape == (1, 3, 640, 640) and pixel_values.dtype == torch.float32
+    assert pixel_mask.dtype == torch.bool and pixel_mask.sum() == 640 * 320
+    mask = pixel_mask[0] if dimensions[0] > dimensions[1] else pixel_mask[0].T
+    assert not mask[159, 0] and mask[160, 0] and mask[479, 0] and not mask[480, 0]
+    inside = (160, 0) if dimensions[0] > dimensions[1] else (0, 160)
+    expected = (np.asarray(rgb, dtype=np.float32) / 255 - IMAGE_MEAN) / IMAGE_STD
+    assert pixel_values[0, :, inside[0], inside[1]].numpy() == pytest.approx(expected)
+    assert pixel_values[0, :, 0, 0].numpy() == pytest.approx((114 / 255 - IMAGE_MEAN) / IMAGE_STD)
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])

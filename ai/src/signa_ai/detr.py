@@ -20,12 +20,15 @@ from signa_ai.labels import LabelMap
 
 if TYPE_CHECKING:
     from torch import nn
+    from transformers import DetrConfig
 
 IMAGE_SIZE = 640
 IMAGE_MEAN = np.asarray((0.485, 0.456, 0.406), dtype=np.float32)
 IMAGE_STD = np.asarray((0.229, 0.224, 0.225), dtype=np.float32)
 MODEL = "facebook/detr-resnet-50"
 MODEL_REVISION = "1d5f47bd3bdd2c4bbfa585418ffe6da5028b4c0b"
+# config.json của MODEL tại MODEL_REVISION, chép nguyên văn để nạp không cần mạng.
+DETR_CONFIG = Path(__file__).resolve().parents[2] / "configs" / "detr-r50-config.json"
 
 
 @dataclass(frozen=True)
@@ -114,42 +117,50 @@ def detr_detections(
     return detections
 
 
-def load_detr_checkpoint(
-    checkpoint: Path, label_map: LabelMap, *, device: str = "cpu"
-) -> nn.Module:
-    """Nạp best.pt với danh mục đã dùng khi huấn luyện và trả mô hình ở chế độ eval."""
-    import torch
-    from transformers import DetrConfig, DetrForObjectDetection
+def load_detr_config(label_map: LabelMap, config: str | Path = DETR_CONFIG) -> DetrConfig:
+    """Dựng cấu hình kiến trúc từ tệp cục bộ với cùng tham số ghi đè như khi huấn luyện."""
+    from transformers import DetrConfig
 
     names = label_map.names
     if list(names) != list(range(len(names))):
         raise ValueError("ID lớp DETR phải liên tiếp từ 0")
-
-    state = torch.load(checkpoint, map_location="cpu", weights_only=True)
-    config = DetrConfig.from_pretrained(
-        MODEL,
-        revision=MODEL_REVISION,
+    return DetrConfig.from_dict(
+        json.loads(Path(config).read_text(encoding="utf-8")),
         num_labels=len(names),
         id2label=names,
         label2id={code: class_id for class_id, code in names.items()},
         use_pretrained_backbone=False,
         auxiliary_loss=True,
     )
-    model = DetrForObjectDetection(config)
+
+
+def load_detr_checkpoint(
+    checkpoint: Path,
+    label_map: LabelMap,
+    *,
+    config: str | Path = DETR_CONFIG,
+    device: str = "cpu",
+) -> nn.Module:
+    """Nạp best.pt với danh mục đã dùng khi huấn luyện và trả mô hình ở chế độ eval."""
+    import torch
+    from transformers import DetrForObjectDetection
+
+    model = DetrForObjectDetection(load_detr_config(label_map, config))
+    state = torch.load(checkpoint, map_location="cpu", weights_only=True)
     model.load_state_dict(state["model"])
     return model.to(device).eval()
 
 
 def predict_detr(
-    model: nn.Module, image: Image.Image, *, device: str = "cpu", conf: float = EVAL_CONFIDENCE
+    model: nn.Module, image: Image.Image, *, conf: float = EVAL_CONFIDENCE
 ) -> list[Detection]:
-    """Chạy mô hình đã nạp trên một ảnh và trả box theo pixel ảnh gốc."""
+    """Chạy mô hình đã nạp trên thiết bị của nó và trả box theo pixel ảnh gốc."""
     import torch
 
     pixels, mask, geometry = _prepare_image(image.convert("RGB"))
-    device_type = torch.device(device).type
+    device = next(model.parameters()).device
     with torch.inference_mode(), torch.autocast(
-        device_type, dtype=torch.float16, enabled=device_type == "cuda"
+        device.type, dtype=torch.float16, enabled=device.type == "cuda"
     ):
         outputs = model(
             pixel_values=torch.from_numpy(pixels).unsqueeze(0).to(device),
