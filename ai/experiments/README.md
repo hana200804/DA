@@ -51,4 +51,4 @@ tflite="$drive/exports/$run/640-fp16"
   "$tflite/export-meta.json" /tmp/signa-yolov8n-tflite-val.json
 ```
 
-Bỏ `--tflite` với thẻ chỉ có checkpoint server. Thẻ DETR-R50 dùng hồ sơ `detr-r50-640-v1.1-main-s0` đã có trên `main`.
+Bỏ `--tflite` với thẻ chỉ có checkpoint server. Nếu lượt đã có `evaluation/metrics-test.json` và `evaluation/test-config.json`, trình sinh tự đưa kết quả test vào trường `test`. Với bản TFLite, trình sinh đọc `tflite-<cỡ>-<độ chính xác>-evaluation/`. Trình sinh từ chối kết quả test nếu SHA-256 trọng số hoặc file TFLite, danh mục nhãn hay ngưỡng vận hành khác giá trị đã chốt trên val. Vì vậy sinh lại thẻ không làm mất kết quả test. Thẻ DETR-R50 dùng hồ sơ `detr-r50-640-v1.1-main-s0` đã có trên `main`.

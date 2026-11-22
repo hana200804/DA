@@ -37,7 +37,8 @@
       "delta_points": {
         "map_50": 0.0,
         "map_50_95": 0.0
-      }
+      },
+      "predictions_gz_sha256": "6d3fba9f3c5edbcb3417d8275fd6dde671948c5532c5e3805f0481843319d2b3"
     },
     "test": {
       "gt_sha256": "38cad06f9b0c2960d4c4049f0ebd0de71f8bcefbef472022af10acc0031a9950",
@@ -46,7 +47,8 @@
       "predictions_sha256": "7b48b5c48a8e5d37a5b0bdb52f517cb95c3295f620b1a5a8b327a75088f8da47",
       "metrics_sha256": "bcda9beeef9255e55b847155e6c083490d0790da26debbdb458f9b3661c0cadf",
       "invoke_mean_ms": 72.58784682884118,
-      "prediction_wall_s": 209.86373879099847
+      "prediction_wall_s": 209.86373879099847,
+      "predictions_gz_sha256": "8b27b404d9d3b08ed9dc83a7bf8dacb2853084fe01b44a25be1ff3ffc9508375"
     }
   },
   "tensors": {

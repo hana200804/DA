@@ -22,7 +22,19 @@ TensorFlow Lite 2.19.0 với XNNPACK, 2 luồng trên Intel Core i5-11400H. Trun
 
 ## Nguồn và tái tạo
 
-File gốc ở `My Drive/Signa/exports/yolov8n-640-v1.1-main-s0/640-fp16/model.tflite`. Hash file và trọng số nguồn khớp [metadata từ Drive](export-meta.json). [Cấu hình đánh giá](test-config.json) chứa hash GT, manifest, dự đoán, các gói runtime và thời gian. [Chỉ số test](metrics-test.json) gồm AP theo kích thước, theo lớp và ma trận nhầm lẫn. Dự đoán COCO lưu trong `.local-eval/mobile/v8/` ở workspace chạy.
+File gốc ở `My Drive/Signa/exports/yolov8n-640-v1.1-main-s0/640-fp16/model.tflite`. Hash file và trọng số nguồn khớp [metadata từ Drive](export-meta.json). [Cấu hình đánh giá](test-config.json) chứa hash GT, manifest, dự đoán, các gói runtime và thời gian. [Chỉ số test](metrics-test.json) gồm AP theo kích thước, theo lớp và ma trận nhầm lẫn. Dự đoán COCO của hai tập nằm cạnh tệp này: [val](predictions-val.json.gz) và [test](predictions-test.json.gz). `test-config.json` ghi SHA-256 của bản giải nén (`predictions_sha256`) và bản nén (`predictions_gz_sha256`).
+
+Để chấm lại trên CPU mà không cần chạy TFLite, giải nén rồi dùng bộ đánh giá chung với ngưỡng đã chốt. Chạy từ `ai/` với extra `eval`:
+
+```sh
+dir=experiments/yolov8n-640-v1.1-main-s0/tflite-640-fp16-evaluation
+dataset=data/processed/v1.1
+gunzip -k "$dir/predictions-test.json.gz"
+uv run --no-sync python -m signa_ai.evaluate \
+  --gt "$dataset/coco/test.json" --manifest "$dataset/manifest.csv" \
+  --labels data/labels.yaml --pred "$dir/predictions-test.json" \
+  --threshold 0.04258768633008003 --out /tmp/signa-tflite-metrics-test.json
+```
 
 Chạy từ `ai/` với Python 3.11 và extra `data,eval`. Dùng `tensorflow-cpu==2.19.0` và `opencv-python-headless==5.1.0.95` như trong cấu hình bên cạnh. Thay đường dẫn `model` và `dataset` bằng bản cục bộ. Hàm dùng chung `predict_val` nhận danh sách ảnh COCO của tập cần chấm.
 
