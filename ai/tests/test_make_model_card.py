@@ -90,6 +90,17 @@ def test_make_model_card_cli(tmp_path):
     write_json(
         evaluation / "test-config.json", {"weights_sha256": "a" * 64, "operating_threshold": 0.4}
     )
+    card_path = run / "model_card.json"
+    before = card_path.read_bytes()
+    command = [sys.executable, "scripts/make_model_card.py", str(run), "--version", "v1.0"]
+    missing_sha = json.loads(export.read_text())
+    del missing_sha["weights_sha256"]
+    incomplete = write_json(tmp_path / "incomplete-export.json", missing_sha)
+    for args in ([], ["--export-config", str(incomplete)]):
+        result = subprocess.run(command + args, capture_output=True, text=True, check=False)
+        assert result.returncode == 2 and "--export-config" in result.stderr
+        assert card_path.read_bytes() == before
+
     subprocess.run(
         [
             sys.executable,

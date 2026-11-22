@@ -22,13 +22,13 @@ Lưu tệp đầu vào cạnh hồ sơ phép thử để nhóm chấm lại mà 
 
 Ghi SHA-256 của bản gốc và bản nén vào cấu hình hoặc `provenance.json`. Đối chiếu hai hash khi lấy tệp và dùng `gunzip -k <tên gốc>.gz` để giải nén. [Ví dụ chấm lại từ bản nén trong Git](test-v1.1.md#tệp-đầu-vào-chấm-lại)
 
-Không chạy bộ đánh giá trên test hoặc tập thực địa trước khi chốt cấu hình ([Thiết kế AI §4](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04)).
+Khóa cấu hình chấm trước khi chạy test. Đo hiệu năng trên thiết bị tham chiếu để chốt cấu hình triển khai, rồi dùng cấu hình đó để nghiệm thu thực địa. [Thiết kế AI §4](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04)
 
-Các báo cáo v1.1 gồm [kết quả lượt chính](main-v1.1.md), [phân tích lỗi trên val](error-analysis-v1.1-val.md), [kết quả test PyTorch](test-v1.1.md) và [đề xuất triển khai](model-selection-v1.1.md).
+Các báo cáo v1.1 gồm [kết quả lượt chính](main-v1.1.md), [phân tích lỗi trên val](error-analysis-v1.1-val.md), [test PyTorch](test-v1.1.md), [test TFLite](yolov8n-640-v1.1-main-s0/tflite-640-fp16-evaluation/README.md), [phép đo HTTP](service-v1.1/README.md), [thí nghiệm 640/960](yolov8s-960-v1.1-main-s0/README.md) và [đề xuất triển khai](model-selection-v1.1.md).
 
 ## Sinh thẻ mô hình
 
-Chạy trong `ai/` với `config.yaml`, `meta.json`, `best-selection.json` và `metrics.json` của lượt. Số liệu val lấy từ bộ đánh giá chung. Phiên bản mô hình ứng viên đầu tiên là `v1.0`. Phiên bản dữ liệu nằm trong `datasetVersion`. Trường chưa có số đo như kích thước checkpoint PyTorch, độ trễ server, FPS thiết bị, kết quả test và thực địa được ghi `null`.
+Chạy trong `ai/` với `config.yaml`, `meta.json`, `best-selection.json` và `metrics.json` của lượt. Số liệu val lấy từ bộ đánh giá chung. Phiên bản mô hình ứng viên đầu tiên là `v1.0`. Phiên bản dữ liệu nằm trong `datasetVersion`. Trình sinh ghi `null` ở các trường chưa có hồ sơ. Cả năm thẻ PyTorch v1.1 đã có điểm test.
 
 Nguồn nằm trên Drive chung của nhóm. Đối chiếu SHA-256 trong thẻ và `export-meta.json` trước khi so kết quả.
 
@@ -51,4 +51,4 @@ tflite="$drive/exports/$run/640-fp16"
   "$tflite/export-meta.json" /tmp/signa-yolov8n-tflite-val.json
 ```
 
-Bỏ `--tflite` với thẻ chỉ có checkpoint server. Nếu lượt đã có `evaluation/metrics-test.json` và `evaluation/test-config.json`, trình sinh tự đưa kết quả test vào trường `test`. Với bản TFLite, trình sinh đọc `tflite-<cỡ>-<độ chính xác>-evaluation/`. Trình sinh từ chối kết quả test nếu SHA-256 trọng số hoặc file TFLite, danh mục nhãn hay ngưỡng vận hành khác giá trị đã chốt trên val. Vì vậy sinh lại thẻ không làm mất kết quả test. Thẻ DETR-R50 dùng hồ sơ `detr-r50-640-v1.1-main-s0` đã có trên `main`.
+Bỏ `--tflite` với thẻ chỉ có checkpoint server. Khi lượt có `evaluation/metrics-test.json`, phải truyền `--export-config` có SHA-256 trọng số xuất trên val. Trình sinh chỉ đưa điểm PyTorch vào thẻ khi SHA đó khớp `evaluation/test-config.json`, cùng danh mục nhãn và ngưỡng vận hành đã chốt trên val. Với bản TFLite, trình sinh đọc `tflite-<cỡ>-<độ chính xác>-evaluation/` và đối chiếu SHA-256 tệp TFLite, nhãn và ngưỡng với hồ sơ xuất trên val.

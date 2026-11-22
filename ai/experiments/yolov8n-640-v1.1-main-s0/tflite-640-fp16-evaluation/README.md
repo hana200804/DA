@@ -10,11 +10,11 @@ Cả hai lượt dùng chính file TFLite 6.201.024 byte đã xuất, với ngư
 | Yêu cầu | Kết quả |
 | --- | --- |
 | NFR-05 · mAP@0.5 trên test ≥ 80% | Thiếu 1,09 điểm phần trăm. |
-| NFR-06 · recall biển cấm ≥ 85% | Đạt 85,80% trên ảnh test ở ngưỡng đã chốt. Cần đánh giá riêng chuỗi có tracker. |
+| NFR-06 · recall biển cấm ≥ 85% | Đạt mốc chọn ứng viên với 85,80% trên ảnh test trước tracker. Nghiệm thu trên video thực địa có tracker còn mở. |
 | NFR-07 · file mô hình < 15 MB | File dự kiến đóng gói là 6,20 MB. Kiểm lại kích thước khi tích hợp vào `assets/`. |
 | NFR-01 · tốc độ ≥ 15 FPS, cùng kiểm tra nhiệt và bộ nhớ | Chờ Android tham chiếu và chuỗi phát lại video. |
 
-Giữ YOLOv8n 640 FP16 là ứng viên theo mAP trên val. Cần đo FPS trên video val cho các ứng viên và kiểm tra lại recall biển cấm ở ngưỡng chọn trên val trước khi chốt. Hiện chưa có Android tầm trung và thiết bị đối chiếu được nối với máy, chưa có bản ứng dụng đo camera/tracker trong repo này. Lượt thực địa còn cần video, GPS đồng bộ và nhãn chuẩn theo tuyến. [Giao thức kiểm thử trên thiết bị](../../../../docs/08-kiem-thu.md#4-đánh-giá-trên-thiết-bị)
+Giữ YOLOv8n 640 FP16 là ứng viên theo mAP trên val. Cần đo FPS trên video val và áp dụng quy tắc AI-04 trước khi chốt. Hiện chưa có Android tầm trung và thiết bị đối chiếu được nối với máy, chưa có bản ứng dụng đo camera/tracker trong repo này. Lượt thực địa còn cần video, GPS đồng bộ và nhãn chuẩn theo tuyến. [Quy tắc AI-04](../../model-selection-v1.1.md#điện-thoại-fr-03), [Giao thức kiểm thử trên thiết bị](../../../../docs/08-kiem-thu.md#4-đánh-giá-trên-thiết-bị)
 
 ## Thời gian tham khảo trên máy phát triển
 

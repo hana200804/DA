@@ -14,6 +14,8 @@ YOLOv8s là ứng viên server đã đề xuất theo val. Kết quả test củ
 
 `metrics-test.json` của mỗi lượt có AP theo kích thước, theo lớp và ma trận nhầm lẫn. Manifest VN82 v1.1 thiếu thẻ ngày, đêm và mưa nên các trường AP theo điều kiện là `null`. Bộ thực địa còn thiếu video, GPS đồng bộ và nhãn chuẩn theo tuyến. TFLite và chuỗi camera trên điện thoại có phép đo riêng.
 
+Hai lớp có ít hơn 20 box thật trên test. `P.124c` có 9 box và `W.220` có 19 box. Một vài phát hiện đúng hoặc bỏ sót có thể làm chỉ số theo lớp thay đổi nhiều. [Số box theo lớp trong hồ sơ test](yolov8s-640-v1.1-main-s0/evaluation/metrics-test.json), [Quy tắc báo cáo dữ liệu](../../docs/05-du-lieu.md#5-phân-chia-tập-dữ-liệu)
+
 Chưa đo số tham số và GFLOPs của năm checkpoint theo giao thức chung. Hai trường `cost.parameters` và `cost.gflops` trong `metrics-test.json` vẫn là `null`. Kết quả đo thời gian CPU và GPU có trong [bảng thời gian pipeline](#thời-gian-pipeline-trên-các-máy-sẵn-có).
 
 ## Thời gian pipeline trên các máy sẵn có
@@ -37,6 +39,7 @@ Các số đo phục vụ tham khảo vì khác máy, số luồng và tải n�
 - YOLOv8n, YOLOv8s và DETR-R50 lấy từ `My Drive/Signa/experiments/<lượt>/evaluation/`. Giữ nguyên các tệp chấm, cấu hình, tái tạo val và thời gian của phiên Colab. Đánh giá lại JSON dự đoán gốc trên máy cục bộ cho kết quả trùng toàn bộ `metrics-test.json` của từng lượt.
 - Hai lượt YOLOv5 dùng `best.pt` từ `My Drive/Signa/experiments/<lượt>/weights/`, khớp SHA-256 trong thẻ. Huấn luyện trên Colab L4 với Torch 2.14.1+cu130. Chấm test và tái tạo val trên RTX 3050 với Torch 2.15.0 và CUDA 13.2. Phiên bản `ultralytics==8.4.215` lấy từ `requirements.txt` của cả hai lượt huấn luyện. Notebook nhóm `yolov5` chạy với đường dẫn cục bộ và giữ nguyên hàm xuất dự đoán cùng bộ chấm. Trên runtime này, hai chỉ số AP gộp khi tái tạo val đều lệch dưới 0,02 điểm phần trăm. [Notebook đã qua review](https://github.com/hana200804/DA/blob/9c5ef17369992c9c934d6757598c25c0dd62c986/ai/notebooks/predict_test_v1.1.ipynb), [Nhật ký YOLOv5](predict-test-v1.1-yolov5.log.gz)
 - `provenance.json` lưu SHA-256 của dự đoán test, danh mục nhãn và các tệp đi kèm. Mục `archives_sha256` ghi hash của bản nén và bản giải nén theo đường dẫn tương đối từ tệp provenance. `test-config.json` lưu SHA-256 checkpoint, GT, manifest, phiên bản runtime và ngưỡng.
+- Notebook cập nhật ghi thêm hash đầu ra trong `test-config.json` và định danh hồ sơ test trong `latency.json`. Kiểm tra mở lại theo định dạng này áp dụng cho lần chạy mới. Hồ sơ lịch sử vẫn dùng để chấm lại trên CPU theo hướng dẫn dưới đây.
 - Dữ liệu từ `signa-v1.1.zip`. SHA-256 của `coco/test.json` là `38cad06f9b0c2960d4c4049f0ebd0de71f8bcefbef472022af10acc0031a9950`. SHA-256 của `coco/val.json` là `e3ccd276014eadd148030941675efeaf06db1c1ad8deddcd80747d40ec8b08e2`. Bản giải nén cục bộ có manifest giống Git và tất cả 9.978 ảnh khớp hash trong manifest. [Bộ dữ liệu v1.1](../data/README.md#bộ-dữ-liệu-v11)
 
 ### Tệp đầu vào chấm lại

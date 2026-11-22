@@ -26,12 +26,14 @@ def test_result(folder: Path, run: Path, weights_sha: str | None, labels: int, t
     metrics_path, config_path = folder / "metrics-test.json", folder / "test-config.json"
     if not metrics_path.is_file():
         return None
+    if weights_sha is None:
+        raise ValueError(f"Kết quả test ở {folder} cần SHA-256 trọng số từ --export-config")
     metrics, config = read_json(metrics_path), read_json(config_path)
     used_sha = config.get("weights_sha256", config.get("model_sha256"))
     used_threshold = config.get("operating_threshold", config.get("config", {}).get("threshold"))
     if (
         metrics["label_map_version"] != labels
-        or (weights_sha is not None and used_sha != weights_sha)
+        or used_sha != weights_sha
         or used_threshold is None
         or not isclose(used_threshold, threshold)
         or not isclose(metrics["operating_point"]["threshold"], threshold)
@@ -147,9 +149,9 @@ def make_card(run: Path, version: str, export_config: Path | None) -> dict:
             export["imgsz"],
         ):
             raise ValueError("Cấu hình xuất dự đoán val không khớp hồ sơ lượt chạy")
-        weights_sha = export["weights_sha256"]
-        if not re.fullmatch(r"[0-9a-f]{64}", weights_sha):
-            raise ValueError("weights_sha256 phải là mã SHA-256")
+        weights_sha = export.get("weights_sha256")
+        if not isinstance(weights_sha, str) or not re.fullmatch(r"[0-9a-f]{64}", weights_sha):
+            raise ValueError("--export-config cần weights_sha256 hợp lệ")
 
     costs = metrics["cost"]
     test = test_result(

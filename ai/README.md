@@ -271,7 +271,7 @@ uv run --no-sync python -m signa_ai.evaluate \
 
 - Xuất predictions bằng `to_coco_predictions`. Mỗi bản ghi có `image_id` từ COCO GT, `category_id` theo danh mục nhãn, `bbox` theo `[x, y, w, h]` bằng pixel ảnh gốc và `score` trong `[0.001, 1]`. Dùng `--labels` nếu cần chỉ định bản sao danh mục đi kèm dữ liệu.
 - mAP và AP từng mã dùng COCOeval với tối đa 100 dự đoán mỗi ảnh mỗi lớp, trung bình các lớp có GT. AP theo kích thước tính từ diện tích box ảnh gốc, với hai mốc 32² và 96² thuộc nhóm vừa.
-- Precision, recall và F1 gộp các mã tại IoU ≥ 0,5, ghép cùng mã theo score giảm dần. Recall từng mã và recall gộp nhóm cấm (NFR-06) dùng điểm vận hành này. Trên val lấy ngưỡng F1 cao nhất và ưu tiên ngưỡng lớn hơn khi hòa. Sau khi chốt cấu hình, truyền `--threshold` đã chọn khi chạy trên test hoặc tập thực địa.
+- Precision, recall và F1 gộp các mã tại IoU ≥ 0,5, ghép cùng mã theo score giảm dần. Recall từng mã và recall gộp nhóm cấm theo ảnh dùng cùng điểm vận hành. Trên val lấy ngưỡng F1 cao nhất và ưu tiên ngưỡng lớn hơn khi hòa. Truyền `--threshold` đã khóa khi chấm ảnh test. NFR-06 còn có phép nghiệm thu chuỗi sau tracker. [Kiểm thử thực địa](../docs/08-kiem-thu.md#5-thử-nghiệm-thực-địa)
 - Ma trận nhầm lẫn tại điểm vận hành ghép theo score và IoU ≥ 0,5 giữa mọi mã để đếm nhầm lớp. Hàng là GT, cột là dự đoán, `background` biểu thị bỏ sót hoặc báo thừa. Danh sách 10 cặp chỉ đếm các ô nhầm giữa hai mã.
 - Tách ngày, đêm và mưa theo `images[].tags` trong GT hoặc theo cột `tags` của `--manifest` (khớp `path` với `file_name`). Hỗ trợ `day`, `night`, `rain` và `ngày`, `đêm`, `mưa`. Dùng dấu chấm phẩy để tách nhiều thẻ trong cùng chuỗi. Điều kiện thiếu thẻ và chỉ số AP hoặc recall thiếu GT có giá trị `null`.
 - Các trường `cost` để `null` cho đến khi thí nghiệm cung cấp số đo.
@@ -323,8 +323,10 @@ train ghi rồi ghim đúng bản đó. Thiếu tệp thì ghim `8.4.201`, cận
 notebook xuất TFLite YOLOv5 dùng. Bản đã ghim và nguồn ghi trong `test-config.json`.
 
 Notebook lấy mã tại `REPO_COMMIT` cố định. GT là `coco/val.json` và `coco/test.json` trong ZIP,
-cùng tệp notebook train dùng để chấm val. SHA-256 của `coco/val.json` phải bằng
-`e3ccd276…08e2`. Với mỗi lượt:
+và được khóa bằng SHA-256. GT val có SHA `e3ccd276…08e2`, GT test có SHA
+`38cad06f…a9950`. Notebook dừng nếu một SHA lệch. [SHA đầy đủ](experiments/test-v1.1.md#nguồn-và-tái-tạo)
+
+Với mỗi lượt:
 
 1. Kiểm SHA-256 `best.pt` với bảng chốt. Lệch thì dừng.
 2. Xuất lại dự đoán val bằng chính hàm xuất của notebook train (conf 0,001, IoU NMS 0,7,
@@ -336,8 +338,8 @@ cùng tệp notebook train dùng để chấm val. SHA-256 của `coco/val.json`
    Không chọn lại ngưỡng trên test.
 4. Đo thời gian đầu cuối trên 200 ảnh val đầu tiên, khởi động 10 ảnh. Mỗi lần đo đi từ bytes
    JPEG trong bộ nhớ qua giải mã, tiền xử lý, suy luận, hậu xử lý tới box theo pixel ảnh gốc,
-   ở ngưỡng vận hành. Đo trên GPU rồi CPU của runtime, PyTorch dùng tối đa 4 luồng. Ghi p50, p95,
-   mean ms. Đây không phải server tham chiếu (Q7 chưa chốt), số chỉ để tham khảo cho NFR-02.
+   ở ngưỡng vận hành. Đo trên GPU rồi CPU của runtime. Các lần chạy mới đặt lại số luồng PyTorch
+   sau lần gọi khởi động đầu tiên, tối đa 4 luồng. Ghi p50, p95 và trung bình để tham khảo NFR-02.
    10 ảnh khởi động là 10 ảnh đầu của chính 200 ảnh đo. Trên GPU, DETR chạy FP16 autocast,
    YOLO chạy FP32, như đường val của từng mô hình. Khi so p95 cần nêu rõ (trường `precision`).
 
@@ -347,22 +349,26 @@ Kết quả ở `My Drive/Signa/experiments/<lượt>/evaluation/`:
 | --- | --- |
 | `predictions-val-repro.json`, `metrics-val-repro.json`, `reproduce-val.json` | Kiểm tái tạo val |
 | `predictions-test.json`, `metrics-test.json` | Dự đoán và chỉ số test |
-| `test-config.json` | SHA trọng số, SHA GT test, phiên bản thư viện, GPU, commit |
-| `latency.json` | Thời gian GPU và CPU, cấu hình máy và số luồng |
+| `test-config.json` | Cấu hình đã khóa, SHA trọng số, GT, dự đoán và chỉ số test, cổng tái tạo val, phiên bản thư viện, GPU, commit |
+| `latency.json` | Định danh hồ sơ test, thời gian GPU và CPU, phần cứng và số luồng |
 
 Bản bàn giao trong Git có các tệp dự đoán đã kiểm tra ở dạng nén để chấm lại. [Báo cáo test v1.1](experiments/test-v1.1.md#tệp-đầu-vào-chấm-lại)
 
 Nhật ký ở `My Drive/Signa/experiments/predict-test-v1.1-<nhóm>.log`, gồm cả đầu ra của
-`signa_ai.evaluate` và traceback khi lỗi. Chạy lại an toàn: lượt đã có `metrics-test.json` và
-`test-config.json` cùng SHA thì bỏ qua phần test. Có `latency.json` cùng SHA trọng số, cùng
-số ảnh, số ảnh khởi động và số luồng CPU thì bỏ qua phần đo. Nếu SHA đã ghi khác SHA hiện
-tại, notebook dừng để không ghi đè kết quả test.
+`signa_ai.evaluate` và traceback khi lỗi. Notebook chỉ dùng lại hồ sơ test khớp cấu hình khóa,
+cổng tái tạo val và SHA-256 các tệp đầu ra. Hồ sơ thời gian còn phải khớp phần cứng, số luồng
+và danh sách ảnh. Notebook dừng trước khi ghi kết quả nếu hồ sơ dở dang, lệch hoặc thiếu trường
+mới. Để chạy mới, lưu riêng hồ sơ cũ trước. Các kết quả đã công bố vẫn chấm lại được từ bản dự đoán lưu trong Git.
 Lỗi ở ô cài đặt và ô dữ liệu chỉ hiện trong ô Colab, chưa vào nhật ký Drive. Một lượt rớt
 cổng val thì cả nhóm dừng, lượt sau không chạy.
 Kiểm thử CPU ở [`tests/test_predict_test_notebook.py`](tests/test_predict_test_notebook.py).
 Hàm xuất được so với mọi bản notebook train tới `REPO_COMMIT` qua `git`, nên CI checkout
 toàn bộ lịch sử (`fetch-depth: 0`).
-Chưa chạy notebook này trên Colab. Kết quả test và thời gian **chưa đo**.
+
+Đã chấm test và đo thời gian cho cả năm lượt. YOLOv8n, YOLOv8s và DETR-R50 chạy trên
+Colab T4. Hai lượt YOLOv5 chạy trên GPU RTX 3050 của laptop.
+NFR-02 vẫn chờ phép đo qua backend trên server tham chiếu sau khi chốt Q7.
+[Báo cáo test PyTorch](experiments/test-v1.1.md), [Hồ sơ HTTP](experiments/service-v1.1/README.md)
 
 ## Huấn luyện YOLOv8n trên Colab · v1.1
 
@@ -374,8 +380,8 @@ epoch tốt nhất 71, mAP50–95 val Ultralytics **tham khảo** 0,70177,
 phiên train dùng 1,320266 giờ GPU (không gồm smoke/xuất dự đoán).
 Notebook lấy helper/danh mục từ commit `ef46f19` đã có trên main; không cần push nhánh này.
 
-1. Tải `signa-v1.1.zip` lên thư mục gốc **My Drive**. Bản cục bộ hiện ở
-   `/home/hau/orca/workspaces/DA/AI-01-Dữ-liệu-và-nhãn/ai/data/processed/signa-v1.1.zip`.
+1. Tải `signa-v1.1.zip` lên thư mục gốc **My Drive**.
+   Xem [cách dựng dữ liệu v1.1](data/README.md#bộ-dữ-liệu-v11).
    Notebook mount Drive, giải nén vào `/content/v1.1`, sửa `path` trong `data.yaml`,
    kiểm tra manifest v1.1 và 46 lớp theo `data/labels.yaml`.
 2. Chạy ô 1–4 và xem `train_batch0.jpg` của smoke một epoch để kiểm tra box/mã.
@@ -549,15 +555,18 @@ Recall biển cấm đo ở ngưỡng F1 tối đa của từng cấu hình.
 | 480 FP16 | 75,82 | 78,57 | 3,753 | 78,47 | 75,30 | 6,157 |
 | 480 INT8 | 53,31 | 51,98 | 2,054 | 70,40 | 65,69 | 3,262 |
 
-Ở ngưỡng F1 tối đa, chưa cấu hình nào đạt NFR-06 (recall biển cấm ≥ 0,85).
+Ở ngưỡng F1 tối đa, cả tám cấu hình đều có recall biển cấm trên val dưới 0,85.
 Cao nhất là YOLOv5n 640 FP16 với 83,44%, còn YOLOv8n 640 FP16 đạt 80,45%.
-Trên val, chỉ YOLOv8n 640 FP16 vượt 80% mAP@0.5. NFR-05 đo trên test, nên
-số val này chưa kết luận được NFR-05. `docs/04` §4 chọn ngưỡng điện thoại
-thấp hơn F1 tối đa để ưu tiên recall. Ở ngưỡng điện thoại, YOLOv8n 640 FP16
+Trên val, chỉ YOLOv8n 640 FP16 vượt 80% mAP@0.5. `docs/04` §4 chọn ngưỡng
+điện thoại thấp hơn F1 tối đa để ưu tiên recall. Ở ngưỡng điện thoại, YOLOv8n 640 FP16
 đạt recall biển cấm 85,04% với precision 71,95% (ngưỡng 0,0426). YOLOv5n
 640 FP16 đạt cùng recall với precision 78,76% (ngưỡng 0,241). Sáu cấu hình
 còn lại chưa đo ở ngưỡng điện thoại. Ngưỡng đầy đủ và cách tính nằm trong
 [đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#ngưỡng-ưu-tiên-recall-biển-cấm).
+
+Trên ảnh test, YOLOv8n TFLite 640 FP16 đạt mAP@0.5 78,91%, thiếu 1,09 điểm phần trăm so với
+NFR-05. Recall biển cấm trước tracker đạt 85,80% ở ngưỡng đã khóa. Nghiệm thu NFR-06
+còn chờ phép đo với tracker trên video thực địa. [Báo cáo test TFLite](experiments/yolov8n-640-v1.1-main-s0/tflite-640-fp16-evaluation/README.md)
 
 Ở 640 px, khi chuyển từ FP16 sang INT8, mAP@0.5 val giảm 6,88 điểm phần trăm
 với YOLOv8n và 19,87 điểm phần trăm với YOLOv5n. Ở 480 px, mức giảm lần lượt
@@ -567,11 +576,10 @@ là 8,07 và 22,51 điểm phần trăm. Hai luồng xuất khác số ảnh hi�
 
 Cả tám cấu hình đều dưới 15 MB. FPS toàn chuỗi trên Android **chưa đo**.
 Thành viên 3 phụ trách đo trên thiết bị tham chiếu sau khi chốt Q7.
-Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chỉ chọn cấu hình
-này nếu đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và NFR-06 ở ngưỡng điện
-thoại. Nếu không đạt, chọn cấu hình có mAP@0.5 val cao nhất trong số các
-cấu hình đạt NFR-01, NFR-07 và NFR-06 ở ngưỡng điện thoại. Quy tắc này
-giống [đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#điện-thoại-fr-03).
+Đề xuất tạm YOLOv8n 640 FP16 vì có mAP@0.5 val cao nhất. Chọn mAP@0.5 val cao nhất
+trong số các cấu hình đạt NFR-01 (≥ 15 FPS), NFR-07 (< 15 MB) và mốc recall
+NFR-06 trên ảnh test trước tracker tại ngưỡng đã khóa.
+[Đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#điện-thoại-fr-03),
 [Quy tắc AI-04](../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04),
 [Đặc tả · Q7](../docs/02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ).
 
@@ -612,7 +620,7 @@ giống [đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#đi
    sau 20 phút. Ghi tên thiết bị, bản Android, bản app/TFLite, video,
    cấu hình, delegate thực tế, số luồng, trạng thái nhiệt và log.
 3. Giữ các cấu hình đạt ≥ 15 FPS toàn chuỗi (NFR-01), < 15 MB
-   (NFR-07) và recall biển cấm ≥ 0,85 ở ngưỡng điện thoại (NFR-06),
+   (NFR-07) và recall biển cấm ≥ 0,85 trên ảnh test trước tracker ở ngưỡng đã khóa (NFR-06),
    rồi chọn mAP@0.5 val lớn nhất trong số đó. Đối chiếu
    [quy tắc chọn mô hình](../docs/04-thiet-ke-ai.md#4-giao-thức-đánh-giá-và-chọn-mô-hình)
    và [giao thức đo thiết bị](../docs/08-kiem-thu.md#4-đánh-giá-trên-thiết-bị).
