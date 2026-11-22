@@ -129,7 +129,23 @@
         "f1": 0.8277875072971396
       }
     },
-    "test": null,
+    "test": {
+      "map_50": 0.7890657406348346,
+      "map_50_95": 0.638830236182452,
+      "ap_by_size": {
+        "small": 0.5064031520007326,
+        "medium": 0.6989362356864954,
+        "large": 0.6875512402160872
+      },
+      "operating_point": {
+        "threshold": 0.04258768633008003,
+        "precision": 0.7293474766955963,
+        "recall": 0.8517267267267268,
+        "f1": 0.7858008658008658
+      },
+      "prohibitory_recall": 0.8580463808854533,
+      "metricsPath": "tflite-640-fp16-evaluation/metrics-test.json"
+    },
     "field": null,
     "operating_point": {
       "threshold": 0.04258768633008003,
