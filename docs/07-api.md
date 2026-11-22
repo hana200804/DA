@@ -247,8 +247,12 @@ Bỏ trường này để dùng mô hình mặc định trong cấu hình dịch
 trong `defaultModel`, nên backend đọc từ đây thay vì cấu hình lại. DETR bỏ qua `iou`.
 Nếu ảnh còn thẻ EXIF Orientation, dịch vụ xoay ảnh theo thẻ trước khi suy luận và box tính theo
 pixel của ảnh đã xoay. Ảnh đã chuẩn hóa hướng như §5 không bị đổi.
-Quá tải trả `503` kèm `Retry-After`. Backend chuyển thành `503 RECOGNITION_UNAVAILABLE`.
-Timeout phía backend là 5 giây.
+
+**Mở rộng về hàng chờ.** Hàng chờ đầy hoặc hết hạn chờ slot trả `503` kèm
+`Retry-After: 1`. Backend chuyển lỗi thành `503 RECOGNITION_UNAVAILABLE`.
+Dịch vụ bỏ yêu cầu hết hạn trước khi giải mã ảnh. Mặc định `SIGNA_QUEUE_TIMEOUT_S` là
+4 giây để dịch vụ có thời gian trả lỗi trước timeout 5 giây của backend. Hạn này chỉ tính
+thời gian chờ slot. Xem [cấu hình dịch vụ](../ai/README.md#cách-dịch-vụ-xử-lý-ảnh).
 
 ## 8. Quản trị
 

@@ -70,7 +70,7 @@ Lấy checkpoint của nhóm từ My Drive và đặt mỗi trọng số trong m
 Đặt `model_card.json` bên cạnh từng `best.pt`. Thẻ cần tên họ mô hình
 (`yolov5`, `yolov8` hoặc `detr`), phiên bản duy nhất và phiên bản danh mục nhãn khớp
 `ai/data/labels.yaml`. Dịch vụ đối chiếu SHA-256 của checkpoint với `weightsSha256`
-trước khi nạp. Nếu thiếu hash hoặc hash không khớp, dịch vụ từ chối khởi động.
+trước khi nạp. Dịch vụ từ chối khởi động và báo riêng lỗi thiếu SHA và lỗi SHA không khớp.
 Dịch vụ đọc ngưỡng mặc định từ `operating_point.threshold`.
 
 Ba thẻ của lượt chính có trong `experiments/`. Ngưỡng là ngưỡng F1 tối đa trên val, lấy từ
@@ -127,6 +127,7 @@ DETR lấy phụ thuộc từ extra `detr`, nên cùng `transformers` và `timm`
 | `SIGNA_DEVICE` | `cpu` hoặc thiết bị CUDA như `cuda:0`. Tự chọn `cuda:0` nếu khả dụng, nếu không thì dùng CPU |
 | `SIGNA_DEFAULT_MODEL` | Tên họ hoặc `modelVersion` của mô hình mặc định. Khi chưa đặt thì dùng `yolov8`. Giá trị không phải họ mô hình hay `modelVersion` đã nạp làm dịch vụ dừng ngay khi khởi động. `/v1/models` trả họ mô hình này trong `defaultModel` |
 | `SIGNA_YOLOV5_CONF`, `SIGNA_YOLOV8_CONF`, `SIGNA_DETR_CONF` | Ngưỡng khi request và thẻ mô hình đều thiếu ngưỡng. Giá trị dự phòng là 0,42, 0,40 và 0,71 tương ứng |
+| `SIGNA_QUEUE_TIMEOUT_S` | Hạn chờ slot suy luận, tính bằng giây. Nhận số dương hữu hạn, mặc định 4 giây. Giữ thấp hơn timeout 5 giây của backend để dịch vụ có thời gian trả lỗi |
 
 ### Cách dịch vụ xử lý ảnh
 
@@ -137,10 +138,11 @@ DETR lấy phụ thuộc từ extra `detr`, nên cùng `transformers` và `timm`
 - DETR chạy qua `load_detr_checkpoint` và `predict_detr` của `signa_ai.detr`, giống lúc chọn
   ngưỡng trên val. Trên CUDA, suy luận dùng autocast fp16. API bỏ box bị cắt về diện tích 0,
   còn lúc chấm val vẫn giữ chúng.
-- Mỗi họ YOLO có 4 slot, DETR có 1, cộng 8 request chờ. Vượt mức này dịch vụ trả `503` kèm
-  `Retry-After: 1`. Adapter YOLO dùng khoá trong tiến trình, nên thực tế mỗi họ chạy một
-  suy luận một lúc. Dịch vụ chưa có timeout phía server: request mà backend đã bỏ sau 5 giây
-  vẫn giữ chỗ trong hàng chờ cho đến khi chạy xong. Thời gian chờ thực tế chưa đo.
+- Mỗi họ có 1 slot xử lý và tối đa 8 yêu cầu chờ. Số slot phản ánh việc mỗi adapter YOLO
+  dùng chung một predictor. Hàng chờ đầy hoặc hết hạn chờ trả `503` kèm `Retry-After: 1`.
+  Yêu cầu hết hạn rời hàng chờ trước bước giải mã ảnh. Hạn chờ kết thúc khi nhận được slot,
+  nên suy luận đã bắt đầu có thể hoàn tất sau timeout của backend.
+  Thay đổi hàng chờ áp dụng cho các lượt chạy dịch vụ tiếp theo.
 
 ### Hạn chế đã biết: phiên bản Ultralytics của YOLOv8
 
@@ -219,8 +221,15 @@ với phiên bản `yolov8n-v1.1-temp`. Chỉ đặt `SIGNA_YOLOV8_WEIGHTS` và 
 như trên. API nhận diện dùng được với mô hình đã nạp. `/healthz` vẫn trả `503`
 khi thiếu một trong ba mô hình.
 
-Với gói bàn giao cũ đã lấy từ nguồn tin cậy của nhóm, chạy `sha256sum best.pt` rồi
-điền hash vào `weightsSha256` nếu thẻ chưa có trường này.
+Với gói bàn giao cũ, xác minh nguồn của cả checkpoint và thẻ với nhóm trước khi di trú.
+Từ thư mục `ai/`, trỏ lệnh sau đến checkpoint đã xác minh, cạnh thẻ `model_card.json`.
+
+```sh
+python scripts/add_card_sha.py models/yolov8n/best.pt
+```
+
+Script tính SHA-256 của checkpoint và bổ sung `weightsSha256` nếu thẻ còn thiếu.
+Nếu SHA hiện có khớp, script giữ nguyên thẻ. Nếu SHA lệch, script báo lỗi và giữ nguyên thẻ.
 
 ### Gọi API
 
@@ -250,8 +259,7 @@ curl --fail-with-body --max-time 5 \
 - API trả `400` nếu giá trị `model` không hợp lệ hoặc không khớp phiên bản đã nạp.
   Nếu họ mô hình được chọn hoặc mô hình mặc định chưa nạp, API trả
   `503 RECOGNITION_UNAVAILABLE`.
-- Mỗi họ YOLO có tối đa 4 yêu cầu giữ semaphore. DETR có 1. Mỗi họ có thêm
-  tối đa 8 yêu cầu chờ. Khi đầy, API trả `503` kèm `Retry-After: 1`.
+- Hàng chờ đầy hoặc hết hạn trả `503 RECOGNITION_UNAVAILABLE` kèm `Retry-After: 1`.
 
 Backend gọi dịch vụ trong mạng nội bộ. Xem [hợp đồng API nội bộ](../docs/07-api.md#7-dịch-vụ-nhận-diện-nội-bộ)
 và OpenAPI ở `/openapi.json` của dịch vụ.
