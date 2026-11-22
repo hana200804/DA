@@ -1,4 +1,4 @@
-"""Tiền xử lý dữ liệu và hậu xử lý DETR-R50 cho lượt so sánh của Signa."""
+"""Tiền xử lý và suy luận DETR-R50 cho lượt so sánh của Signa."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image
@@ -17,9 +18,14 @@ from signa_ai.dataset import Box as DatasetBox
 from signa_ai.detection import EVAL_CONFIDENCE, Box, Detection
 from signa_ai.labels import LabelMap
 
+if TYPE_CHECKING:
+    from torch import nn
+
 IMAGE_SIZE = 640
 IMAGE_MEAN = np.asarray((0.485, 0.456, 0.406), dtype=np.float32)
 IMAGE_STD = np.asarray((0.229, 0.224, 0.225), dtype=np.float32)
+MODEL = "facebook/detr-resnet-50"
+MODEL_REVISION = "1d5f47bd3bdd2c4bbfa585418ffe6da5028b4c0b"
 
 
 @dataclass(frozen=True)
@@ -69,6 +75,16 @@ def letterbox(image: Image.Image, size: int = IMAGE_SIZE) -> tuple[Image.Image, 
     return canvas, Letterbox(image.size, resized, padding, size)
 
 
+def _prepare_image(image: Image.Image) -> tuple[np.ndarray, np.ndarray, Letterbox]:
+    canvas, geometry = letterbox(image)
+    pixels = (np.asarray(canvas, dtype=np.float32) / 255 - IMAGE_MEAN) / IMAGE_STD
+    mask = np.zeros((geometry.size, geometry.size), dtype=bool)
+    left, top = geometry.padding
+    width, height = geometry.resized
+    mask[top : top + height, left : left + width] = True
+    return pixels.transpose(2, 0, 1), mask, geometry
+
+
 def detr_detections(
     logits: np.ndarray,
     boxes: np.ndarray,
@@ -96,6 +112,56 @@ def detr_detections(
         box = Box(box.x, box.y, box.width or 1e-6, box.height or 1e-6)
         detections.append(Detection(box, id2label[class_ids[index]], float(scores[index])))
     return detections
+
+
+def load_detr_checkpoint(
+    checkpoint: Path, label_map: LabelMap, *, device: str = "cpu"
+) -> nn.Module:
+    """Nạp best.pt với danh mục đã dùng khi huấn luyện và trả mô hình ở chế độ eval."""
+    import torch
+    from transformers import DetrConfig, DetrForObjectDetection
+
+    names = label_map.names
+    if list(names) != list(range(len(names))):
+        raise ValueError("ID lớp DETR phải liên tiếp từ 0")
+
+    state = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    config = DetrConfig.from_pretrained(
+        MODEL,
+        revision=MODEL_REVISION,
+        num_labels=len(names),
+        id2label=names,
+        label2id={code: class_id for class_id, code in names.items()},
+        use_pretrained_backbone=False,
+        auxiliary_loss=True,
+    )
+    model = DetrForObjectDetection(config)
+    model.load_state_dict(state["model"])
+    return model.to(device).eval()
+
+
+def predict_detr(
+    model: nn.Module, image: Image.Image, *, device: str = "cpu", conf: float = EVAL_CONFIDENCE
+) -> list[Detection]:
+    """Chạy mô hình đã nạp trên một ảnh và trả box theo pixel ảnh gốc."""
+    import torch
+
+    pixels, mask, geometry = _prepare_image(image.convert("RGB"))
+    device_type = torch.device(device).type
+    with torch.inference_mode(), torch.autocast(
+        device_type, dtype=torch.float16, enabled=device_type == "cuda"
+    ):
+        outputs = model(
+            pixel_values=torch.from_numpy(pixels).unsqueeze(0).to(device),
+            pixel_mask=torch.from_numpy(mask).unsqueeze(0).to(device),
+        )
+    return detr_detections(
+        outputs.logits[0].float().cpu().numpy(),
+        outputs.pred_boxes[0].float().cpu().numpy(),
+        geometry,
+        model.config.id2label,
+        conf,
+    )
 
 
 class DetrDataset:
@@ -161,16 +227,11 @@ class DetrDataset:
             image = Image.fromarray(sample["image"])
             boxes, classes = sample["bboxes"], sample["class_labels"]
 
-        canvas, geometry = letterbox(image)
-        pixels = (np.asarray(canvas, dtype=np.float32) / 255 - IMAGE_MEAN) / IMAGE_STD
-        mask = np.zeros((geometry.size, geometry.size), dtype=bool)
-        left, top = geometry.padding
-        width, height = geometry.resized
-        mask[top : top + height, left : left + width] = True
+        pixels, mask, geometry = _prepare_image(image)
         target = {
             "class_labels": np.asarray(classes, dtype=np.int64),
             "boxes": np.asarray(
                 [geometry.to_normalized(Box(*box)) for box in boxes], dtype=np.float32
             ).reshape(-1, 4),
         }
-        return pixels.transpose(2, 0, 1), mask, target, image_id, geometry
+        return pixels, mask, target, image_id, geometry

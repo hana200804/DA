@@ -16,9 +16,10 @@ data = ["pillow>=10", "numpy>=1.26"]
 vnts = ["pillow>=10", "pyarrow>=15"]
 # Bộ đánh giá chung (docs/04 §4)
 eval = ["pycocotools>=2.0.8", "numpy>=1.26"]
-# Huấn luyện ba mô hình (docs/04 §2). Phiên bản chốt trong nhánh huấn luyện.
+# Huấn luyện ba mô hình (docs/04 §2). YOLOv5 dùng repo ultralytics/yolov5 ghim commit
+# trong notebook, chạy ở runtime riêng vì repo đó cần ultralytics>=8.4.
 train = [
-    "ultralytics==8.3.203", "yolov5", "transformers==4.57.6", "torch", "timm==1.0.24",
+    "ultralytics==8.3.203", "transformers==4.57.6", "torch", "timm==1.0.24",
     "albumentations==2.0.8", "scipy",
 ]
 # Dịch vụ nhận diện (docs/04 §7, docs/07 §7)

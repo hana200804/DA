@@ -1,0 +1,15 @@
+dataset_version: v1.1
+label_map_version: 1
+weights: yolov5s.pt
+data: /content/signa-data.yaml
+hyp: /content/signa-source/ai/configs/yolov5-hyp.yaml
+epochs: 200
+batch_size: 16
+imgsz: 640
+device: '0'
+workers: 2
+patience: 30
+seed: 0
+project: /content/drive/MyDrive/Signa/experiments
+name: yolov5s-640-v1.1-main-s0
+exist_ok: true

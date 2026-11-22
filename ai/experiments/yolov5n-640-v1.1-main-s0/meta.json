@@ -1,0 +1,17 @@
+{
+  "repo_commit": "f4ad6edc24d26f0cb6d937c8331ba48f98216234",
+  "evaluation_notebook_commit": "8de0608",
+  "evaluation_notebook_commit_note": "Bước chấm điểm chạy trên Colab bằng bản notebook sửa tay tương đương commit 8de0608.",
+  "dataset_version": "v1.1",
+  "label_map_version": 1,
+  "augmentation": "signa_ai.augment (configs/augment.md)",
+  "sessions": [
+    {
+      "started_at": "2026-11-20T03:08:09.144826+00:00",
+      "gpu": "NVIDIA L4",
+      "torch": "2.14.1+cu130",
+      "gpu_hours": 6.7411829297672226,
+      "yolov5_commit": "1e7cf74cb64d719b34f7315aa13eab9e32cde672"
+    }
+  ]
+}

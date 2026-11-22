@@ -1,0 +1,11 @@
+{
+  "epoch": 171,
+  "fitness": 0.63804,
+  "val": {
+    "metrics/precision": 0.85127,
+    "metrics/recall": 0.778,
+    "metrics/mAP50": 0.80441,
+    "metrics/mAP50-95": 0.63804
+  },
+  "epochs_run": 200
+}

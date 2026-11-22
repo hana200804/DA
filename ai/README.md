@@ -28,7 +28,7 @@ uv run --no-sync ruff check .
 | `configs/augment.md` | Bảng đối chiếu tăng cường cho ba mô hình | Huấn luyện YOLO, DETR |
 | `configs/yolov5-hyp.yaml` | Siêu tham số YOLOv5 cho lượt so sánh chính | Huấn luyện YOLO |
 | `src/signa_ai/augment.py` | Tham số và pipeline Albumentations dùng chung cho ba mô hình | Huấn luyện YOLO, DETR |
-| `src/signa_ai/detr.py` | Dataset COCO, letterbox và hậu xử lý DETR-R50 | Huấn luyện DETR |
+| `src/signa_ai/detr.py` | Dataset COCO, nạp checkpoint và suy luận DETR-R50 | Huấn luyện và suy luận DETR |
 | [`notebooks/train_detr_main_v1.1.ipynb`](notebooks/train_detr_main_v1.1.ipynb) | Huấn luyện và chấm DETR-R50 trên val v1.1 | Huấn luyện DETR |
 | `experiments/` | Cấu hình, log, chỉ số của từng thí nghiệm | Huấn luyện YOLO, DETR |
 | `service/` | Dịch vụ nhận diện FastAPI | Dịch vụ nhận diện |
@@ -42,6 +42,10 @@ uv run --no-sync ruff check .
 3. Đặt `SMOKE = False` rồi **Run all** cho lượt chính. Notebook dò batch, lưu checkpoint theo epoch ở `MyDrive/Signa/experiments/detr-r50-640-v1.1-main-s0/` và chấm val bằng bộ đánh giá chung.
 
 Khi phiên Colab ngắt, chọn GPU được hỗ trợ và **Run all** để tiếp tục từ `last.pt`. Batch giữ nguyên qua các phiên. GPU của phiên mới cần đủ VRAM cho batch đã lưu. Chạy một runtime cho mỗi lượt. Sau khi có `done.json`, notebook bỏ qua lượt đã hoàn thành. Tập test dành cho đánh giá sau khi chốt cấu hình.
+
+Hồ sơ lượt chính nằm trong [thư mục thí nghiệm](experiments/detr-r50-640-v1.1-main-s0/). Xem [bảng so sánh v1.1](experiments/main-v1.1.md) để đối chiếu kết quả val.
+
+Khi cần suy luận, dùng `load_detr_checkpoint` trong [`signa_ai.detr`](src/signa_ai/detr.py) với `best.pt` và danh mục nhãn đã dùng khi huấn luyện. Hàm nạp cấu hình kiến trúc theo revision đã ghim và đọc trọng số từ checkpoint cục bộ. `predict_detr` nhận ảnh PIL và trả phát hiện theo pixel ảnh gốc. Dùng `to_coco_predictions` cùng danh mục để lấy `category_id`, `bbox` và `score` cho bộ đánh giá.
 
 ## Chạy dịch vụ nhận diện
 
@@ -111,6 +115,22 @@ uv run --no-sync python -m signa_ai.evaluate \
 - Ma trận nhầm lẫn tại điểm vận hành ghép theo score và IoU ≥ 0,5 giữa mọi mã để đếm nhầm lớp. Hàng là GT, cột là dự đoán, `background` biểu thị bỏ sót hoặc báo thừa. Danh sách 10 cặp chỉ đếm các ô nhầm giữa hai mã.
 - Tách ngày, đêm và mưa theo `images[].tags` trong GT hoặc theo cột `tags` của `--manifest` (khớp `path` với `file_name`). Hỗ trợ `day`, `night`, `rain` và `ngày`, `đêm`, `mưa`. Dùng dấu chấm phẩy để tách nhiều thẻ trong cùng chuỗi. Điều kiện thiếu thẻ và chỉ số AP hoặc recall thiếu GT có giá trị `null`.
 - Các trường `cost` để `null` cho đến khi thí nghiệm cung cấp số đo.
+
+## Lượt so sánh chính YOLOv5, YOLOv8 · v1.1
+
+Hai notebook, mỗi notebook một runtime Colab riêng vì repo YOLOv5 gốc cần `ultralytics>=8.4`,
+còn YOLOv8 ghim 8.3.203:
+
+| Notebook | Mô hình | Run trên Drive |
+| --- | --- | --- |
+| [`train_yolov8_main_v1.1.ipynb`](notebooks/train_yolov8_main_v1.1.ipynb) | YOLOv8 n, s | `yolov8{n,s}-640-v1.1-main-s0` |
+| [`train_yolov5_main_v1.1.ipynb`](notebooks/train_yolov5_main_v1.1.ipynb) | YOLOv5 n, s (repo gốc, anchor) | `yolov5{n,s}-640-v1.1-main-s0` |
+
+Cả hai theo [giao thức huấn luyện](../docs/04-thiet-ke-ai.md#3-giao-thức-huấn-luyện) và
+[bảng tăng cường chung](configs/augment.md): ảnh 640, tối đa 200 epoch, patience 30, seed 0,
+chọn `best.pt` theo mAP@0.5:0.95 trên val. Chọn GPU rồi **Run all**. Mất phiên thì **Run all** lại:
+run xong được bỏ qua, run dở tiếp tục từ `last.pt`. Mỗi run kết thúc bằng dự đoán val và
+`metrics.json` của bộ đánh giá chung. Notebook không xuất test.
 
 ## Huấn luyện YOLOv8n trên Colab · v1.1
 

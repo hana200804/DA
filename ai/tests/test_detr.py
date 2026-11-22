@@ -5,6 +5,7 @@ import csv
 import json
 import math
 import os
+import sys
 from contextlib import nullcontext
 from io import StringIO
 from pathlib import Path
@@ -17,7 +18,13 @@ import yaml
 from PIL import Image
 
 from signa_ai.detection import Box, to_coco_predictions
-from signa_ai.detr import DetrDataset, detr_detections, letterbox
+from signa_ai.detr import (
+    DetrDataset,
+    detr_detections,
+    letterbox,
+    load_detr_checkpoint,
+    predict_detr,
+)
 from signa_ai.labels import load_label_map
 
 
@@ -54,6 +61,53 @@ def test_detr_detections_use_coco_ids_and_keep_queries():
     assert first["bbox"] == pytest.approx([12, 8, 25, 16])
     assert first["score"] == pytest.approx(1 / (1 + np.e))
     assert padded["bbox"][1] == 0 and 0 < padded["bbox"][3] < 0.001
+
+
+def test_checkpoint_inference_returns_coco_prediction_on_cpu(tmp_path, monkeypatch):
+    torch = pytest.importorskip("torch")
+    labels = load_label_map()
+    config_from_pretrained = Mock(side_effect=lambda _model, **kwargs: SimpleNamespace(**kwargs))
+
+    class FakeDetr(torch.nn.Module):
+        def __init__(self, config):
+            super().__init__()
+            self.config = config
+            self.register_buffer("logits", torch.full((1, 1, len(labels) + 1), -20.0))
+
+        def forward(self, *, pixel_values, pixel_mask):
+            assert not self.training and not torch.is_grad_enabled()
+            assert pixel_values.shape == (1, 3, 640, 640) and pixel_values.dtype == torch.float32
+            assert pixel_mask.dtype == torch.bool and pixel_mask.sum() == 640 * 320
+            assert not pixel_mask[0, 159, 0] and pixel_mask[0, 160, 0]
+            assert pixel_values[0, 0, 160, 0].item() == pytest.approx((50 / 255 - 0.485) / 0.229)
+            return SimpleNamespace(
+                logits=self.logits,
+                pred_boxes=torch.tensor([[[0.25, 0.425, 0.25, 0.15]]]),
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        SimpleNamespace(
+            DetrConfig=SimpleNamespace(from_pretrained=config_from_pretrained),
+            DetrForObjectDetection=FakeDetr,
+        ),
+    )
+    logits = torch.full((1, 1, len(labels) + 1), -20.0)
+    logits[0, 0, 17] = 1
+    logits[0, 0, -1] = 0
+    checkpoint = tmp_path / "best.pt"
+    torch.save({"epoch": 219, "model": {"logits": logits}}, checkpoint)
+
+    model = load_detr_checkpoint(checkpoint, labels)
+    assert config_from_pretrained.call_args.kwargs["use_pretrained_backbone"] is False
+    image = Image.new("RGB", (80, 40), (50, 70, 90))
+    [prediction] = to_coco_predictions(42, predict_detr(model, image), labels)
+    assert prediction["image_id"] == 42
+    assert prediction["category_id"] == 17
+    assert prediction["bbox"] == pytest.approx([10, 8, 20, 12])
+    assert prediction["score"] == pytest.approx(1 / (1 + np.exp(-1)))
+    assert predict_detr(model, image, conf=0.8) == []
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
