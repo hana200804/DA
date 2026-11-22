@@ -1,0 +1,46 @@
+{
+  "purpose": "Kiểm tra giới hạn VRAM và ước lượng thời gian, dùng train v1.1 và val",
+  "dataset_version": "v1.1",
+  "manifest_sha256": "2b68f6468617048d9f7e94dc9e9e9cc4ae8d5c6c41050f91918ff75ac8e66eba",
+  "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+  "python": "3.12.15",
+  "torch": "2.15.0+cu132",
+  "ultralytics": "8.3.203",
+  "imgsz": 960,
+  "amp": true,
+  "seed": 0,
+  "epochs": 1,
+  "fraction_train": 0.02,
+  "coco_initialization_sha256": "1f47a78bf100391c2a140b7ac73a1caae18c32779be7d310658112f7ac9aa78a",
+  "drive": {
+    "notebook_commit": "b11affbd94a7b80a5dea5ae2b58ebb3aa4a3cdde",
+    "sessions": [
+      {
+        "started_at": "2026-11-22T10:30:47.550662+00:00",
+        "gpu": "Tesla T4",
+        "torch": "2.14.1+cu130",
+        "gpu_hours": 0.0,
+        "notebook_commit": "b11affbd94a7b80a5dea5ae2b58ebb3aa4a3cdde",
+        "ultralytics": "8.3.203"
+      }
+    ],
+    "meta_sha256": "cbe973654a24d7f9f589a34be59bba850aafb1865ecbc65797b9c0069a5b8da2",
+    "config_sha256": "9e4b02aa0b3ad60a3beb72177f4cf510db225bbb0314f0e87e749e388d9a1885",
+    "checkpoint_found": false
+  },
+  "batch_16": {
+    "status": "CUDA out of memory",
+    "log_sha256": "43a31792bbc57eb37edbd274a8dcdfed296a73cb0025199bb753045e3134b517"
+  },
+  "batch_2": {
+    "status": "completed",
+    "train_images": 134,
+    "val_images": 1599,
+    "optimizer_input_batches": 67,
+    "train_loop_s": 8.2,
+    "first_epoch_s": 75.5321,
+    "train_call_wall_s": 237.25534881100248,
+    "peak_torch_reserved_mib": 1580,
+    "log_sha256": "579de0f0e2e0b5443fb5c5b4ed6ddb7f07aff1196c9747722baf07fb61e01bbe"
+  }
+}
