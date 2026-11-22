@@ -2,6 +2,7 @@
 
 import ast
 import csv
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,7 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+import yaml
 
+from signa_ai.augment import ULTRALYTICS_ARGS
 from signa_ai.detection import Box, Detection, to_coco_predictions
 from signa_ai.labels import load_label_map
 
@@ -55,9 +58,153 @@ def load_main_notebook(version):
             "REPO_COMMIT": "repo-sha",
             "NOTEBOOK_COMMIT": None,
             "GPU": "fake",
+            "IMGSZ": 640,
             "label_map": SimpleNamespace(version=1),
         },
     )
+
+
+def notebook_constants(filename):
+    """Hằng số gán bằng literal ở cấp cao nhất của các ô mã."""
+    notebook = json.loads((AI_ROOT / "notebooks" / filename).read_text())
+    constants = {}
+    for cell in notebook["cells"]:
+        if cell["cell_type"] != "code":
+            continue
+        source = "\n".join(
+            line for line in "".join(cell["source"]).splitlines() if not line.startswith("%")
+        )
+        for node in ast.parse(source).body:
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target = node.targets[0]
+                if isinstance(target, ast.Name):
+                    try:
+                        constants[target.id] = ast.literal_eval(node.value)
+                    except ValueError:
+                        pass
+    return constants
+
+
+def load_yolov8_main(imgsz, **extra):
+    constants = notebook_constants("train_yolov8_main_v1.1.ipynb")
+    functions = load_main_notebook("v8")
+    functions.update(
+        IMGSZ=imgsz,
+        SEED=constants["SEED"],
+        MAIN_BATCH=constants["MAIN_BATCH"],
+        BATCH=constants["MAIN_BATCH"],
+        EPOCHS=200,
+        SMOKE=False,
+        config_path=Path("/content/signa-data.yaml"),
+        DRIVE_ROOT=Path("/content/drive/MyDrive/Signa/experiments"),
+        ULTRALYTICS_ARGS=ULTRALYTICS_ARGS,
+        label_map=SimpleNamespace(version=1),
+        **extra,
+    )
+    return functions
+
+
+SETTINGS = {"IMGSZ", "SIZES", "MAIN_BATCH", "BATCH"}
+
+
+def yolov8_settings(environ):
+    """Chạy các dòng cấu hình đọc biến môi trường, kèm assert kiểm tra chúng."""
+    notebook = json.loads((AI_ROOT / "notebooks" / "train_yolov8_main_v1.1.ipynb").read_text())
+    nodes = []
+    for cell in notebook["cells"]:
+        if cell["cell_type"] != "code":
+            continue
+        for node in ast.parse("".join(cell["source"])).body:
+            names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+            assigned = isinstance(node, ast.Assign) and {
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            } & SETTINGS
+            checked = isinstance(node, ast.Assert) and names & SETTINGS
+            if assigned or checked:
+                nodes.append(node)
+    namespace = {"os": SimpleNamespace(environ=environ)}
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), "settings", "exec"), namespace)
+    return {name: namespace[name] for name in SETTINGS}
+
+
+def test_yolov8_defaults_keep_main_run():
+    assert yolov8_settings({}) == {"IMGSZ": 640, "SIZES": ["n", "s"], "MAIN_BATCH": 16, "BATCH": 16}
+
+
+def test_yolov8_settings_from_environment():
+    settings = yolov8_settings({"SIGNA_IMGSZ": "960", "SIGNA_SIZES": "s"})
+    assert settings == {"IMGSZ": 960, "SIZES": ["s"], "MAIN_BATCH": 16, "BATCH": 16}
+    assert yolov8_settings({"SIGNA_SIZES": " n , s "})["SIZES"] == ["n", "s"]
+    assert yolov8_settings({"SIGNA_BATCH": "8"})["BATCH"] == 8
+
+
+@pytest.mark.parametrize("environ", [{"SIGNA_IMGSZ": "1000"}, {"SIGNA_SIZES": "m"}])
+def test_yolov8_settings_reject_invalid(environ):
+    with pytest.raises(AssertionError):
+        yolov8_settings(environ)
+
+
+@pytest.mark.parametrize("size", ["n", "s"])
+def test_yolov8_640_reproduces_main_config(size):
+    functions = load_yolov8_main(640)
+    name = functions["run_name"](size)
+    assert name == f"yolov8{size}-640-v1.1-main-s0"
+    committed = yaml.safe_load((AI_ROOT / "experiments" / name / "config.yaml").read_text())
+
+    config = functions["run_config"](functions["train_args"](size))
+
+    assert config == committed
+    assert "batch_note" not in config
+
+
+def test_yolov8_960_names_run_and_records_imgsz():
+    functions = load_yolov8_main(960)
+    assert functions["run_name"]("s") == "yolov8s-960-v1.1-main-s0"
+    assert (AI_ROOT / "experiments" / "yolov8s-960-v1.1-main-s0" / "README.md").is_file()
+
+    config = functions["run_config"](functions["train_args"]("s"))
+
+    assert config["imgsz"] == 960
+    assert config["name"] == "yolov8s-960-v1.1-main-s0"
+    assert config["batch"] == 16 and "batch_note" not in config
+
+
+def test_yolov8_smaller_batch_is_noted():
+    functions = load_yolov8_main(960)
+    functions["BATCH"] = 8
+
+    config = functions["run_config"](functions["train_args"]("s"))
+
+    assert config["batch"] == 8
+    assert "16" in config["batch_note"] and "8" in config["batch_note"]
+
+
+def test_yolov8_meta_and_export_config_record_imgsz(tmp_path):
+    def fake_evaluate(*args):
+        out = Path(args[args.index("--out") + 1])
+        out.write_text(json.dumps({"mAP50": 0.5}))
+
+    functions = load_yolov8_main(
+        960,
+        hashlib=hashlib,
+        sh=Mock(side_effect=fake_evaluate),
+        sys=SimpleNamespace(executable="python"),
+        DATASET=tmp_path,
+        REPO=tmp_path,
+        EVAL_CONFIDENCE=0.001,
+        GROUND_TRUTH={"val": {"images": []}},
+        time=SimpleNamespace(monotonic=Mock(return_value=0)),
+    )
+    functions["start_session"](tmp_path, {})
+    best = tmp_path / "best.pt"
+    best.write_bytes(b"weights")
+
+    functions["write_predictions_and_evaluate"](tmp_path, best, lambda truth: [])
+
+    assert json.loads((tmp_path / "meta.json").read_text())["imgsz"] == 960
+    export = json.loads((tmp_path / "evaluation" / "export-config.json").read_text())
+    assert export["imgsz"] == 960
+    assert export["weights_sha256"] == hashlib.sha256(b"weights").hexdigest()
 
 
 @pytest.mark.parametrize("size", ["n", "s"])
