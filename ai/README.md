@@ -69,7 +69,9 @@ Lấy checkpoint của nhóm từ My Drive và đặt mỗi trọng số trong m
 
 Đặt `model_card.json` bên cạnh từng `best.pt`. Thẻ cần tên họ mô hình
 (`yolov5`, `yolov8` hoặc `detr`), phiên bản duy nhất và phiên bản danh mục nhãn khớp
-`ai/data/labels.yaml`. Dịch vụ đọc ngưỡng mặc định từ `operating_point.threshold`.
+`ai/data/labels.yaml`. Dịch vụ đối chiếu SHA-256 của checkpoint với `weightsSha256`
+trước khi nạp. Nếu thiếu hash hoặc hash không khớp, dịch vụ từ chối khởi động.
+Dịch vụ đọc ngưỡng mặc định từ `operating_point.threshold`.
 
 Ba thẻ của lượt chính có trong `experiments/`. Ngưỡng là ngưỡng F1 tối đa trên val, lấy từ
 `metrics.json` của từng lượt. [Kiểm chứng HTTP với trọng số thật](experiments/service-v1.1/README.md).
@@ -81,13 +83,14 @@ Ba thẻ của lượt chính có trong `experiments/`. Ngưỡng là ngưỡng 
 | DETR-R50 | `experiments/detr-r50-640-v1.1-main-s0/model_card.json` | `detr-r50-v1.0` | 0,7065 |
 
 Chép mỗi thẻ thành `models/<thư mục>/model_card.json` cạnh `best.pt` tương ứng ở bảng trên.
-Các trường tối thiểu dịch vụ cần, ví dụ YOLOv8s:
+Ví dụ thẻ cho YOLOv8s.
 
 ```json
 {
   "modelName": "yolov8",
   "modelVersion": "yolov8s-v1.0",
   "labelMapVersion": 1,
+  "weightsSha256": "49012dc0aa68865114f3a09545cab371978e5a52567cced52ebb050f49bf219d",
   "operating_point": {"threshold": 0.5279324054718018}
 }
 ```
@@ -146,18 +149,25 @@ DETR lấy phụ thuộc từ extra `detr`, nên cùng `transformers` và `timm`
 (`experiments/yolov8s-640-v1.1-main-s0/meta.json`). Hai bản có thể khác nhau ở tiền xử lý
 hoặc NMS. Trên val qua adapter, mAP@0.5:0.95 lệch 0,0051 điểm phần trăm giữa hai bản trên RTX 3050. Phiên bản và ngưỡng đánh giá chính giữ nguyên. [Số liệu kiểm tương đương](experiments/service-v1.1/README.md#đối-chiếu-hai-phiên-bản-ultralytics-cho-yolov8s)
 
-Để đối chiếu trên môi trường khác, dùng quy trình Colab dưới đây hoặc chạy hai môi trường riêng trên máy có GPU.
+Để xuất lại dự đoán trong môi trường GPU như lần đối chiếu gốc, tạo hai môi trường ảo riêng.
+Có thể chấm trực tiếp trên CPU từ hai tệp dự đoán đã lưu. [Tệp dự đoán và cách giải nén](experiments/service-v1.1/README.md#đối-chiếu-hai-phiên-bản-ultralytics-cho-yolov8s)
 
 1. Mở runtime Colab mới, clone repo vào `/content/signa-source` (như notebook), giải nén `signa-v1.1.zip` vào `/content/v1.1` và đặt
    `best.pt` của YOLOv8s ở `/content/yolov8s/best.pt`.
-2. Cài `serve-all` (bản `8.4.201`) rồi xuất dự đoán val qua đúng adapter của dịch vụ với
-   cùng tham số như notebook: `conf` 0,001, `iou` 0,7, `imgsz` 640, `max_det` 300.
+2. Cài `serve` cho `8.3.203` và `serve-all` cho `8.4.201`. Xuất dự đoán val qua adapter dịch vụ
+   với `conf` 0,001, `iou` 0,7, `imgsz` 640 và `max_det` 300.
 
    ```sh
    cd /content/signa-source/ai
-   pip install -e '.[serve-all]'
-   python - <<'EOF'
+   python -m venv /content/signa-8.3.203
+   /content/signa-8.3.203/bin/pip install -e '.[serve,eval]'
+   python -m venv /content/signa-8.4.201
+   /content/signa-8.4.201/bin/pip install -e '.[serve-all,eval]'
+
+   for version in 8.3.203 8.4.201; do
+     "/content/signa-${version}/bin/python" - "$version" <<'EOF'
    import json
+   import sys
    from pathlib import Path
 
    from service.images import decode_image
@@ -174,18 +184,28 @@ hoặc NMS. Trên val qua adapter, mAP@0.5:0.95 lệch 0,0051 điểm phần tr�
        with open(data / image["file_name"], "rb") as file:
            detections = model.predict(decode_image(file), conf=0.001, iou=0.7)
        rows.extend(to_coco_predictions(image["id"], detections, labels))
-   Path("/content/predictions-val-8.4.201.json").write_text(json.dumps(rows))
+   Path(f"/content/predictions-val-{sys.argv[1]}.json").write_text(json.dumps(rows))
    EOF
-   python -m signa_ai.evaluate --gt /content/v1.1/coco/val.json \
-     --pred /content/predictions-val-8.4.201.json \
-     --manifest /content/v1.1/manifest.csv \
-     --out /content/metrics-8.4.201.json
+   done
    ```
 
-3. So `map_50`, `map_50_95` và `operating_point` trong `/content/metrics-8.4.201.json` với
+3. Chấm cả hai phiên bản trên CPU ở ngưỡng đã chốt.
+
+   ```sh
+   for version in 8.3.203 8.4.201; do
+     CUDA_VISIBLE_DEVICES='' "/content/signa-${version}/bin/python" -m signa_ai.evaluate \
+       --gt /content/v1.1/coco/val.json \
+       --pred "/content/predictions-val-${version}.json" \
+       --manifest /content/v1.1/manifest.csv \
+       --threshold 0.5279324054718018 \
+       --out "/content/metrics-val-${version}-fixed.json"
+   done
+   ```
+
+4. So `map_50`, `map_50_95` và `operating_point` trong hai tệp metrics với
    `experiments/yolov8s-640-v1.1-main-s0/metrics.json` (bản `8.3.203`: mAP@0.5:0.95 là 0,6956).
    So thêm số dự đoán của từng ảnh với `evaluation/predictions-val.json` của lượt trên Drive.
-4. Ghi kết quả vào `experiments/main-v1.1.md`. Nếu lệch rõ, phục vụ YOLOv8 bằng `8.3.203`
+5. Ghi kết quả vào `experiments/main-v1.1.md`. Nếu lệch rõ, phục vụ YOLOv8 bằng `8.3.203`
    trong một tiến trình riêng thay vì đổi phiên bản đã đánh giá.
 
 Bước 2 đi qua `decode_image`, nên kết quả gồm cả chênh lệch do giải mã bằng PIL thay vì
@@ -198,6 +218,9 @@ Bước 2 đi qua `decode_image`, nên kết quả gồm cả chênh lệch do g
 với phiên bản `yolov8n-v1.1-temp`. Chỉ đặt `SIGNA_YOLOV8_WEIGHTS` và chạy Uvicorn
 như trên. API nhận diện dùng được với mô hình đã nạp. `/healthz` vẫn trả `503`
 khi thiếu một trong ba mô hình.
+
+Với gói bàn giao cũ đã lấy từ nguồn tin cậy của nhóm, chạy `sha256sum best.pt` rồi
+điền hash vào `weightsSha256` nếu thẻ chưa có trường này.
 
 ### Gọi API
 

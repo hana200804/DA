@@ -10,7 +10,7 @@ from time import perf_counter
 
 import httpx
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 from signa_ai.labels import load_label_map
 
@@ -21,6 +21,7 @@ RUNS = {
     "detr": "detr-r50-640-v1.1-main-s0",
 }
 EXPERIMENTS = Path(__file__).resolve().parents[1] / "experiments"
+WARMUP = 10
 
 
 def summary(samples: list[float]) -> dict:
@@ -36,51 +37,89 @@ def summary(samples: list[float]) -> dict:
 def assess(
     client: httpx.Client,
     model: dict,
-    payloads: list[tuple[str, bytes, int, int]],
+    payloads: list[tuple[int, str, bytes, int, int]],
     default: bool,
     codes: set[str],
-) -> dict:
+) -> tuple[dict, list[dict]]:
     def send(item, *, explicit=True):
-        name, image, width, height = item
+        image_id, name, image, width, height = item
+        family = model["modelName"]
+        context = f"{family}, ảnh {image_id} ({name})"
         start = perf_counter()
         response = client.post(
             "/v1/detect",
             files={"image": (name, image, "image/jpeg")},
-            data={"model": model["modelName"]} if explicit else {},
+            data={"model": family} if explicit else {},
         )
         elapsed = (perf_counter() - start) * 1000
-        response.raise_for_status()
-        result = response.json()
+        if response.status_code != 200:
+            raise ValueError(f"{context}: cần HTTP 200, nhận HTTP {response.status_code}")
+        try:
+            result = response.json()
+        except ValueError as exc:
+            raise ValueError(f"{context}: phản hồi không phải JSON hợp lệ") from exc
+        if not isinstance(result, dict):
+            raise ValueError(f"{context}: phản hồi phải là đối tượng JSON")
         for key in ("modelName", "modelVersion", "labelMapVersion"):
-            if result[key] != model[key]:
-                raise ValueError(f"Sai {key} trong phản hồi {name}")
-        for detection in result["detections"]:
-            box = detection["box"]
+            value = result.get(key)
+            if type(value) is not type(model[key]) or value != model[key]:
+                raise ValueError(f"{context}: sai {key} trong phản hồi")
+        inference = result.get("inferenceMs")
+        if type(inference) is not int or inference < 0:
+            raise ValueError(f"{context}: inferenceMs phải là số nguyên không âm")
+        detections = result.get("detections")
+        if not isinstance(detections, list):
+            raise ValueError(f"{context}: detections phải là danh sách")
+        for detection in detections:
+            if not isinstance(detection, dict):
+                raise ValueError(f"{context}: phát hiện phải là đối tượng JSON")
+            code, confidence, box = (
+                detection.get(key) for key in ("signTypeCode", "confidence", "box")
+            )
             if (
-                detection["signTypeCode"] not in codes
-                or not model["defaultConf"] <= detection["confidence"] <= 1
-                or not (0 <= box["x"] <= width and 0 <= box["y"] <= height)
-                or not (0 <= box["width"] <= width - box["x"] + 1e-5)
-                or not (0 <= box["height"] <= height - box["y"] + 1e-5)
+                not isinstance(code, str)
+                or code not in codes
+                or type(confidence) not in (int, float)
+                or not model["defaultConf"] <= confidence <= 1
             ):
-                raise ValueError(f"Phát hiện sai hợp đồng cho ảnh {name}: {detection}")
-        return elapsed, result["inferenceMs"], len(result["detections"])
+                raise ValueError(f"{context}: mã biển hoặc confidence sai hợp đồng: {detection}")
+            if not isinstance(box, dict):
+                raise ValueError(f"{context}: box phải là đối tượng JSON")
+            coords = [box.get(key) for key in ("x", "y", "width", "height")]
+            if any(type(value) not in (int, float) for value in coords):
+                raise ValueError(f"{context}: các trường box phải là số: {box}")
+            x, y, w, h = coords
+            if (
+                not (0 <= x <= width and 0 <= y <= height)
+                or not (0 <= w <= width - x + 1e-5 and 0 <= h <= height - y + 1e-5)
+            ):
+                raise ValueError(f"{context}: box ngoài biên ảnh: {box}")
+        return {
+            "model": family,
+            "image_id": image_id,
+            "status": response.status_code,
+            "client_ms": elapsed,
+            "inferenceMs": inference,
+            "box_count": len(detections),
+        }
 
-    for item in payloads[:10]:
+    for item in payloads[:WARMUP]:
         send(item)
     if default:
         send(payloads[0], explicit=False)
-    wall, inference, detections = zip(*(send(item) for item in payloads), strict=True)
+    samples = [send(item) for item in payloads]
+    detections = [sample["box_count"] for sample in samples]
     if not sum(detections):
-        raise ValueError(f"{model['modelName']} không phát hiện biển nào trên 200 ảnh")
-    return {
+        raise ValueError(f"{model['modelName']} không phát hiện biển nào trên {len(samples)} ảnh")
+    report = {
         **{k: model[k] for k in ("modelName", "modelVersion", "labelMapVersion", "defaultConf")},
         "weights_sha256": model["modelCard"]["weightsSha256"],
-        "http": summary(wall),
-        "inference": summary(inference),
+        "http": summary([sample["client_ms"] for sample in samples]),
+        "inference": summary([sample["inferenceMs"] for sample in samples]),
         "images_with_detections": sum(n > 0 for n in detections),
         "detections": sum(detections),
     }
+    return report, samples
 
 
 def main() -> None:
@@ -99,8 +138,8 @@ def main() -> None:
         path = args.dataset / image["file_name"]
         data = path.read_bytes()
         with Image.open(BytesIO(data)) as original:
-            width, height = original.size
-        payloads.append((path.name, data, width, height))
+            width, height = ImageOps.exif_transpose(original).size
+        payloads.append((image["id"], path.name, data, width, height))
     codes = set(load_label_map().names.values())
 
     with httpx.Client(base_url=f"http://127.0.0.1:{args.port}", timeout=30) as client:
@@ -113,6 +152,7 @@ def main() -> None:
         if entries.keys() != RUNS.keys():
             raise ValueError("Dịch vụ phải nạp đủ ba họ mô hình")
         results = {}
+        samples = []
         for family, run in RUNS.items():
             card = json.loads((EXPERIMENTS / run / "model_card.json").read_text(encoding="utf-8"))
             model = entries[family]
@@ -123,15 +163,26 @@ def main() -> None:
                 or model["modelCard"]["weightsSha256"] != card["weightsSha256"]
             ):
                 raise ValueError(f"Cấu hình phục vụ khác thẻ mô hình đã chốt: {family}")
-            results[family] = assess(client, model, payloads, family == "yolov8", codes)
+            results[family], model_samples = assess(
+                client, model, payloads, family == "yolov8", codes
+            )
+            samples.extend(model_samples)
             print(family, results[family]["http"], flush=True)
+    samples_path = args.out.with_name(f"{args.out.stem}-samples.json")
+    samples_data = (json.dumps(samples, indent=2) + "\n").encode("utf-8")
+    samples_path.write_bytes(samples_data)
     args.out.write_text(
         json.dumps(
             {
                 "measured_at": datetime.now(UTC).isoformat(),
                 "val_gt_sha256": gt_sha,
-                "warmup": 10,
+                "warmup": WARMUP,
+                "default_model_checks": 1,
                 "image_ids": [image["id"] for image in images],
+                "samples": {
+                    "file": samples_path.name,
+                    "sha256": hashlib.sha256(samples_data).hexdigest(),
+                },
                 "healthz_http": health.status_code,
                 "default_model": models["defaultModel"],
                 "models": results,

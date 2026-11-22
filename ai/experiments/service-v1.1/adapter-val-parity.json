@@ -35,7 +35,9 @@
         "opencv": "5.1.0.95",
         "s": 28.407981075000862
       },
+      "predictions_file": "predictions-val-8.3.203.json.gz",
       "predictions_sha256": "27e315a64e630629191c5caacf396014b9a7e08d0e81981fa86849db7cdb4460",
+      "predictions_gzip_sha256": "09bcda13f88cd700060a5135f0ce632da26f90935852d51322191d88179c510b",
       "metrics_fixed_sha256": "ef1fc7073564ebe36bfc5df49560d19bc670e9c1dac4afb4c779e334c7f9f5eb",
       "metrics_fixed": {
         "map_50": 0.8403448531233493,
@@ -72,7 +74,9 @@
         "opencv": "5.1.0.95",
         "s": 25.745970746997045
       },
+      "predictions_file": "predictions-val-8.4.201.json.gz",
       "predictions_sha256": "ac5b41600ea104064141fa78fa2c583949a8c2d777a5008e39cbda34cd7e9c86",
+      "predictions_gzip_sha256": "f411c6bdc9ad1f2130bb358c988085e7292f5ed3a35dc8001561252dfcfde7f9",
       "metrics_fixed_sha256": "ec45d6772f72a59d00ac84fbf0f5bca0c53053c42ea12cbf6088ff5e098cb7df",
       "metrics_fixed": {
         "map_50": 0.840345870936293,

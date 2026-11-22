@@ -1,6 +1,7 @@
 """API nhận diện nội bộ cho backend Spring Boot (docs/07 §7)."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -78,6 +79,10 @@ class DetectResponse(ModelInfo):
     detections: list[Prediction]
 
 
+class CheckpointIntegrityError(ValueError):
+    pass
+
+
 @dataclass
 class LoadedModel:
     detector: Detector
@@ -142,6 +147,12 @@ def load_models() -> list[LoadedModel]:
                 raise ValueError(f"{weights_var} phải trỏ đến checkpoint .pt cục bộ")
             labels = load_label_map()
             card = json.loads(weights.with_name("model_card.json").read_text(encoding="utf-8"))
+            with weights.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            if digest != card.get("weightsSha256"):
+                raise CheckpointIntegrityError(
+                    f"SHA-256 của {weights_var} không khớp weightsSha256 trong model_card.json"
+                )
             info = ModelInfo.model_validate(card, strict=True)
             if (
                 info.modelName != name
@@ -165,6 +176,8 @@ def load_models() -> list[LoadedModel]:
 
             detector = adapter(weights, labels, info.modelVersion, device)
             loaded.append(LoadedModel(detector, card, default_conf))
+        except CheckpointIntegrityError:
+            raise
         except Exception:
             logger.exception("Không thể nạp mô hình %s", name)
     return loaded
