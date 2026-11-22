@@ -10,11 +10,17 @@ Mỗi lượt huấn luyện có một thư mục `ai/experiments/<mã thí nghi
 | `meta.json` | Commit, thời điểm, GPU, số giờ GPU, epoch dừng | Có |
 | `metrics.json` | Kết quả của bộ đánh giá chung trên val | Có |
 | `evaluation/{metrics-test,test-config,reproduce-val,latency,provenance}.json` | Chỉ số test, cấu hình, đối chiếu val, phép đo thời gian và hash đối chiếu | Có |
+| [`evaluation/predictions-*.json.gz`](test-v1.1.md#tệp-đầu-vào-chấm-lại) | Dự đoán COCO dùng để chấm lại | Có khi có tệp gốc |
+| `<tên gốc>.gz` cạnh hồ sơ phép thử | Nhật ký đo, mẫu thời gian từng yêu cầu và `results.csv` của phép thử | Có khi có tệp gốc |
 | `error-analysis-val.json` | Phân tích lỗi tại ngưỡng F1 tối đa và SHA-256 của đầu vào trên val | Có |
 | `log.txt` hoặc `results.csv` | Log huấn luyện | Có nếu nhỏ hơn 5 MB |
 | `tflite-summary.csv` | Kết quả val, kích thước và thời gian CPU Colab theo cấu hình TFLite của ứng viên điện thoại | Có |
 | `weights/best.pt` | Trọng số tốt nhất | Không. Lưu trên ổ chung hoặc MinIO, ghi đường dẫn trong `meta.json` |
 | `model_card.json` | Thẻ mô hình (AI-06) cho ứng viên và mô hình phát hành | Có |
+
+Lưu tệp đầu vào cạnh hồ sơ phép thử để nhóm chấm lại mà không cần chạy suy luận. Nén bằng `gzip -n -9` để bỏ tên gốc và dấu thời gian khỏi đầu tệp nén. Bỏ đường dẫn máy riêng và tên người dùng khỏi log trước khi nén. Mỗi bản nén nên dưới khoảng 2 MB.
+
+Ghi SHA-256 của bản gốc và bản nén vào cấu hình hoặc `provenance.json`. Đối chiếu hai hash khi lấy tệp và dùng `gunzip -k <tên gốc>.gz` để giải nén. [Ví dụ chấm lại từ bản nén trong Git](test-v1.1.md#tệp-đầu-vào-chấm-lại)
 
 Không chạy bộ đánh giá trên test hoặc tập thực địa trước khi chốt cấu hình ([Thiết kế AI §4](../../docs/04-thiet-ke-ai.md#chọn-mô-hình-triển-khai--ai-04)).
 

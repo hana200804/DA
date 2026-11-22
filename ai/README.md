@@ -328,6 +328,8 @@ Kết quả ở `My Drive/Signa/experiments/<lượt>/evaluation/`:
 | `test-config.json` | SHA trọng số, SHA GT test, phiên bản thư viện, GPU, commit |
 | `latency.json` | Thời gian GPU và CPU, cấu hình máy và số luồng |
 
+Bản bàn giao trong Git có các tệp dự đoán đã kiểm tra ở dạng nén để chấm lại. [Báo cáo test v1.1](experiments/test-v1.1.md#tệp-đầu-vào-chấm-lại)
+
 Nhật ký ở `My Drive/Signa/experiments/predict-test-v1.1-<nhóm>.log`, gồm cả đầu ra của
 `signa_ai.evaluate` và traceback khi lỗi. Chạy lại an toàn: lượt đã có `metrics-test.json` và
 `test-config.json` cùng SHA thì bỏ qua phần test. Có `latency.json` cùng SHA trọng số, cùng

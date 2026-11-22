@@ -80,7 +80,8 @@ Cuối tuần 12 **đóng băng tính năng**.
 - [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
 - [x] Bộ đánh giá chung bằng `pycocotools` (AI-03)
 - [x] Bảng so sánh và phân tích lỗi trên val ([Kết quả v1.1](../ai/experiments/error-analysis-v1.1-val.md), [Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình)). Tập VN82 thiếu thẻ ngày/đêm/mưa nên chưa có AP theo điều kiện.
-- [x] [Chấm test năm checkpoint v1.1 và đo thời gian pipeline trên máy sẵn có](../ai/experiments/test-v1.1.md). Ứng viên server còn thiếu 3,89 điểm phần trăm so với NFR-05.
+- [x] [Chấm test năm checkpoint v1.1](../ai/experiments/test-v1.1.md). Ứng viên server còn thiếu 3,89 điểm phần trăm so với NFR-05. Đã có [thời gian pipeline CPU và GPU trên máy sẵn có](../ai/experiments/test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có).
+- [ ] Đo số tham số, GFLOPs của năm checkpoint và độ trễ HTTP trên server tham chiếu theo NFR-02.
 - [x] Xuất [bản TFLite INT8/FP16 của các ứng viên điện thoại](../ai/README.md#so-sánh-ứng-viên-điện-thoại-ai-04) (AI-05)
 - [ ] Đo TFLite trên thiết bị Android tham chiếu (AI-05). Thành viên 3 phụ trách sau khi chốt Q7.
 - [ ] Thí nghiệm 960 px, dữ liệu tổng hợp (AI-07)

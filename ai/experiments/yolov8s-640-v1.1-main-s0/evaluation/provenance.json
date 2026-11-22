@@ -9,5 +9,11 @@
     "reproduce-val.json": "fcadb1f4e17407769af9f17a82b8a13205fba5839371761013bee1758ab8c7f2",
     "latency.json": "d04490b00e95b110b103e5f5620b89878dbff4ef124311fba6cb56b189d2c60c"
   },
-  "evaluation_identical": true
+  "evaluation_identical": true,
+  "archives_sha256": {
+    "predictions-test.json.gz": {
+      "original_sha256": "05f9cff270995855a3c78cb32cb8a5ef3cf13673427924989e6672606f12d780",
+      "gzip_sha256": "9cb890170d263db8501ab0b2b7e6b9536358332db9edf5212a78ee3bf9f92ff0"
+    }
+  }
 }
