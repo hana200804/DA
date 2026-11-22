@@ -593,9 +593,12 @@ giống [đề xuất triển khai v1.1](experiments/model-selection-v1.1.md#đi
 - Đầu ra là `[1,4+nc,N]` cho YOLOv8 và `[1,N,5+nc]` cho YOLOv5. Với
   tensor 8 bit, giải lượng tử bằng `(q - zeroPoint) × scale`. Bốn kênh
   đầu là `cx, cy, w, h` theo tỷ lệ kích thước đầu vào. Lấy điểm lớp cao
-  nhất và nhân thêm objectness cho YOLOv5. Trừ phần đệm, chia theo tỷ
-  lệ resize thực tế của từng trục rồi cắt box theo biên ảnh gốc. Xem
-  mã tham chiếu tại [mobile.py](src/signa_ai/mobile.py).
+  nhất và nhân thêm objectness cho YOLOv5. Sau khi giải mã, trừ phần đệm
+  và chia theo tỷ lệ resize thực tế của từng trục để chiếu box về ảnh gốc.
+  Loại box không còn diện tích nhìn thấy trong ảnh gốc. Chạy NMS theo lớp
+  với ngưỡng IoU 0,7 trên box **chưa cắt** trong hệ tọa độ đầu vào. Giữ tối
+  đa 300 box mỗi ảnh, rồi trả các box đã cắt theo biên ảnh gốc.
+  [Mã tham chiếu](src/signa_ai/mobile.py) · [Ca đối chiếu ở biên ảnh](tests/test_mobile.py).
 - `labels.json` nằm cạnh `summary.csv`. JSON UTF-8 có `version` là
   phiên bản danh mục, `categories` ánh xạ khóa nhóm đến đối tượng
   `{"name": "..."}`, và `classes` sắp theo `id` từ 0 đến 45. Mỗi lớp
