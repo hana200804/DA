@@ -52,6 +52,27 @@ def test_yolov5_patch_keeps_boxes():
     assert list(out["class_labels"]) == [3]
 
 
+def test_yolov5_photometric_seed_repeats(monkeypatch):
+    import random
+    import sys
+
+    monkeypatch.setitem(sys.modules, "torch", None)
+    cls = type("Albumentations", (), {})
+    augment.use_signa_photometric(cls, "yolov5")
+    rng = random.Random(0)
+    monkeypatch.setattr(augment.random, "getrandbits", rng.getrandbits)
+    random_state = rng.getstate()
+    first = cls().transform
+    rng.setstate(random_state)
+    second = cls().transform
+    image = _image()
+    boxes = [[0.5, 0.5, 0.2, 0.2]]
+
+    for _ in range(5):
+        args = {"image": image, "bboxes": boxes, "class_labels": [3]}
+        np.testing.assert_array_equal(first(**args)["image"], second(**args)["image"])
+
+
 def test_photometric_values_follow_docs():
     names = [type(t).__name__ for t in augment.photometric_transforms()]
     assert names == [

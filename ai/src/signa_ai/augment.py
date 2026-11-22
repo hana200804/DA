@@ -101,6 +101,7 @@ def _init_yolov5(self: Any, size: int = 640) -> None:
         photometric_transforms(),
         bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]),
     )
+    _seed(self.transform)
 
 
 def _seed(transform: Any) -> None:

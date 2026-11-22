@@ -57,3 +57,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Giữ nguyên từng byte của script đã chạy để đối chiếu SHA-256.
+"experiments/yolov8s-960-v1.1-main-s0/inference-val/compare_val_sizes.executed.py" = ["E501"]
