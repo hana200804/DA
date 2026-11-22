@@ -378,7 +378,7 @@ Phần nghiên cứu của đề tài. Thiết kế chi tiết: [Thiết kế AI
 | NFR-03 | Hiệu năng | Truy vấn biển theo vùng (≤ 500 biển) | p95 < 300 ms |
 | NFR-04 | Hiệu năng | Tiếp nhận đề xuất | ≥ 50 đề xuất/giây |
 | NFR-05 | Độ chính xác | mAP@0.5 trên tập test: mô hình server / mô hình điện thoại | ≥ 0,85 / ≥ 0,80 |
-| NFR-06 | Độ chính xác | Recall nhóm biển cấm (gồm biển tốc độ) của mô hình điện thoại | ≥ 0,85 |
+| NFR-06 | Độ chính xác | Recall nhóm biển cấm (gồm biển tốc độ) trên điện thoại. Dùng ảnh test trước tracker để kiểm tra ứng viên ở ngưỡng đã khóa. Nghiệm thu chuỗi có tracker trên video thực địa theo biển thật trên tuyến | ≥ 0,85 ở mỗi phép đo |
 | NFR-07 | Tài nguyên | Kích thước mô hình đóng gói trong ứng dụng | < 15 MB |
 | NFR-08 | Khả dụng | Nhận diện qua camera và tra cứu danh mục hoạt động không cần mạng | 100% FR-03, FR-08 |
 | NFR-09 | Riêng tư | Lưu ảnh cắt của đề xuất và ảnh đính kèm báo cáo trong các bucket riêng tư; ảnh gốc gửi để nhận diện không được lưu; không lưu lộ trình di chuyển | Review mã và kiểm tra bucket |
@@ -418,13 +418,13 @@ Thiết bị và server tham chiếu, cách đo từng chỉ tiêu: [08 · Kiể
 
 | # | Câu hỏi | Ảnh hưởng | Người trả lời | Chặn công việc |
 | --- | --- | --- | --- | --- |
-| Q1 | Danh mục v1 gồm những mã nào — đề xuất 40–60 mã phổ biến nhất có đủ dữ liệu. **Đã chốt:** 42 mã QCVN đủ 100 box train trong VN82 và 4 lớp `other_<nhóm>` ([labels.yaml](../ai/data/labels.yaml)) | AI-01, gán nhãn | Thành viên 1, duyệt với GVHD | Có — tuần 2 |
+| Q1 | Danh mục v1 gồm những mã nào. **Đã chốt** 42 mã QCVN đủ 100 box train trong VN82 và 4 lớp `other_<nhóm>` ([labels.yaml](../ai/data/labels.yaml)) | AI-01, gán nhãn | Thành viên 1, duyệt với GVHD | Không còn chặn |
 | Q2 | "DETR" trong đề tài có chấp nhận RT-DETR (họ DETR, thời gian thực) hay bắt buộc DETR gốc. **Đã chốt:** dùng DETR-R50 gốc làm mô hình bắt buộc để khớp đề tài; RT-DETR-L là thử nghiệm bổ sung | AI-02 | Thành viên 1 | Không còn chặn |
 | Q3 | Bộ dữ liệu công khai nào được phép dùng theo giấy phép | Nguồn dữ liệu | Thành viên 1 | Có — tuần 2 |
-| Q4 | GPU để huấn luyện (máy phòng lab, Kaggle, Colab) và giới hạn thời gian | Lịch huấn luyện, nhất là DETR | Cả nhóm | Có — tuần 3 |
+| Q4 | GPU và ngân sách huấn luyện. **Đã chốt** Colab với 200 điểm | Lịch huấn luyện, nhất là DETR | Cả nhóm | Không còn chặn |
 | Q5 | Nhóm dữ liệu "đánh giá" trong đề cương có đúng nghĩa là người dùng xác nhận đúng/sai biển | FR-09, CSDL | GVHD | Không |
 | Q6 | Bản đồ nền: MapLibre với dữ liệu OpenStreetMap hay VietMap SDK | FR-05, FR-14 | Thành viên 3 | Không |
-| Q7 | Thiết bị Android tham chiếu và cấu hình server tham chiếu | NFR-01, NFR-02 | Thành viên 2, 3 | Không |
+| Q7 | Thiết bị Android tham chiếu và cấu hình server tham chiếu. **Còn mở** | AI-04, NFR-01, NFR-02 | Thành viên 2, 3 | Chặn chốt mô hình triển khai và nghiệm thu hiệu năng |
 
 ## 12. Thời gian và phân kỳ
 

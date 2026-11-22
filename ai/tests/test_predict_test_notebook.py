@@ -163,6 +163,26 @@ def test_val_gt_sha_matches_tflite_model_cards():
     assert shas == {CONSTANTS["VAL_GT_SHA256"]}
 
 
+def test_test_gt_sha_matches_published_runs():
+    for run in CONSTANTS["LOCKED"]:
+        config = AI_ROOT / "experiments" / run / "evaluation/test-config.json"
+        assert json.loads(config.read_text())["test_gt_sha256"] == CONSTANTS["TEST_GT_SHA256"]
+
+
+def test_check_gt_locks_both_splits(nb, tmp_path):
+    paths = {split: tmp_path / f"{split}.json" for split in ("val", "test")}
+    expected = {}
+    for split, path in paths.items():
+        path.write_text(split)
+        expected[split] = nb[f"{split.upper()}_GT_SHA256"] = nb["sha256_file"](path)
+    assert nb["check_gt"](paths) == expected
+    for split, path in paths.items():
+        path.write_text("thay đổi")
+        with pytest.raises(RuntimeError, match=rf"coco/{split}\.json: SHA-256"):
+            nb["check_gt"](paths)
+        path.write_text(split)
+
+
 def test_detr_batch_matches_training_config():
     config = yaml.safe_load(
         (AI_ROOT / "experiments/detr-r50-640-v1.1-main-s0/config.yaml").read_text()
@@ -235,32 +255,6 @@ def test_reproduction_check_uses_two_tenths_of_a_point(nb):
         check({"map_50_95": 0.6956, "map_50": None}, reference)
 
 
-def test_test_done_skips_only_matching_sha(nb, tmp_path):
-    test_done = nb["test_done"]
-    assert not test_done(tmp_path, "w", "g")
-    (tmp_path / "metrics-test.json").write_text("{}")
-    assert not test_done(tmp_path, "w", "g")
-    config = tmp_path / "test-config.json"
-    config.write_text(json.dumps({"weights_sha256": "w", "test_gt_sha256": "g"}))
-    assert test_done(tmp_path, "w", "g")
-    with pytest.raises(RuntimeError, match="Kiểm tra tay"):
-        test_done(tmp_path, "other", "g")
-    with pytest.raises(RuntimeError):
-        test_done(tmp_path, "w", "other")
-
-
-def test_latency_done_requires_same_weights_and_settings(nb, tmp_path):
-    assert not nb["latency_done"](tmp_path, "w")
-    report = {"weights_sha256": "w", "images": 200, "warmup": 10, "cpu": {"torch_threads": 2}}
-    path = tmp_path / "latency.json"
-    path.write_text(json.dumps(report))
-    assert nb["latency_done"](tmp_path, "w")
-    assert not nb["latency_done"](tmp_path, "other")
-    for change in ({"images": 100}, {"warmup": 5}, {"cpu": {"torch_threads": 4}}, {"cpu": None}):
-        path.write_text(json.dumps({**report, **change}))
-        assert not nb["latency_done"](tmp_path, "w")
-
-
 def test_training_pin_reads_drive_requirements_or_falls_back(nb):
     pin = nb["training_pin"]
     frozen = "torch==2.9.0\nUltralytics==8.4.205\nultralytics-thop==2.0.18\n"
@@ -310,7 +304,11 @@ def gate_namespace(nb, tmp_path, delta):
 
     def measure_latency(path, conf):
         calls.append(("latency", conf))
-        return {"cuda": {}, "cpu": {"torch_threads": 2}}
+        timings = nb["latency_summary"]([1.0] * nb["LATENCY_IMAGES"])
+        return {
+            device: {**nb["latency_hardware"](device), "precision": "fp32", **timings}
+            for device in ("cuda", "cpu")
+        }
 
     nb.update(
         GROUP="yolov8",
@@ -319,8 +317,12 @@ def gate_namespace(nb, tmp_path, delta):
         REPO=AI_ROOT.parent,
         GT_PATHS={"val": tmp_path / "val.json", "test": tmp_path / "test.json"},
         GT_SHA256={"val": "val-sha", "test": "test-sha"},
+        GROUND_TRUTH={"val": {"images": [{"id": i} for i in range(200)]}},
         MANIFEST=AI_ROOT / "data/manifests/v1.1.csv",
         GPU="fake",
+        CPU_COUNT=2,
+        cpu_model=lambda: "CPU giả",
+        cv2=SimpleNamespace(getNumThreads=lambda: 1),
         NOTEBOOK_COMMIT=None,
         EVAL_CONFIDENCE=0.001,
         label_map=SimpleNamespace(version=1),
@@ -359,10 +361,101 @@ def test_passed_val_reproduction_scores_test_at_locked_threshold_then_skips(nb, 
     assert config["weights_sha256"] == nb["LOCKED"][RUN]["weights_sha256"]
     assert config["test_gt_sha256"] == "test-sha"
     assert config["operating_threshold"] == threshold and config["reproduction"]["passed"]
+    assert config["predictions_test_sha256"] == nb["sha256_file"](
+        evaluation / "predictions-test.json"
+    )
 
     calls.clear()
     nb["process"](RUN)
     assert calls == []
+
+
+def test_process_resumes_latency_after_verified_test(nb, tmp_path):
+    calls, evaluation = gate_namespace(nb, tmp_path, delta=0)
+    nb["process"](RUN)
+    (evaluation / "latency.json").unlink()
+    before = {path.name: path.read_bytes() for path in evaluation.iterdir()}
+
+    calls.clear()
+    nb["process"](RUN)
+    assert calls == [("latency", nb["LOCKED"][RUN]["threshold"])]
+    assert all((evaluation / name).read_bytes() == data for name, data in before.items())
+    assert nb["latency_done"](evaluation, nb["test_identity"](RUN))
+
+
+@pytest.mark.parametrize(
+    ("name", "change", "field"),
+    [
+        ("test-config.json", {"operating_threshold": 0.9}, "operating_threshold"),
+        ("test-config.json", {"weights_sha256": "other"}, "weights_sha256"),
+        ("test-config.json", {"test_gt_sha256": "other"}, "test_gt_sha256"),
+        ("test-config.json", {"export": {"imgsz": 480, "conf": 0.1}}, "export"),
+        ("reproduce-val.json", {"passed": False}, "cổng tái tạo val"),
+        ("reproduce-val.json", {"delta": {"map_50": 0, "map_50_95": 0.1}}, "cổng tái tạo val"),
+        ("metrics-test.json", {}, "operating_point"),
+        ("metrics-test.json", {"operating_point": {"threshold": 0.9}}, "threshold"),
+        ("predictions-test.json", None, "thiếu tệp"),
+        ("predictions-test.json", [], "predictions_test_sha256"),
+        ("latency.json", {"conf": 0.9}, "conf"),
+        ("latency.json", {"imgsz": 480}, "imgsz"),
+        ("latency.json", {"images": 100}, "images"),
+        ("latency.json", {"warmup": 5}, "warmup"),
+        ("latency.json", {"image_ids": [1]}, "image_ids"),
+        ("latency.json", {"predictions_test_sha256": "other"}, "predictions_test_sha256"),
+        ("latency.json", {"cpu": {"device": "khác"}}, "device"),
+    ],
+)
+def test_process_stops_without_overwriting_mismatched_results(nb, tmp_path, name, change, field):
+    calls, evaluation = gate_namespace(nb, tmp_path, delta=0)
+    nb["process"](RUN)
+    path = evaluation / name
+    if change is None:
+        path.unlink()
+    elif change and isinstance(change, dict):
+        path.write_text(json.dumps({**json.loads(path.read_text()), **change}))
+    else:
+        path.write_text(json.dumps(change))
+    before = {path.name: path.read_bytes() for path in evaluation.iterdir()}
+
+    calls.clear()
+    with pytest.raises(RuntimeError, match=field):
+        nb["process"](RUN)
+    assert calls == []
+    assert {path.name: path.read_bytes() for path in evaluation.iterdir()} == before
+
+
+@pytest.mark.parametrize(
+    ("device", "field", "value"),
+    [
+        ("cpu", "torch_threads", 4),
+        ("cpu", "cv2_threads", 2),
+        ("cuda", "device", "GPU khác"),
+        ("cuda", "precision", "fp16 autocast"),
+        ("cuda", "n", 100),
+        ("cuda", "p95_ms", None),
+    ],
+)
+def test_latency_done_requires_hardware_and_complete_timings(nb, tmp_path, device, field, value):
+    _, evaluation = gate_namespace(nb, tmp_path, delta=0)
+    nb["process"](RUN)
+    path = evaluation / "latency.json"
+    report = json.loads(path.read_text())
+    report[device][field] = value
+    path.write_text(json.dumps(report))
+    with pytest.raises(RuntimeError, match=field):
+        nb["latency_done"](evaluation, nb["test_identity"](RUN))
+
+
+@pytest.mark.parametrize("name", ["metrics-test.json", "latency.json"])
+def test_process_preserves_partial_reports(nb, tmp_path, name):
+    calls, evaluation = gate_namespace(nb, tmp_path, delta=0)
+    evaluation.mkdir()
+    path = evaluation / name
+    path.write_text("{}")
+    with pytest.raises(RuntimeError, match="Kiểm tra tay"):
+        nb["process"](RUN)
+    assert calls == []
+    assert list(evaluation.iterdir()) == [path] and path.read_text() == "{}"
 
 
 def test_evaluate_cli_logs_stderr_and_keeps_output_on_failure(nb, tmp_path):

@@ -116,7 +116,7 @@ Mỗi cấu hình chỉ dùng một seed. Chưa có độ lệch giữa các see
 
 [Kiểm thử §3](../../docs/08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình) yêu cầu thêm AP theo điều kiện và chi phí của từng mô hình. Các phần dưới đây **chưa đo**:
 
-- AP theo ngày, đêm, mưa. Cột `tags` của manifest v1.1 trống ở cả 1599 ảnh val, nên `by_condition` trong `metrics.json` là `null`. Cần gắn thẻ điều kiện cho val rồi chấm lại.
+- AP theo ngày, đêm, mưa. Cột `tags` của manifest v1.1 trống ở cả 1.599 ảnh val. Trong đối tượng `by_condition`, ba khóa `day`, `night` và `rain` có giá trị `null`. Cần gắn thẻ điều kiện cho val rồi chấm lại. [Chỉ số val YOLOv8s](yolov8s-640-v1.1-main-s0/metrics.json)
 - Số tham số và GFLOPs của checkpoint PyTorch. Hai trường tương ứng trong `metrics.json` là `null`.
 - Độ trễ HTTP trên server tham chiếu theo NFR-02. Đã có số đo pipeline CPU và GPU trong tiến trình Python trên ảnh val ở laptop và Colab. [Thời gian pipeline tham khảo](test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có)
 

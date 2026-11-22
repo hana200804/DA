@@ -65,27 +65,34 @@ Cuối tuần 12 **đóng băng tính năng**.
 **Mục tiêu:** dữ liệu đủ và đúng để huấn luyện và so sánh công bằng. Thiết kế: [Dữ liệu và gán nhãn](05-du-lieu.md).
 
 - [x] [`labels.yaml` v1 đối chiếu QCVN 41](../ai/data/labels.yaml) (AI-01)
-- [ ] Dữ liệu công khai đã kiểm tra giấy phép, gán nhãn lại
+- [x] Ánh xạ nhãn VN82, sửa 48 box và xuất manifest v1.1. [Nhật ký dữ liệu](../ai/data/CHANGELOG.md)
+- [ ] Xác nhận điều khoản giấy phép VN82 (Q3). [Hồ sơ nguồn](../ai/data/sources/vn82.md#rà-và-gán-nhãn-signa)
+- [ ] Kiểm soát chất lượng nhãn bằng hai người gán độc lập. [Quy tắc QC](05-du-lieu.md#kiểm-soát-chất-lượng)
 - [ ] Video thực địa ngày, đêm, mưa kèm GPS và nhãn chuẩn của tuyến
 - [ ] Tập thực địa đã gán nhãn
 - [ ] Dữ liệu tổng hợp cho lớp hiếm
 - [x] [Script kiểm tra dữ liệu, chuyển YOLO ↔ COCO, sinh manifest có hash](../ai/data/README.md)
 
-**Hoàn thành khi:** dữ liệu v1.0 có manifest và chia tập cố định; kiểm soát chất lượng gán nhãn đạt; thống kê dữ liệu đã lập.
+**Hoàn thành khi:** dữ liệu có manifest và chia tập cố định. Xác nhận giấy phép, hoàn tất QC và lập thống kê dữ liệu.
 
 ## M3 · Ba mô hình
 
 **Mục tiêu:** YOLOv5, YOLOv8, DETR được huấn luyện và so sánh theo cùng giao thức; chọn được mô hình triển khai. Thiết kế: [Thiết kế AI §2–4, §8](04-thiet-ke-ai.md#2-ba-mô-hình).
 
-- [ ] Huấn luyện YOLOv5 n/s, YOLOv8 n/s và DETR-R50; RT-DETR-L bổ sung (AI-02)
+- [x] [Huấn luyện năm lượt chính 640 px](../ai/experiments/main-v1.1.md) gồm YOLOv5 n/s, YOLOv8 n/s và DETR-R50 (AI-02).
+- [ ] Huấn luyện RT-DETR-L bổ sung. [Đặc tả · Q2](02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)
 - [x] Bộ đánh giá chung bằng `pycocotools` (AI-03)
 - [x] Bảng so sánh và phân tích lỗi trên val ([Kết quả v1.1](../ai/experiments/error-analysis-v1.1-val.md), [Kiểm thử §3](08-kiem-thu.md#3-đánh-giá-và-so-sánh-mô-hình)). Tập VN82 thiếu thẻ ngày/đêm/mưa nên chưa có AP theo điều kiện.
 - [x] [Chấm test năm checkpoint v1.1](../ai/experiments/test-v1.1.md). Ứng viên server còn thiếu 3,89 điểm phần trăm so với NFR-05. Đã có [thời gian pipeline CPU và GPU trên máy sẵn có](../ai/experiments/test-v1.1.md#thời-gian-pipeline-trên-các-máy-sẵn-có).
-- [ ] Đo số tham số, GFLOPs của năm checkpoint và độ trễ HTTP trên server tham chiếu theo NFR-02.
+- [ ] Chấm ba họ mô hình trên tập thực địa (AI-03). [Giao thức thực địa](08-kiem-thu.md#5-thử-nghiệm-thực-địa)
+- [ ] Đo số tham số, GFLOPs của năm checkpoint và độ trễ qua backend trên server tham chiếu theo NFR-02. [Hồ sơ HTTP tham khảo](../ai/experiments/service-v1.1/README.md)
 - [x] Xuất [bản TFLite INT8/FP16 của các ứng viên điện thoại](../ai/README.md#so-sánh-ứng-viên-điện-thoại-ai-04) (AI-05)
-- [ ] Đo TFLite trên thiết bị Android tham chiếu (AI-05). Thành viên 3 phụ trách sau khi chốt Q7.
-- [ ] Thí nghiệm 960 px, dữ liệu tổng hợp (AI-07)
-- [ ] Chọn mô hình triển khai kèm lý do (AI-04). Đã đề xuất theo val, chờ đo FPS và NFR-02. [Đề xuất v1.1](../ai/experiments/model-selection-v1.1.md)
+- [x] [Chấm test YOLOv8n TFLite 640 FP16](../ai/experiments/yolov8n-640-v1.1-main-s0/tflite-640-fp16-evaluation/README.md). Còn thiếu 1,09 điểm phần trăm so với NFR-05. Recall biển cấm trước tracker đạt 85,80%.
+- [ ] Đo TFLite trên thiết bị Android tham chiếu (AI-05). Thành viên 3 phụ trách sau khi chốt Q7. Nghiệm thu NFR-06 trên video thực địa có tracker.
+- [x] [So sánh suy luận 640/960 px trên val và thử huấn luyện với 2% tập train](../ai/experiments/yolov8s-960-v1.1-main-s0/README.md) (AI-07).
+- [ ] Huấn luyện đầy đủ ở 960 px và chấm val (AI-07). [Tiêu chí so sánh](../ai/experiments/yolov8s-960-v1.1-main-s0/README.md#tiêu-chí-so-sánh-khi-hoàn-tất-lượt-huấn-luyện-960)
+- [ ] Đối chứng có và không có dữ liệu tổng hợp, sau khi có dữ liệu ở M2.
+- [ ] Chọn mô hình triển khai kèm lý do (AI-04). Đã khóa cấu hình chấm test và đề xuất ứng viên theo val. Chờ FPS và NFR-02. [Đề xuất v1.1](../ai/experiments/model-selection-v1.1.md)
 - [ ] Thẻ mô hình (AI-06). Đã cập nhật điểm test của năm checkpoint PyTorch, còn thiếu số liệu thực địa và tốc độ trên thiết bị tham chiếu. [Hồ sơ thí nghiệm](../ai/experiments/README.md#sinh-thẻ-mô-hình)
 
 **Hoàn thành khi:** đạt NFR-05, NFR-06; bảng kết quả đủ cả ba mô hình.

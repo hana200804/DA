@@ -113,13 +113,13 @@
 
 ## 3. Đánh giá và so sánh mô hình
 
-Chọn cấu hình trên val trước khi chạy đánh giá cuối trên test và tập thực địa. [Thiết kế AI §3–4](04-thiet-ke-ai.md#3-giao-thức-huấn-luyện).
+Khóa cấu hình chấm và ngưỡng từ val trước khi chấm ảnh test. Chốt cấu hình triển khai sau khi kiểm tra các chỉ tiêu chọn ở AI-04. Giữ cấu hình triển khai cố định khi nghiệm thu thực địa. [Thiết kế AI §4](04-thiet-ke-ai.md#4-giao-thức-đánh-giá-và-chọn-mô-hình)
 
 | Chỉ số | Chỉ tiêu |
 | --- | --- |
 | mAP@0.5 tập test, mô hình server tốt nhất | ≥ 0,85 (NFR-05) |
 | mAP@0.5 tập test, mô hình điện thoại (sau lượng tử hoá) | ≥ 0,80 (NFR-05) |
-| Recall nhóm biển cấm, mô hình điện thoại | ≥ 0,85 (NFR-06) |
+| Recall nhóm biển cấm trên ảnh test, trước tracker, tại ngưỡng đã khóa | ≥ 0,85 để kiểm tra ứng viên điện thoại đã chọn trên val (NFR-06) |
 | Mức giảm mAP do INT8 so với FP32 | < 2 điểm, nếu không thì dùng FP16 |
 | mAP@0.5:0.95, AP theo kích thước, theo điều kiện, theo lớp, ma trận nhầm lẫn | Báo cáo cho cả 3 mô hình |
 | Thời gian suy luận trên server tham chiếu | NFR-02 |
@@ -134,14 +134,16 @@ Chọn cấu hình trên val trước khi chạy đánh giá cuối trên test v
 | YOLOv8s | | | | | | | | | |
 | Biến thể DETR theo Q2 | | | | | | | | | |
 
-**Thí nghiệm bổ sung (AI-07):** ảnh 640 so với 960; có / không có dữ liệu tổng hợp; FP32 / FP16 / INT8 cho mô hình điện thoại.
+Tính recall nhóm biển cấm trên ảnh test bằng số box thật ghép đúng mã ở IoU ≥ 0,5 chia tổng số box thật thuộc nhóm này. Đo cả biển tốc độ. Dùng giá trị này để kiểm tra ứng viên đã chọn trên val, không dùng để chọn lại ứng viên. Nghiệm thu chuỗi có tracker riêng ở §5.
+
+**Thí nghiệm bổ sung (AI-07)** gồm ảnh 640 so với 960 và FP32 / FP16 / INT8 cho mô hình điện thoại. Đối chứng có và không có dữ liệu tổng hợp là hạng mục riêng ở [M3](09-hang-muc-cong-viec.md#m3--ba-mô-hình).
 
 **Server tham chiếu:** máy chủ demo 4 vCPU, 8 GB RAM, không GPU; nếu có GPU thì báo cáo thêm cột GPU, ghi rõ loại GPU.
 
 ## 4. Đánh giá trên thiết bị
 
 - **Thiết bị:** ít nhất hai điện thoại Android thuộc hai phân khúc ([Đặc tả · Q7](02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)); máy tầm trung là thiết bị tham chiếu.
-- **Đo lặp lại được:** chế độ phát lại đưa từng khung của video thực địa vào chuỗi xử lý thay cho camera.
+- **Đo lặp lại được:** chế độ phát lại đưa từng khung video vào chuỗi xử lý thay cho camera. Dùng video val khi chọn cấu hình và video thực địa khi nghiệm thu.
 
 | Chỉ số | Cách đo | Chỉ tiêu |
 | --- | --- | --- |
@@ -161,6 +163,7 @@ Dùng video và nhãn chuẩn của tuyến ([Dữ liệu §4](05-du-lieu.md#4-v
 | --- | --- | --- |
 | mAP@0.5 trên tập thực địa | Như §3, trên khung trích từ video | ≥ 0,75 (mô hình điện thoại) |
 | Recall theo tuyến | Biển thật có ít nhất một đề xuất đúng mã / tổng biển thật nhìn được theo hướng đi | Báo cáo theo điều kiện |
+| Recall nhóm biển cấm sau tracker | Biển cấm thật có ít nhất một đề xuất đúng mã sau tracker / tổng biển cấm thật nhìn được theo hướng đi. Tính cả biển tốc độ, mỗi biển tính một lần trong một lượt đi | ≥ 0,85 (nghiệm thu NFR-06) |
 | Đề xuất thừa | Đề xuất không ứng với biển thật nào / tổng đề xuất | Báo cáo; so sánh có / không có tracker |
 | Sai số vị trí đề xuất | Khoảng cách tới vị trí thật | Trung vị ≤ 15 m; báo cáo p90 |
 
@@ -239,6 +242,7 @@ Mỗi tiêu chí chấp nhận trong [Đặc tả §8](02-dac-ta-yeu-cau.md#8-ti
 | FR-32 → FR-36 | Test API và E2E cho từng trang quản trị, E2E-W02 |
 | AI-02, AI-03 | UT-A04, UT-A05, §3 |
 | AI-04, AI-05 | §3, §4 |
+| NFR-06 | §3, §5 |
 
 ## 10. Tiêu chí hoàn thành và phân loại lỗi
 
