@@ -37,6 +37,7 @@ def main() -> None:
     manifest = args.dataset / "manifest.csv"
     labels_path = ROOT / "data/labels.yaml"
     source = {
+        "script_sha256": sha256(Path(__file__)),
         "weights_sha256": sha256(args.weights),
         "gt_sha256": sha256(gt),
         "manifest_sha256": sha256(manifest),

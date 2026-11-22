@@ -30,7 +30,9 @@
   },
   "batch_16": {
     "status": "CUDA out of memory",
-    "log_sha256": "43a31792bbc57eb37edbd274a8dcdfed296a73cb0025199bb753045e3134b517"
+    "original_log_sha256": "43a31792bbc57eb37edbd274a8dcdfed296a73cb0025199bb753045e3134b517",
+    "log_sha256": "8ff074ddf19b70883ad0703d18e4390fc86d23d6f57fe23e89e36a0ecf05f0f0",
+    "log_gz_sha256": "480e8152676f9af2fc8a5ba3bb518a073c8084cf8452d44db560da2624723c3a"
   },
   "batch_2": {
     "status": "completed",
@@ -41,6 +43,10 @@
     "first_epoch_s": 75.5321,
     "train_call_wall_s": 237.25534881100248,
     "peak_torch_reserved_mib": 1580,
-    "log_sha256": "579de0f0e2e0b5443fb5c5b4ed6ddb7f07aff1196c9747722baf07fb61e01bbe"
+    "original_log_sha256": "579de0f0e2e0b5443fb5c5b4ed6ddb7f07aff1196c9747722baf07fb61e01bbe",
+    "log_sha256": "568d3cae80355bf1428985ceabf3d5178ed53ba1f149919fff02f2863b667b82",
+    "log_gz_sha256": "ab84835f212cde44b6e772cde765437a536feddbf080af34ccc8a47e60829782",
+    "results_csv_sha256": "4780ee103b4e356a3a6d480d6b32749eb6c126aa20f94483bc247bbd462a4034",
+    "results_csv_gz_sha256": "fae136e3c3cc9077eff5c3560b6602e3920e8d4fe7913570a1f63c93d4e6a6d6"
   }
 }
