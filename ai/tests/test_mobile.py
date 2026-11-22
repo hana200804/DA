@@ -80,6 +80,22 @@ def test_decode_nms_and_coco_ids(model, dtype, zero_point):
     )
 
 
+def test_decode_runs_nms_before_clipping_boxes_at_image_edge():
+    labels = load_label_map()
+    _, transform = letterbox(np.zeros((100, 100, 3), dtype=np.uint8), 100)
+    output = np.zeros((1, 4 + len(labels), 2), dtype=np.float32)
+    # Hai box cùng lớp có biên x [-30, 50] và [0, 50]. IoU 0,625 trước cắt, 1 sau cắt.
+    output[0, :5, 0] = [0.10, 0.3, 0.8, 0.2, 0.9]
+    output[0, :5, 1] = [0.25, 0.3, 0.5, 0.2, 0.8]
+
+    detections = decode_tflite(output, transform, labels, model="yolov8")
+
+    assert [d.confidence for d in detections] == pytest.approx([0.9, 0.8])
+    for detection in detections:
+        box = detection.box
+        assert (box.x, box.y, box.width, box.height) == pytest.approx((0, 20, 50, 20))
+
+
 def test_decode_rejects_missing_quantization_and_wrong_shape():
     labels = load_label_map()
     _, transform = letterbox(np.zeros((4, 4, 3), dtype=np.uint8), 4)
