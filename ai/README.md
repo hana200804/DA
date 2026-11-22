@@ -120,6 +120,11 @@ chọn `best.pt` theo mAP@0.5:0.95 trên val. Chọn GPU rồi **Run all**. Mấ
 run xong được bỏ qua, run dở tiếp tục từ `last.pt`. Mỗi run kết thúc bằng dự đoán val và
 `metrics.json` của bộ đánh giá chung. Notebook không xuất test.
 
+Notebook YOLOv8 có hai hằng ở ô mã đầu: `IMGSZ` (mặc định 640) và `SIZES` (mặc định `["n", "s"]`).
+Tên run là `yolov8{size}-{IMGSZ}-v1.1-main-s0`. Thí nghiệm AI-07 về biển nhỏ đặt `IMGSZ = 960`,
+`SIZES = ["s"]`, chọn L4 (hoặc A100) rồi **Run all**. Xem
+[`yolov8s-960-v1.1-main-s0`](experiments/yolov8s-960-v1.1-main-s0/README.md).
+
 ## Huấn luyện YOLOv8n trên Colab · v1.1
 
 Mở [notebook](notebooks/train_yolov8n_v1.1.ipynb) bằng **Upload notebook** tại
