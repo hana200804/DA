@@ -33,6 +33,7 @@ uv run --no-sync ruff check .
 | `src/signa_ai/augment.py` | Tham số và pipeline Albumentations dùng chung cho ba mô hình | Huấn luyện YOLO, DETR |
 | `src/signa_ai/detr.py` | Dataset COCO, nạp checkpoint và suy luận DETR-R50 | Huấn luyện và suy luận DETR |
 | [`notebooks/train_detr_main_v1.1.ipynb`](notebooks/train_detr_main_v1.1.ipynb) | Huấn luyện và chấm DETR-R50 trên val v1.1 | Huấn luyện DETR |
+| [`notebooks/predict_test_v1.1.ipynb`](notebooks/predict_test_v1.1.ipynb) | Kiểm tái tạo val, chấm test và đo thời gian 5 lượt chính | Bộ đánh giá |
 | `experiments/` | Cấu hình, log, chỉ số của từng thí nghiệm | Huấn luyện YOLO, DETR |
 | `service/` | Dịch vụ nhận diện FastAPI | Dịch vụ nhận diện |
 
@@ -134,6 +135,56 @@ Cả hai theo [giao thức huấn luyện](../docs/04-thiet-ke-ai.md#3-giao-th�
 chọn `best.pt` theo mAP@0.5:0.95 trên val. Chọn GPU rồi **Run all**. Mất phiên thì **Run all** lại:
 run xong được bỏ qua, run dở tiếp tục từ `last.pt`. Mỗi run kết thúc bằng dự đoán val và
 `metrics.json` của bộ đánh giá chung. Notebook không xuất test.
+
+## Chấm test và đo thời gian · v1.1
+
+[`predict_test_v1.1.ipynb`](notebooks/predict_test_v1.1.ipynb) chấm test 5 lượt chính theo
+[cấu hình đã chốt](experiments/model-selection-v1.1.md#chốt-cấu-hình-trước-khi-đo-test).
+Notebook chạy gọn trên GPU **T4** miễn phí. Mỗi nhóm chạy trong một runtime riêng, vì môi trường
+giống notebook train của nhóm đó và các nhóm xung đột phụ thuộc:
+
+| `SIGNA_GROUP` | Lượt | Môi trường |
+| --- | --- | --- |
+| `yolov8` | `yolov8{n,s}-640-v1.1-main-s0` | `ultralytics==8.3.203` |
+| `yolov5` | `yolov5{n,s}-640-v1.1-main-s0` | repo YOLOv5 gốc `1e7cf74…` và `requirements.txt` của repo |
+| `detr` | `detr-r50-640-v1.1-main-s0` | `signa_ai.detr`, `transformers==4.57.6` như extra `detr` |
+
+1. Mở notebook trên Colab, chọn **T4 GPU**. `signa-v1.1.zip` ở gốc My Drive.
+2. Sửa ô mã đầu: `%env SIGNA_GROUP=<nhóm>`. Đặt `SIGNA_NOTEBOOK_COMMIT` theo SHA trên permalink.
+3. **Run all**. Đổi nhóm thì chọn **Disconnect and delete runtime** rồi mở lại.
+
+Notebook lấy mã tại `REPO_COMMIT` cố định. GT là `coco/val.json` và `coco/test.json` trong ZIP,
+cùng tệp notebook train dùng để chấm val. SHA-256 của `coco/val.json` phải bằng
+`e3ccd276…08e2`. Với mỗi lượt:
+
+1. Kiểm SHA-256 `best.pt` với bảng chốt. Lệch thì dừng.
+2. Xuất lại dự đoán val bằng chính hàm xuất của notebook train (conf 0,001, IoU NMS 0,7,
+   `max_det` 300, ảnh 640; DETR batch 16, FP16). Chấm bằng `signa_ai.evaluate` và so với
+   `experiments/<lượt>/metrics.json`. Nếu |Δ mAP@0.5:0.95| hoặc |Δ mAP@0.5| vượt 0,2 điểm
+   phần trăm thì dừng, không chạy test. Số lệch ghi trong `reproduce-val.json`.
+3. Xuất dự đoán test và chấm với `--manifest` và `--threshold` là ngưỡng vận hành đã chốt.
+   Precision, recall và recall biển cấm trong `metrics-test.json` tính tại ngưỡng đó.
+   Không chọn lại ngưỡng trên test.
+4. Đo thời gian đầu cuối trên 200 ảnh val đầu tiên, khởi động 10 ảnh. Mỗi lần đo đi từ bytes
+   JPEG trong bộ nhớ qua giải mã, tiền xử lý, suy luận, hậu xử lý tới box theo pixel ảnh gốc,
+   ở ngưỡng vận hành. Đo trên GPU rồi CPU của runtime, PyTorch dùng tối đa 4 luồng. Ghi p50, p95,
+   mean ms. Đây không phải server tham chiếu (Q7 chưa chốt), số chỉ để tham khảo cho NFR-02.
+
+Kết quả ở `My Drive/Signa/experiments/<lượt>/evaluation/`:
+
+| Tệp | Nội dung |
+| --- | --- |
+| `predictions-val-repro.json`, `metrics-val-repro.json`, `reproduce-val.json` | Kiểm tái tạo val |
+| `predictions-test.json`, `metrics-test.json` | Dự đoán và chỉ số test |
+| `test-config.json` | SHA trọng số, SHA GT test, phiên bản thư viện, GPU, commit |
+| `latency.json` | Thời gian GPU và CPU, cấu hình máy và số luồng |
+
+Nhật ký ở `My Drive/Signa/experiments/predict-test-v1.1-<nhóm>.log`, gồm cả đầu ra của
+`signa_ai.evaluate` và traceback khi lỗi. Chạy lại an toàn: lượt đã có `metrics-test.json` và
+`test-config.json` cùng SHA thì bỏ qua phần test, có `latency.json` cùng SHA trọng số thì bỏ qua
+phần đo. Nếu SHA đã ghi khác SHA hiện tại, notebook dừng để không ghi đè kết quả test.
+Kiểm thử CPU ở [`tests/test_predict_test_notebook.py`](tests/test_predict_test_notebook.py).
+Chưa chạy notebook này trên Colab. Kết quả test và thời gian **chưa đo**.
 
 ## Huấn luyện YOLOv8n trên Colab · v1.1
 
