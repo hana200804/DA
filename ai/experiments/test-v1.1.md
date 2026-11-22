@@ -16,7 +16,7 @@ YOLOv8s là ứng viên server đã đề xuất theo val. Kết quả test củ
 
 Hai lớp có ít hơn 20 box thật trên test. `P.124c` có 9 box và `W.220` có 19 box. Một vài phát hiện đúng hoặc bỏ sót có thể làm chỉ số theo lớp thay đổi nhiều. [Số box theo lớp trong hồ sơ test](yolov8s-640-v1.1-main-s0/evaluation/metrics-test.json), [Quy tắc báo cáo dữ liệu](../../docs/05-du-lieu.md#5-phân-chia-tập-dữ-liệu)
 
-Chưa đo số tham số và GFLOPs của năm checkpoint theo giao thức chung. Hai trường `cost.parameters` và `cost.gflops` trong `metrics-test.json` vẫn là `null`. Kết quả đo thời gian CPU và GPU có trong [bảng thời gian pipeline](#thời-gian-pipeline-trên-các-máy-sẵn-có).
+Số tham số, GFLOPs và dung lượng của năm checkpoint nằm trong hồ sơ `evaluation/cost.json` của từng lượt. Kết quả đo thời gian CPU và GPU có trong bảng thời gian pipeline. [Chi phí checkpoint](main-v1.1.md#chi-phí-checkpoint), [Thời gian pipeline](#thời-gian-pipeline-trên-các-máy-sẵn-có)
 
 ## Thời gian pipeline trên các máy sẵn có
 

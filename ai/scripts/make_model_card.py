@@ -21,6 +21,25 @@ def read_json(path: Path) -> dict:
     return data
 
 
+def read_cost(path: Path, weights_sha: str | None, input_size: int) -> dict:
+    """Đọc chi phí đo trên cùng checkpoint đã dùng để xuất dự đoán val."""
+    if not path.is_file():
+        return {}
+    cost = read_json(path)
+    if weights_sha is None or cost.get("weights_sha256") != weights_sha:
+        raise ValueError(f"{path} cần SHA-256 trọng số khớp --export-config")
+    if cost.get("input_shape") != [1, 3, input_size, input_size]:
+        raise ValueError(f"Kích thước đầu vào trong {path} không khớp hồ sơ lượt chạy")
+
+    parameters, flops, size = (cost.get(key) for key in ("parameters", "flops", "size_bytes"))
+    if any(type(value) is not int or value <= 0 for value in (parameters, flops, size)):
+        raise ValueError(f"{path} cần số nguyên dương cho số tham số, FLOPs và kích thước byte")
+    gflops, size_mb = flops / 1_000_000_000, size / 1_000_000
+    if cost.get("gflops") != gflops or cost.get("size_mb") != size_mb:
+        raise ValueError(f"Quy đổi GFLOPs hoặc MB trong {path} không khớp")
+    return {"parameters": parameters, "gflops": gflops, "sizeMb": size_mb}
+
+
 def test_result(folder: Path, run: Path, weights_sha: str | None, labels: int, threshold: float):
     """Đọc kết quả test đã chấm nếu có; kiểm trọng số, nhãn và ngưỡng đã chốt trên val."""
     metrics_path, config_path = folder / "metrics-test.json", folder / "test-config.json"
@@ -154,8 +173,10 @@ def make_card(run: Path, version: str, export_config: Path | None) -> dict:
             raise ValueError("--export-config cần weights_sha256 hợp lệ")
 
     costs = metrics["cost"]
+    evaluation = run / "evaluation"
+    measured_cost = read_cost(evaluation / "cost.json", weights_sha, image_size)
     test = test_result(
-        run / "evaluation", run, weights_sha, labels, metrics["operating_point"]["threshold"]
+        evaluation, run, weights_sha, labels, metrics["operating_point"]["threshold"]
     )
     return {
         "modelName": variant[:-1] if variant.startswith("yolo") else "detr",
@@ -178,6 +199,7 @@ def make_card(run: Path, version: str, export_config: Path | None) -> dict:
         "inputSize": image_size,
         "weightsSha256": weights_sha,
         "sizeMb": costs["size_mb"],
+        **measured_cost,
         "cpuMsPerImage": costs["cpu_ms"],
         "gpuMsPerImage": costs["gpu_ms"],
         "serverLatencyP95Ms": None,

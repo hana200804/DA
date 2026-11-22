@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
+from scripts.make_model_card import read_cost, tflite_card
 from scripts.make_model_card import test_result as load_test_result
-from scripts.make_model_card import tflite_card
 from service.app import ModelInfo
 
 
@@ -117,6 +117,31 @@ def test_make_model_card_cli(tmp_path):
     assert card["test"]["map_50"] == 0.75
     assert card["test"]["metricsPath"] == "evaluation/metrics-test.json"
     assert "Chưa đo trên tập thực địa." in card["limitations"]
+
+    cost = {
+        "weights_sha256": "a" * 64,
+        "input_shape": [1, 3, 640, 640],
+        "parameters": 8,
+        "flops": 4_915_200,
+        "gflops": 0.0049152,
+        "size_bytes": 2_000,
+        "size_mb": 0.002,
+    }
+    cost_path = write_json(evaluation / "cost.json", cost)
+    subprocess.run(command + ["--export-config", str(export)], check=True)
+    measured = json.loads(card_path.read_text(encoding="utf-8"))
+    assert measured == {**card, "parameters": 8, "gflops": 0.0049152, "sizeMb": 0.002}
+
+    write_json(cost_path, {**cost, "weights_sha256": "b" * 64})
+    result = subprocess.run(
+        command + ["--export-config", str(export)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 2 and "SHA-256 trọng số" in result.stderr
+    assert json.loads(card_path.read_text(encoding="utf-8")) == measured
+
+    write_json(cost_path, {**cost, "size_mb": 2})
+    with pytest.raises(ValueError, match="Quy đổi GFLOPs hoặc MB"):
+        read_cost(cost_path, cost["weights_sha256"], 640)
 
 
 def test_tflite_card_keeps_tensor_contract_and_checks_provenance(tmp_path):

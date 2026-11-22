@@ -10,6 +10,7 @@ Mỗi lượt huấn luyện có một thư mục `ai/experiments/<mã thí nghi
 | `meta.json` | Commit, thời điểm, GPU, số giờ GPU, epoch dừng | Có |
 | `metrics.json` | Kết quả của bộ đánh giá chung trên val | Có |
 | `evaluation/{metrics-test,test-config,reproduce-val,latency,provenance}.json` | Chỉ số test, cấu hình, đối chiếu val, phép đo thời gian và hash đối chiếu | Có |
+| `evaluation/cost.json` | Số tham số, FLOPs và kích thước checkpoint, kèm SHA-256 và môi trường đo | Có khi đã đo |
 | [`evaluation/predictions-*.json.gz`](test-v1.1.md#tệp-đầu-vào-chấm-lại) | Dự đoán COCO dùng để chấm lại | Có khi có tệp gốc |
 | `<tên gốc>.gz` cạnh hồ sơ phép thử | Nhật ký đo, mẫu thời gian từng yêu cầu và `results.csv` của phép thử | Có khi có tệp gốc |
 | `error-analysis-val.json` | Phân tích lỗi tại ngưỡng F1 tối đa và SHA-256 của đầu vào trên val | Có |
@@ -52,3 +53,19 @@ tflite="$drive/exports/$run/640-fp16"
 ```
 
 Bỏ `--tflite` với thẻ chỉ có checkpoint server. Khi lượt có `evaluation/metrics-test.json`, phải truyền `--export-config` có SHA-256 trọng số xuất trên val. Trình sinh chỉ đưa điểm PyTorch vào thẻ khi SHA đó khớp `evaluation/test-config.json`, cùng danh mục nhãn và ngưỡng vận hành đã chốt trên val. Với bản TFLite, trình sinh đọc `tflite-<cỡ>-<độ chính xác>-evaluation/` và đối chiếu SHA-256 tệp TFLite, nhãn và ngưỡng với hồ sơ xuất trên val.
+
+Khi có `evaluation/cost.json`, trình sinh đối chiếu SHA-256 với `--export-config` và kiểm kích thước ảnh. Ba trường trên thẻ là `parameters`, `gflops` và `sizeMb`.
+
+## Đo chi phí checkpoint
+
+Chạy trong `ai/`. Lấy SHA-256 từ [bảng cấu hình đã chốt](model-selection-v1.1.md#chốt-cấu-hình-trước-khi-đo-test). Chọn môi trường theo trường `versions` trong [hồ sơ phép đo](main-v1.1.md#chi-phí-checkpoint). Ví dụ cho YOLOv8n với Ultralytics 8.3.203.
+
+```sh
+run=yolov8n-640-v1.1-main-s0
+checkpoint="/path/to/experiments/$run/weights/best.pt"
+sha="<SHA-256 đã chốt>"
+CUDA_VISIBLE_DEVICES='' python scripts/measure_cost.py "$checkpoint" \
+  --family yolov8 --expected-sha256 "$sha" --out "experiments/$run/evaluation/cost.json"
+```
+
+YOLOv5 dùng `--family yolov5`, Ultralytics 8.4.215 và `--yolov5-repo` trỏ tới repo gốc tại commit `1e7cf74`. DETR dùng `--family detr`, Transformers 4.57.6 và `best.pt` ở gốc thư mục lượt. Script kiểm SHA-256 trước khi nạp checkpoint.

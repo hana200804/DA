@@ -80,6 +80,8 @@ Mỗi bộ công cụ tự tính mAP theo cách hơi khác nhau. Để công b�
 | Chi phí | Số tham số, GFLOPs, kích thước file, thời gian suy luận trên server tham chiếu (CPU và GPU nếu có), FPS trên điện thoại (mô hình YOLO) |
 | Huấn luyện | Số epoch đến hội tụ, số giờ GPU |
 
+Đo GFLOPs bằng cùng bộ đếm PyTorch trên một ảnh 640 × 640 cho ba họ. [Hồ sơ chi phí năm checkpoint v1.1](../ai/experiments/main-v1.1.md#chi-phí-checkpoint)
+
 ### Chọn mô hình triển khai — AI-04
 
 **Cấu hình chấm test.** Dùng val để chọn ngưỡng và ứng viên cần đánh giá. Khóa checkpoint hoặc tệp TFLite bằng SHA-256, kích thước ảnh, thiết lập xuất và ngưỡng trước khi chấm test. Server dùng ngưỡng F1 tối đa trên val. Điện thoại chọn ngưỡng ưu tiên recall trên val vì tracker lọc nhiễu. Giữ các giá trị đã khóa khi chấm test. [Bảng cấu hình v1.1](../ai/experiments/model-selection-v1.1.md#chốt-cấu-hình-trước-khi-đo-test)
