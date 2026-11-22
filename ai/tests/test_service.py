@@ -17,11 +17,15 @@ pytestmark = pytest.mark.anyio
 
 
 class FakeDetector:
-    version = "yolov8n-v1.1-temp"
     label_map_version = 1
 
     def __init__(self, name="yolov8"):
         self.name = name
+        self.version = {
+            "yolov5": "yolov5s-v1.1",
+            "yolov8": "yolov8n-v1.1-temp",
+            "detr": "detr-r50-v1.1",
+        }[name]
 
     def predict(self, image, *, conf=None, iou=None):
         assert image.shape == (24, 32, 3)
@@ -121,6 +125,76 @@ async def test_health_requires_all_three_models():
         assert response.json() == {"status": "ok"}
 
 
+async def test_model_selection_and_default(monkeypatch):
+    names = ("yolov5", "yolov8", "detr")
+    loaded = [LoadedModel(FakeDetector(name), {}, 0.40) for name in names]
+    monkeypatch.delenv("SIGNA_DEFAULT_MODEL", raising=False)
+    async with running(create_app(lambda: loaded)) as client:
+        for item in loaded:
+            detector = item.detector
+            for selector in (detector.name, detector.version):
+                response = await client.post(
+                    "/v1/detect", data={"model": selector}, files={"image": image_file()}
+                )
+                assert response.status_code == 200
+                assert response.json()["modelName"] == detector.name
+                assert response.json()["modelVersion"] == detector.version
+        response = await client.post("/v1/detect", files={"image": image_file()})
+        assert response.json()["modelName"] == "yolov8"
+
+    monkeypatch.setenv("SIGNA_DEFAULT_MODEL", "detr-r50-v1.1")
+    async with running(create_app(lambda: loaded)) as client:
+        response = await client.post("/v1/detect", files={"image": image_file()})
+        assert response.json()["modelName"] == "detr"
+
+
+async def test_loads_configured_models_and_keeps_others_on_failure(monkeypatch, tmp_path):
+    cards = {}
+    loaded_names = []
+    monkeypatch.setenv("SIGNA_DEVICE", "cpu")
+    monkeypatch.setenv("SIGNA_DEFAULT_MODEL", "yolov8")
+    for name, adapter in [
+        ("yolov5", "YoloV5Detector"),
+        ("yolov8", "YoloV8Detector"),
+        ("detr", "DetrDetector"),
+    ]:
+        folder = tmp_path / name
+        folder.mkdir()
+        weights = folder / "best.pt"
+        weights.touch()
+        cards[name] = card = {
+            "modelName": name,
+            "modelVersion": f"{name}-test",
+            "labelMapVersion": 1,
+            "operating_point": {"threshold": 0.5},
+        }
+        (folder / "model_card.json").write_text(json.dumps(card), encoding="utf-8")
+        monkeypatch.setenv(f"SIGNA_{name.upper()}_WEIGHTS", str(weights))
+
+        class FakeAdapter(FakeDetector):
+            def __init__(self, path, labels, version, device):
+                assert path.parent.name == self.name
+                assert labels.version == 1
+                assert device == "cpu"
+                assert version == f"{self.name}-test"
+                loaded_names.append(self.name)
+                if self.name == "yolov8":
+                    raise ValueError("checkpoint không hợp lệ")
+                self.version = version
+
+        FakeAdapter.name = name
+        monkeypatch.setattr(f"service.app.{adapter}", FakeAdapter)
+
+    async with running(create_app()) as client:
+        assert loaded_names == ["yolov5", "yolov8", "detr"]
+        models = (await client.get("/v1/models")).json()["models"]
+        assert [item["modelCard"] for item in models] == [cards["yolov5"], cards["detr"]]
+        health = await client.get("/healthz")
+        assert health.status_code == 503
+        assert health.json()["message"] == "Chưa nạp mô hình: yolov8"
+        assert (await client.post("/v1/detect", files={"image": image_file()})).status_code == 503
+
+
 @pytest.mark.parametrize("configured", [False, True])
 async def test_starts_without_existing_weights(monkeypatch, tmp_path, configured):
     monkeypatch.delenv("SIGNA_YOLOV8_WEIGHTS", raising=False)
@@ -182,7 +256,12 @@ async def test_operating_confidence(monkeypatch, tmp_path, card_conf, env_conf, 
 
 @pytest.mark.parametrize(
     "data",
-    [{}, {"model": "unknown"}, {"model": "yolov8", "conf": "nan"}, {"model": "yolov8", "iou": "2"}],
+    [
+        {"model": ""},
+        {"model": "unknown"},
+        {"model": "yolov8", "conf": "nan"},
+        {"model": "yolov8", "iou": "2"},
+    ],
 )
 async def test_invalid_model_and_thresholds(client, data):
     response = await client.post("/v1/detect", data=data, files={"image": image_file()})
@@ -237,26 +316,37 @@ async def test_rejects_image_with_too_many_pixels(client, monkeypatch):
     assert response.status_code == 413
 
 
-async def test_queue_returns_retry_after_and_drains(client, loaded, monkeypatch):
+@pytest.mark.parametrize(("name", "capacity"), [("yolov8", 12), ("detr", 9)])
+async def test_queue_returns_retry_after_and_drains(name, capacity, monkeypatch):
     release = Event()
-    predict = loaded.detector.predict
+    blocked = LoadedModel(FakeDetector(name), {}, 0.40)
+    predict = blocked.detector.predict
 
     def blocked_predict(*args, **kwargs):
         assert release.wait(timeout=10)
         return predict(*args, **kwargs)
 
-    monkeypatch.setattr(loaded.detector, "predict", blocked_predict)
-    request = {"data": {"model": "yolov8"}, "files": {"image": image_file()}}
-    active = [asyncio.create_task(client.post("/v1/detect", **request)) for _ in range(12)]
-    try:
-        async with asyncio.timeout(5):
-            while loaded.pending < 12:
-                await asyncio.sleep(0.001)
-        busy = await client.post("/v1/detect", **request)
-        assert busy.status_code == 503
-        assert busy.headers["Retry-After"] == "1"
-    finally:
-        release.set()
-        responses = await asyncio.gather(*active)
-    assert all(response.status_code == 200 for response in responses)
-    assert (await client.post("/v1/detect", **request)).status_code == 200
+    monkeypatch.setattr(blocked.detector, "predict", blocked_predict)
+    available = LoadedModel(FakeDetector("yolov5"), {}, 0.40)
+    request = {"data": {"model": name}, "files": {"image": image_file()}}
+    async with running(create_app(lambda: [blocked, available])) as queue_client:
+        active = [
+            asyncio.create_task(queue_client.post("/v1/detect", **request)) for _ in range(capacity)
+        ]
+        try:
+            async with asyncio.timeout(5):
+                while blocked.pending < capacity:
+                    await asyncio.sleep(0.001)
+            request["data"] = {"model": blocked.detector.version}
+            busy = await queue_client.post("/v1/detect", **request)
+            assert busy.status_code == 503
+            assert busy.headers["Retry-After"] == "1"
+            response = await queue_client.post(
+                "/v1/detect", data={"model": "yolov5"}, files={"image": image_file()}
+            )
+            assert response.status_code == 200
+        finally:
+            release.set()
+            responses = await asyncio.gather(*active)
+        assert all(response.status_code == 200 for response in responses)
+        assert (await queue_client.post("/v1/detect", **request)).status_code == 200

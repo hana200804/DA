@@ -35,24 +35,74 @@ uv run --no-sync ruff check .
 
 ## Chạy dịch vụ nhận diện
 
-Lấy `best.pt` và `model_card.json` từ `My Drive/Signa/experiments/yolov8n-640-v1.1-temp-s0/handoff/`
-và đặt cạnh nhau trong `ai/models/`. Dịch vụ đối chiếu lớp trong checkpoint với
-`ai/data/labels.yaml` v1 và dùng phiên bản bàn giao `yolov8n-v1.1-temp`.
+### Ba mô hình
 
-Ví dụ chạy trên CPU từ thư mục gốc của repo.
+Cấu hình đề xuất cho server gồm YOLOv5s, YOLOv8s và DETR-R50. YOLOv8s có
+mAP@0.5:0.95 cao nhất trên val v1.1 trong [lượt so sánh chính](experiments/main-v1.1.md).
+Thời gian trên server tham chiếu chưa đo. Lựa chọn AI-04 đang chờ chốt.
+
+Lấy checkpoint của nhóm từ My Drive và đặt mỗi trọng số trong một thư mục riêng.
+
+| Mô hình | Nguồn trên My Drive | Tệp cục bộ trong `ai/` |
+| --- | --- | --- |
+| YOLOv5s | `Signa/experiments/yolov5s-640-v1.1-main-s0/weights/best.pt` | `models/yolov5s/best.pt` |
+| YOLOv8s | `Signa/experiments/yolov8s-640-v1.1-main-s0/weights/best.pt` | `models/yolov8s/best.pt` |
+| DETR-R50 | `Signa/experiments/detr-r50-640-v1.1-main-s0/best.pt` | `models/detr-r50/best.pt` |
+
+Đặt `model_card.json` bên cạnh từng `best.pt`. Thẻ cần tên họ mô hình
+(`yolov5`, `yolov8` hoặc `detr`), phiên bản duy nhất và phiên bản danh mục nhãn khớp
+`ai/data/labels.yaml`. Ví dụ các trường dùng để nạp YOLOv8s và đặt ngưỡng val đã làm tròn.
+
+```json
+{
+  "modelName": "yolov8",
+  "modelVersion": "yolov8s-v1.1",
+  "labelMapVersion": 1,
+  "operating_point": {"threshold": 0.53}
+}
+```
+
+Nội dung khác của [thẻ mô hình](../docs/04-thiet-ke-ai.md#8-phiên-bản-và-thẻ-mô-hình)
+được trả nguyên vẹn qua API. Chỉ cấu hình checkpoint và checkout đáng tin cậy của nhóm.
+
+Ví dụ cài đặt và chạy trên máy CPU. Trên server CUDA, cài bản PyTorch tương ứng
+và bỏ `SIGNA_DEVICE=cpu` để dịch vụ tự chọn thiết bị.
 
 ```sh
 cd ai
 uv venv --python 3.11
 uv pip install --index https://download.pytorch.org/whl/cpu torch torchvision
-uv pip install -e '.[serve]'
-SIGNA_YOLOV8_WEIGHTS=models/best.pt SIGNA_DEVICE=cpu \
+uv pip install -e '.[serve-all]'
+git clone https://github.com/ultralytics/yolov5.git models/yolov5-source
+git -C models/yolov5-source checkout --detach 1e7cf74cb64d719b34f7315aa13eab9e32cde672
+SIGNA_YOLOV5_REPO=models/yolov5-source \
+  SIGNA_YOLOV5_WEIGHTS=models/yolov5s/best.pt \
+  SIGNA_YOLOV8_WEIGHTS=models/yolov8s/best.pt \
+  SIGNA_DETR_WEIGHTS=models/detr-r50/best.pt \
+  SIGNA_DEVICE=cpu \
   uv run --no-sync uvicorn service.app:app --host 127.0.0.1 --port 8000
 ```
 
-`SIGNA_YOLOV8_WEIGHTS` trỏ đến checkpoint `.pt` cục bộ. Dịch vụ chọn CUDA nếu
-PyTorch hỗ trợ CUDA và GPU khả dụng, ngược lại dùng CPU. Dùng `SIGNA_DEVICE`
-để chọn thiết bị cụ thể, ví dụ `cpu` hoặc `cuda:0`.
+`serve-all` dùng bản `ultralytics` mà checkout YOLOv5 yêu cầu. Dùng môi trường ảo
+riêng cho `train` hoặc `serve`, vì hai nhóm đó ghim phiên bản `ultralytics` khác.
+
+| Biến môi trường | Ý nghĩa |
+| --- | --- |
+| `SIGNA_YOLOV5_WEIGHTS`, `SIGNA_YOLOV8_WEIGHTS`, `SIGNA_DETR_WEIGHTS` | Đường dẫn đến từng checkpoint `.pt` cục bộ |
+| `SIGNA_YOLOV5_REPO` | Đường dẫn đến checkout YOLOv5 gốc ở commit trên |
+| `SIGNA_DEVICE` | `cpu` hoặc thiết bị CUDA như `cuda:0`. Tự chọn `cuda:0` nếu khả dụng, nếu không thì dùng CPU |
+| `SIGNA_DEFAULT_MODEL` | Tên họ hoặc `modelVersion` của mô hình mặc định. Khi chưa đặt thì dùng `yolov8` |
+| `SIGNA_YOLOV5_CONF`, `SIGNA_YOLOV8_CONF`, `SIGNA_DETR_CONF` | Ngưỡng khi request và thẻ mô hình đều thiếu ngưỡng. Giá trị dự phòng là 0,42, 0,40 và 0,71 tương ứng |
+
+### Phát triển với một mô hình
+
+Để giữ môi trường YOLOv8 tạm, cài `.[serve]` thay cho `.[serve-all]`. Dùng
+`best.pt` và `model_card.json` trong `My Drive/Signa/experiments/yolov8n-640-v1.1-temp-s0/handoff/`
+với phiên bản `yolov8n-v1.1-temp`. Chỉ đặt `SIGNA_YOLOV8_WEIGHTS` và chạy Uvicorn
+như trên. API nhận diện dùng được với mô hình đã nạp. `/healthz` vẫn trả `503`
+khi thiếu một trong ba mô hình.
+
+### Gọi API
 
 ```sh
 curl -i http://127.0.0.1:8000/healthz
@@ -62,22 +112,26 @@ curl --fail-with-body --max-time 5 \
   http://127.0.0.1:8000/v1/detect
 ```
 
-- `POST /v1/detect` nhận multipart với `image`, `model` và hai trường tuỳ chọn
-  `conf`, `iou` trong khoảng [0, 1]. Mặc định của YOLOv8n tạm là `conf=0.40`
-  (làm tròn từ ngưỡng F1 tối đa 0,401663 trên val v1.1) và `iou=0.7`.
-  Khi request bỏ qua `conf`, dịch vụ ưu tiên `operating_point.threshold` trong
-  `model_card.json`, sau đó đến biến `SIGNA_YOLOV8_CONF`, rồi giá trị mặc định.
-  Ảnh JPEG, PNG hoặc WebP có giới hạn 10 MB và 25 triệu pixel. Dịch vụ xử lý ảnh trong bộ nhớ.
+- `POST /v1/detect` nhận multipart với `image` và các trường tuỳ chọn
+  `model`, `conf`, `iou`. Chọn `yolov5`, `yolov8`, `detr` hoặc phiên bản đã
+  nạp ghi trong `modelVersion`. Bỏ trường `model` để dùng mô hình mặc định.
+  `conf` và `iou` nằm trong khoảng [0, 1]. Nếu thiếu `conf`, dịch vụ ưu tiên
+  `operating_point.threshold` rồi dùng cấu hình ngưỡng ở bảng trên. Hai họ YOLO
+  dùng ngưỡng IoU mặc định 0,7. DETR bỏ qua `iou`.
+  Ảnh JPEG, PNG hoặc WebP có giới hạn 10 MB và 25 triệu pixel.
+  Dịch vụ xử lý ảnh trong bộ nhớ.
 - Kết quả gồm `modelName`, `modelVersion`, `labelMapVersion`, `inferenceMs` và
   `detections`. Mỗi phát hiện có `signTypeCode`, `confidence` và `box`
   với `x`, `y`, `width`, `height` theo pixel ảnh gốc.
 - `GET /v1/models` trả `models` gồm các mô hình đã nạp cùng `modelCard` và
   `defaultConf` là ngưỡng đang dùng khi request bỏ qua `conf`.
-  Dịch vụ vẫn khởi động khi thiếu trọng số. `GET /healthz` báo các mô hình
-  còn thiếu bằng HTTP `503` và chỉ trả `200` khi đủ ba mô hình.
-  Bản tạm vẫn nhận yêu cầu `model=yolov8` khi YOLOv8 đã nạp.
-- Yêu cầu chọn mô hình chưa nạp nhận `503 RECOGNITION_UNAVAILABLE`.
-  Khi hàng chờ đầy, API trả cùng mã lỗi với `Retry-After: 1`.
+  `GET /healthz` báo các mô hình còn thiếu bằng HTTP `503` và chỉ trả `200`
+  khi đủ ba mô hình.
+- API trả `400` nếu giá trị `model` không hợp lệ hoặc không khớp phiên bản đã nạp.
+  Nếu họ mô hình được chọn hoặc mô hình mặc định chưa nạp, API trả
+  `503 RECOGNITION_UNAVAILABLE`.
+- Mỗi họ YOLO có tối đa 4 yêu cầu giữ semaphore. DETR có 1. Mỗi họ có thêm
+  tối đa 8 yêu cầu chờ. Khi đầy, API trả `503` kèm `Retry-After: 1`.
 
 Backend gọi dịch vụ trong mạng nội bộ. Xem [hợp đồng API nội bộ](../docs/07-api.md#7-dịch-vụ-nhận-diện-nội-bộ)
 và OpenAPI ở `/openapi.json` của dịch vụ.

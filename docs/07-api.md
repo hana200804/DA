@@ -238,11 +238,14 @@ Chỉ backend gọi, trong mạng nội bộ Docker, không qua nginx.
 
 | Method | Đường dẫn | Mô tả |
 | --- | --- | --- |
-| POST | `/v1/detect` | Multipart `image`, `model`, tuỳ chọn `conf`, `iou`; trả `detections` (chỉ mã, không tên), `inferenceMs`, phiên bản |
+| POST | `/v1/detect` | Multipart bắt buộc có `image`. Các trường `model`, `conf`, `iou` là tuỳ chọn. Kết quả gồm `detections` theo mã biển, `inferenceMs` và thông tin phiên bản |
 | GET | `/v1/models` | Danh sách mô hình đã nạp và thẻ mô hình |
 | GET | `/healthz` | `200` khi cả ba mô hình đã nạp xong |
 
-Quá tải trả `503` kèm `Retry-After`; backend chuyển thành `503 RECOGNITION_UNAVAILABLE`. Timeout phía backend 5 giây.
+`model` nhận `yolov5`, `yolov8`, `detr` hoặc `modelVersion` của mô hình đã nạp.
+Bỏ trường này để dùng mô hình mặc định trong cấu hình dịch vụ. DETR bỏ qua `iou`.
+Quá tải trả `503` kèm `Retry-After`. Backend chuyển thành `503 RECOGNITION_UNAVAILABLE`.
+Timeout phía backend là 5 giây.
 
 ## 8. Quản trị
 
