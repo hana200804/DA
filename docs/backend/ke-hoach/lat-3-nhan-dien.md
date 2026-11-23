@@ -28,11 +28,11 @@
 
 **Tạo:** `recognition/internal/ImageFormat.java`, `PreparedImage.java`, `ImageProcessor.java`, `Box.java`; test `ImageFormatTest`, `ImageProcessorTest`.
 
-- [ ] `ImageFormat.detect(byte[])`: JPEG `FF D8 FF`, PNG `89 50 4E 47 0D 0A 1A 0A`, WebP `RIFF····WEBP`; khác thì `415 UNSUPPORTED_MEDIA_TYPE`.
-- [ ] `ImageProcessor.prepare`: đọc kích thước từ header; quá 25 triệu pixel → `413`; dữ liệu hỏng → `415`. Cạnh dài ≤ 1280 px thì gửi nguyên byte; lớn hơn thì giải mã, thu về 1280 px, nền trắng cho ảnh có alpha, mã hoá JPEG chất lượng 0,9.
-- [ ] `Box.scale(sx, sy)` quy đổi box theo tỉ lệ từng trục giữa ảnh gốc và ảnh gửi.
-- [ ] Unit test: magic bytes của cả ba định dạng, text, dữ liệu ngắn; quy đổi box; ảnh lớn được thu nhỏ đúng kích thước; ảnh nhỏ gửi nguyên; PNG khai 6000×6000 bị chặn mà không giải mã.
-- [ ] Commit.
+- [x] `ImageFormat.detect(byte[])`: JPEG `FF D8 FF`, PNG `89 50 4E 47 0D 0A 1A 0A`, WebP `RIFF····WEBP`; khác thì `415 UNSUPPORTED_MEDIA_TYPE`.
+- [x] `ImageProcessor.prepare`: đọc kích thước từ header; quá 25 triệu pixel → `413`; dữ liệu hỏng → `415`. Cạnh dài ≤ 1280 px thì gửi nguyên byte; lớn hơn thì giải mã, thu về 1280 px, nền trắng cho ảnh có alpha, mã hoá JPEG chất lượng 0,9.
+- [x] `Box.scale(sx, sy)` quy đổi box theo tỉ lệ từng trục giữa ảnh gốc và ảnh gửi.
+- [x] Unit test: magic bytes của cả ba định dạng, text, dữ liệu ngắn; quy đổi box; ảnh lớn được thu nhỏ đúng kích thước; ảnh nhỏ gửi nguyên; PNG khai 6000×6000 bị chặn mà không giải mã.
+- [x] Commit.
 
 ### Nhiệm vụ 2 · `RecognitionClient`
 
