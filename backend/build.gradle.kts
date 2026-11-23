@@ -78,3 +78,18 @@ spotless {
         target("src/**/*.java")
     }
 }
+
+// lát 5: lõi gom cụm vn.signa.sign.clustering phải phủ ≥ 90% dòng bằng unit test.
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    violationRules {
+        rule {
+            element = "PACKAGE"
+            includes = listOf("vn.signa.sign.clustering")
+            limit {
+                counter = "LINE"
+                minimum = "0.90".toBigDecimal()
+            }
+        }
+    }
+}

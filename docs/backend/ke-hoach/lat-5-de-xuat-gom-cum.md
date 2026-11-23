@@ -54,33 +54,33 @@ Các luật dưới đây là lựa chọn của lát này, cần cả nhóm xem
 
 ### Nhiệm vụ 1 · Kiểu dữ liệu và hình học
 
-- [ ] `GeoPoint(lat, lng)` kiểm tra miền giá trị; `SubmissionInput` gồm `id`, `userId`, `signTypeCode`, `categoryCode`, `confidence`, `location`, `headingDeg` (nullable, 0–359), `flags`, `receivedAt`.
-- [ ] `SignState` gồm `id`, `status`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `locationLocked`, `codeWeights`, `distinctSubmitters`, `confirmCount`, `denyCount`, `denySinceReview`, `moderatorBoost`, `confidence`, `suggestion`, `flags`, `relatedSignId`, `reviewedAt`, `version`, `members`. `REJECTED` bắt buộc có `reviewedAt`.
-- [ ] `Geo.distanceMeters` (haversine), `Geo.headingDiff` = `min(d, 360 − d)`.
+- [x] `GeoPoint(lat, lng)` kiểm tra miền giá trị; `SubmissionInput` gồm `id`, `userId`, `signTypeCode`, `categoryCode`, `confidence`, `location`, `headingDeg` (nullable, 0–359), `flags`, `receivedAt`.
+- [x] `SignState` gồm `id`, `status`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `locationLocked`, `codeWeights`, `distinctSubmitters`, `confirmCount`, `denyCount`, `denySinceReview`, `moderatorBoost`, `confidence`, `suggestion`, `flags`, `relatedSignId`, `reviewedAt`, `version`, `members`. `REJECTED` bắt buộc có `reviewedAt`.
+- [x] `Geo.distanceMeters` (haversine), `Geo.headingDiff` = `min(d, 360 − d)`.
 
 ### Nhiệm vụ 2 · Luật gán, trọng số, điểm, gợi ý, vị trí
 
-- [ ] `Assignment`: 5 bước của `docs/04 §6`, đúng thứ tự; kết quả `CONFIRM`, `JOIN_PENDING`, `REJECT`, `CREATE` (kèm `DIFFERS_FROM_APPROVED`, `relatedSignId`).
-- [ ] `Weights`: `w = p × k × f`; `USER_EDITED` thì `p = 0,7`; `SPLIT_VOTE` thì `f = 0,5`; chống lặp 12 giờ.
-- [ ] `Scoring`: `α`, `β`, điểm, mã dẫn đầu kèm luật hoà, `s2`.
-- [ ] `Suggestions`: Cần xem kỹ → Nên duyệt → Chờ thêm; tự duyệt (FR-25) theo cấu hình; rà soát lại (FR-22).
-- [ ] `Location`: trung vị có trọng số trên đề xuất mang mã dẫn đầu; giữ nguyên khi `locationLocked`.
+- [x] `Assignment`: 5 bước của `docs/04 §6`, đúng thứ tự; kết quả `CONFIRM`, `JOIN_PENDING`, `REJECT`, `CREATE` (kèm `DIFFERS_FROM_APPROVED`, `relatedSignId`).
+- [x] `Weights`: `w = p × k × f`; `USER_EDITED` thì `p = 0,7`; `SPLIT_VOTE` thì `f = 0,5`; chống lặp 12 giờ.
+- [x] `Scoring`: `α`, `β`, điểm, mã dẫn đầu kèm luật hoà, `s2`.
+- [x] `Suggestions`: Cần xem kỹ → Nên duyệt → Chờ thêm; tự duyệt (FR-25) theo cấu hình; rà soát lại (FR-22).
+- [x] `Location`: trung vị có trọng số trên đề xuất mang mã dẫn đầu; giữ nguyên khi `locationLocked`.
 
 ### Nhiệm vụ 3 · `ClusteringEngine`
 
-- [ ] `process(SubmissionInput, List<SignState>, Instant now)` → `ClusteringOutcome`: biển đích (mới hoặc đã có, kèm trạng thái mới), `w`, trạng thái đề xuất, lý do từ chối, cập nhật đề xuất thành viên khi tự duyệt, sự kiện lịch sử kèm giá trị trước và sau.
-- [ ] `applyRating(SignState, RatingChange)` → `RatingOutcome` cho lát 7 (FR-09, FR-22).
-- [ ] `memberUpdates(SignState)`: `APPROVED` thì cùng mã `ACCEPTED`, khác mã `REJECTED`; `REJECTED` thì mọi đề xuất `REJECTED`. Cho lát 6.
+- [x] `process(SubmissionInput, List<SignState>, Instant now)` → `ClusteringOutcome`: biển đích (mới hoặc đã có, kèm trạng thái mới), `w`, trạng thái đề xuất, lý do từ chối, cập nhật đề xuất thành viên khi tự duyệt, sự kiện lịch sử kèm giá trị trước và sau.
+- [x] `applyRating(SignState, RatingChange)` → `RatingOutcome` cho lát 7 (FR-09, FR-22).
+- [x] `memberUpdates(SignState)`: `APPROVED` thì cùng mã `ACCEPTED`, khác mã `REJECTED`; `REJECTED` thì mọi đề xuất `REJECTED`. Cho lát 6.
 
 ### Nhiệm vụ 4 · Kiểm thử và độ phủ
 
-- [ ] UT-B01 → UT-B10, UT-B12 đúng số liệu `docs/08 §2.2`.
-- [ ] Ví dụ số `docs/04 §6`: một người 0,74; biển đã duyệt nhận 2 "không đúng" 0,63.
-- [ ] Ca biên: 350° và 10° lệch 20°; thiếu hướng một phía; từ chối ngày 30 và ngày 31; hoà trọng số; đề xuất lặp sau 12 giờ; biên 20 m và 45°.
-- [ ] Test lặp ngẫu nhiên có seed: điểm luôn trong [0; 1], trọng số không âm.
-- [ ] `ClusteringPurityTest`: gói không phụ thuộc Spring, JDBC, I/O.
-- [ ] `jacocoTestCoverageVerification` ≥ 90% dòng cho `vn.signa.sign.clustering`, khối mới ở cuối `build.gradle.kts`.
-- [ ] `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` thành công; markdownlint sạch; commit.
+- [x] UT-B01 → UT-B10, UT-B12 đúng số liệu `docs/08 §2.2`.
+- [x] Ví dụ số `docs/04 §6`: một người 0,74; biển đã duyệt nhận 2 "không đúng" 0,63.
+- [x] Ca biên: 350° và 10° lệch 20°; thiếu hướng một phía; từ chối ngày 30 và ngày 31; hoà trọng số; đề xuất lặp sau 12 giờ; biên 20 m và 45°.
+- [x] Test lặp ngẫu nhiên có seed: điểm luôn trong [0; 1], trọng số không âm.
+- [x] `ClusteringPurityTest`: gói không phụ thuộc Spring, JDBC, I/O.
+- [x] `jacocoTestCoverageVerification` ≥ 90% dòng cho `vn.signa.sign.clustering`, khối mới ở cuối `build.gradle.kts`.
+- [x] `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` thành công; markdownlint sạch; commit.
 
 ## Phần 2 · Tích hợp (chưa làm)
 
@@ -113,4 +113,11 @@ Cần merge lát 1 (đăng nhập, `submission:create`) và lát 2 (`SignCatalog
 
 Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
 
-**2026-11-23.** Đã viết kế hoạch, bắt đầu phần 1.
+**2026-11-23.** Phần 1 xong trên `backend/5-submissions-clustering`, chưa push. Phần 2 chưa bắt đầu, chờ lát 1 và lát 2.
+
+- Trên máy: `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` thành công. 52 unit test của gói `clustering` đạt (`ClusteringEngineTest` 32, `ComponentsTest` 10, `RatingTest` 8, `RandomizedInvariantsTest` 1 với 300 lượt × 40 bước, seed 20261123, `ClusteringPurityTest` 1). Độ phủ dòng của gói 98,9% (517/523), nhánh 94% (238/253). Đã thử nâng ngưỡng lên 99,9% để chắc luật JaCoCo chặn được.
+- Ánh xạ ca kiểm thử: UT-B01 → UT-B10 và UT-B12 nằm trong `ClusteringEngineTest` (UT-B08 trong `RatingTest`), tên hiển thị bắt đầu bằng mã ca. Các ví dụ số trong `docs/04 §6`: một người 0,7368; biển đã duyệt nhận 2 "không đúng" 0,6324.
+- Nhiệm vụ 1–3 gộp một commit vì test dùng chung fixture; nhiệm vụ 4 (JaCoCo, kế hoạch) một commit.
+- `jacocoTestCoverageVerification` chưa nằm trong `check` và workflow CI. Thêm vào `backend.yml` là việc của người điều phối, vì file này dùng chung.
+- Cần nhóm chốt: các luật trong mục "Luật đã chốt khi tài liệu chưa nói rõ", nhất là lịch sử khi vị trí tự tính lại (FR-23), `M` khi tự duyệt, hướng của biển, thứ tự bước 4 và bước 5 so với FR-20.
+- Rủi ro cho lát 6: biển được duyệt với mã không dẫn đầu vẫn giữ `W_c` của mã khác trong `β`, nên điểm có thể dưới 0,5 ngay khi duyệt và bị rà soát lại ở lần đánh giá hoặc xác nhận kế tiếp. Lát 6 cần đặt `M = 2`, `reviewedAt`, `deny_since_review = 0` khi duyệt hoặc giữ, rồi gọi `ClusteringEngine.memberUpdates`.
