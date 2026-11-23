@@ -28,39 +28,39 @@
 
 **Tạo:** `backend/settings.gradle.kts`, `backend/build.gradle.kts`, `backend/gradle/wrapper/*`, `backend/gradlew*`, `backend/src/main/java/vn/signa/SignaApplication.java`, `backend/src/main/resources/application.yml`, `backend/.gitignore`.
 
-- [ ] Wrapper Gradle 9.9.2; plugin `org.springframework.boot` 4.2.0, `io.spring.dependency-management`, `jacoco`, `com.diffplug.spotless` (google-java-format).
-- [ ] Phụ thuộc: `spring-boot-starter-webmvc`, `-validation`, `-actuator`, `-jdbc`, `-flyway`, `-data-redis`, `flyway-mysql`, `mysql-connector-j`, `springdoc-openapi-starter-webmvc-ui` 3.2.1, `io.minio:minio`. Test: `spring-boot-starter-test`, `-webmvc-test`, `archunit-junit5`, `testcontainers-junit-jupiter`, `testcontainers-mysql`, `spring-boot-testcontainers`.
-- [ ] Task `test` loại `**/*IT.class`; task `integrationTest` chỉ chạy `**/*IT.class`; `check` phụ thuộc cả hai.
-- [ ] `./gradlew compileJava` thành công.
+- [x] Wrapper Gradle 9.9.2; plugin `org.springframework.boot` 4.2.0, `io.spring.dependency-management`, `jacoco`, `com.diffplug.spotless` (google-java-format).
+- [x] Phụ thuộc: `spring-boot-starter-webmvc`, `-validation`, `-actuator`, `-jdbc`, `-flyway`, `-data-redis`, `flyway-mysql`, `mysql-connector-j`, `springdoc-openapi-starter-webmvc-ui` 3.2.1, `io.minio:minio`. Test: `spring-boot-starter-test`, `-webmvc-test`, `archunit-junit5`, `testcontainers-junit-jupiter`, `testcontainers-mysql`, `spring-boot-testcontainers`.
+- [x] Task `test` loại `**/*IT.class`; task `integrationTest` chỉ chạy `**/*IT.class`; `check` phụ thuộc cả hai.
+- [x] `./gradlew compileJava` thành công.
 
 ### Nhiệm vụ 2 · Lỗi chung và `X-Request-Id`
 
 **Tạo:** `shared/web/ErrorResponse.java` (`record ErrorResponse(String code, String message, List<FieldIssue> details, String requestId)`, `record FieldIssue(String field, String issue)`), `shared/error/ErrorCode.java` (enum theo bảng API §2, mỗi mã giữ `HttpStatus`), `shared/error/ApiException.java` (`ApiException(ErrorCode, String message)` cùng `details`, `retryAfterSeconds`), `shared/web/GlobalExceptionHandler.java`, `shared/web/RequestIdFilter.java` (`HEADER = "X-Request-Id"`, MDC key `requestId`).
 
-- [ ] Test `GlobalExceptionHandlerTest` (`@WebMvcTest` với controller giả trong test): `ApiException(NOT_FOUND)` → 404 đúng body; `@Valid` sai → 400 có `details[].field`; JSON hỏng → 400; `RuntimeException` → 500 với message chung; `RATE_LIMITED` có `Retry-After`; mọi lỗi có `requestId` bằng header response.
-- [ ] Test `RequestIdFilterTest`: không header → sinh UUID; header hợp lệ `[A-Za-z0-9._-]{1,64}` → giữ; header không hợp lệ → thay.
-- [ ] Cài đặt, chạy `./gradlew test`, commit.
+- [x] Test `GlobalExceptionHandlerTest` (`@WebMvcTest` với controller giả trong test): `ApiException(NOT_FOUND)` → 404 đúng body; `@Valid` sai → 400 có `details[].field`; JSON hỏng → 400; `RuntimeException` → 500 với message chung; `RATE_LIMITED` có `Retry-After`; mọi lỗi có `requestId` bằng header response.
+- [x] Test `RequestIdFilterTest`: không header → sinh UUID; header hợp lệ `[A-Za-z0-9._-]{1,64}` → giữ; header không hợp lệ → thay.
+- [x] Cài đặt, chạy `./gradlew test`, commit.
 
 ### Nhiệm vụ 3 · Module và test kiến trúc
 
 **Tạo:** `package-info.java` cho `identity`, `catalog`, `sign`, `recognition`, `audit` và các gói con `api`, `internal`, `web`; `src/test/java/vn/signa/architecture/ModuleBoundaryTest.java`, `TableOwnershipTest.java`.
 
-- [ ] `ModuleBoundaryTest` (ArchUnit): lớp của module A chỉ được dùng `vn.signa.<B>.api..` của module B; `shared` không phụ thuộc module nghiệp vụ; không chu trình giữa các module.
-- [ ] `TableOwnershipTest`: đọc mọi file `.java` dưới `src/main/java/vn/signa/<module>/`, tìm tên bảng (`\b(users|roles|...)\b` trong chuỗi SQL `FROM|JOIN|INTO|UPDATE`), fail nếu bảng không thuộc module theo bảng sở hữu (Kiến trúc §5). `audit_logs` chỉ thuộc `audit`.
-- [ ] Mỗi test có một ca "tự kiểm" dùng lớp mẫu vi phạm trong `src/test` để chứng minh luật bắt được lỗi.
-- [ ] Chạy, commit.
+- [x] `ModuleBoundaryTest` (ArchUnit): lớp của module A chỉ được dùng `vn.signa.<B>.api..` của module B; `shared` không phụ thuộc module nghiệp vụ; không chu trình giữa các module.
+- [x] `TableOwnershipTest`: đọc mọi file `.java` dưới `src/main/java/vn/signa/<module>/`, tìm tên bảng (`\b(users|roles|...)\b` trong chuỗi SQL `FROM|JOIN|INTO|UPDATE`), fail nếu bảng không thuộc module theo bảng sở hữu (Kiến trúc §5). `audit_logs` chỉ thuộc `audit`.
+- [x] Mỗi test có một ca "tự kiểm" dùng lớp mẫu vi phạm trong `src/test` để chứng minh luật bắt được lỗi.
+- [x] Chạy, commit.
 
 ### Nhiệm vụ 4 · Lược đồ Flyway và tài khoản CSDL
 
-**Tạo:** `backend/src/main/resources/db/migration/V1__schema.sql`, `V2__roles_permissions.sql`, `V3__app_grants.sql` (dùng placeholder `${appUser}`), `infra/mysql/init/01-users.sh`, `src/test/java/vn/signa/support/Containers.java`, `src/test/java/vn/signa/db/SchemaIT.java`.
+**Tạo:** `backend/src/main/resources/db/migration/V1__schema.sql`, `V2__roles_permissions.sql`, `V3__app_grants.sql` (dùng placeholder `${app_user}`), `infra/mysql/init/01-users.sh`, `src/test/java/vn/signa/support/Containers.java`, `IntegrationTest.java`, `src/test/java/vn/signa/db/SchemaIT.java`.
 
-- [ ] `V1`: mọi bảng ở CSDL §4–§8 với đúng kiểu, ràng buộc, chỉ mục, `SPATIAL INDEX` trên `POINT SRID 4326`, cột sinh `pending_flag`.
-- [ ] `V2`: 3 vai trò, 11 quyền, ma trận ở CSDL §4.
-- [ ] `V3`: cấp quyền theo từng bảng cho `${appUser}`: `SELECT, INSERT, UPDATE, DELETE` mọi bảng nghiệp vụ; riêng `audit_logs` chỉ `SELECT, INSERT`.
-- [ ] `01-users.sh`: tạo `signa_migrator` (`ALL ON signa.* WITH GRANT OPTION`) và `signa_app` (không quyền mức CSDL) từ biến `SIGNA_MIGRATOR_PASSWORD`, `SIGNA_APP_PASSWORD`.
-- [ ] `Containers`: MySQL 8.4 chép `01-users.sh` vào `/docker-entrypoint-initdb.d/`, Redis 7.4, MinIO; dùng chung cho mọi `*IT`.
-- [ ] `SchemaIT`: migration chạy xong; có đủ 11 quyền; `signa_app` `INSERT` được `audit_logs` nhưng `UPDATE`, `DELETE` bị từ chối; `signa_app` đọc ghi được `signs`.
-- [ ] Commit.
+- [x] `V1`: mọi bảng ở CSDL §4–§8 với đúng kiểu, ràng buộc, chỉ mục, `SPATIAL INDEX` trên `POINT SRID 4326`, cột sinh `pending_flag`.
+- [x] `V2`: 3 vai trò, 11 quyền, ma trận ở CSDL §4.
+- [x] `V3`: cấp quyền tối thiểu theo từng bảng cho `${app_user}`: `roles`, `permissions`, `role_permissions` chỉ `SELECT`; bảng nghiệp vụ `SELECT, INSERT, UPDATE`, thêm `DELETE` chỉ ở `sign_code_weights`; riêng `audit_logs` chỉ `SELECT, INSERT`.
+- [x] `01-users.sh`: tạo `signa_migrator` (`ALL ON signa.* WITH GRANT OPTION`) và `signa_app` (không quyền mức CSDL) từ biến `SIGNA_MIGRATOR_PASSWORD`, `SIGNA_APP_PASSWORD`.
+- [x] `support/Containers` cùng lớp cha `support/IntegrationTest`: MySQL 8.4 chép `01-users.sh` vào `/docker-entrypoint-initdb.d/`, Redis 7.4, MinIO; dùng chung cho mọi `*IT`.
+- [x] `SchemaIT`: migration chạy xong; có đủ 11 quyền; `signa_app` `INSERT` được `audit_logs` nhưng `UPDATE`, `DELETE` bị từ chối; `signa_app` đọc ghi được `signs`. Chỉ compile trên máy, chạy trên CI.
+- [x] Commit.
 
 ### Nhiệm vụ 5 · Cấu hình, lưu trữ ảnh, Compose
 
