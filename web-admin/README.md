@@ -62,7 +62,7 @@ Mở **Nhóm biển báo** để thêm hoặc sửa tên, mô tả và thứ t�
 
 Chế độ Signa tải nhóm biển từ `/api/v1/sign-categories`. Tài khoản có quyền `catalog:manage` đọc `/api/v1/admin/sign-types` để xem cả loại đang dùng và đã ngừng sử dụng. Tài khoản chỉ tra cứu và bản đồ tiếp tục dùng `/api/v1/sign-types` công khai. Các thao tác ghi cần quyền `catalog:manage`.
 
-Ảnh được gửi bằng multipart qua `PUT /api/v1/admin/sign-types/{code}/icon`. Adapter dùng trường `icon` và thuộc tính `recognizable: false` khi tạo thủ công. Cần xác nhận tên trường và payload với OpenAPI backend. Nếu thông tin đã lưu nhưng tải ảnh lỗi, hộp thoại cho thử tải ảnh lại. Gateway Signa phục vụ ảnh ở `/icons/`.
+Ảnh được gửi bằng multipart qua `PUT /api/v1/admin/sign-types/{code}/icon`. Ảnh PNG, JPEG hoặc WebP tối đa 1 MB (1.000.000 byte) được gửi ở trường `icon`. Khi tạo loại biển thủ công, adapter gửi `recognizable: false`. Cần xác nhận tên trường và payload với OpenAPI backend. Nếu thông tin đã lưu nhưng tải ảnh lỗi, hộp thoại cho thử tải ảnh lại. Gateway Signa phục vụ ảnh ở `/icons/`.
 
 ## Quản lý người dùng (FR-36)
 

@@ -971,6 +971,32 @@ test('FR-35 chặn tốc độ sai và định dạng ảnh khác', async () => 
   });
 });
 
+test('FR-35 chỉ gửi ảnh minh họa không vượt quá 1.000.000 byte', async () => {
+  const atLimit = new File([new Uint8Array(1_000_000)], 'icon.png', {
+    type: 'image/png',
+  });
+  const overLimit = new File([new Uint8Array(1_000_001)], 'large.png', {
+    type: 'image/png',
+  });
+  await mockFetch([new Response(null, { status: 204 })], async (calls) => {
+    await assert.rejects(
+      api.uploadCatalogIcon('token', 'P.102', overLimit),
+      /1 MB/,
+    );
+    await assert.rejects(
+      catalogDemo.uploadCatalogIcon('demo', 'P.102', overLimit),
+      /1 MB/,
+    );
+    assert.equal(calls.length, 0);
+
+    await api.uploadCatalogIcon('token', 'P.102', atLimit);
+    assert.equal(calls.length, 1);
+    const icon = (calls[0].body as FormData).get('icon');
+    assert.ok(icon instanceof File);
+    assert.equal(icon.size, 1_000_000);
+  });
+});
+
 test('demo FR-35 sửa danh mục, tải ảnh và giữ lịch sử loại đã ngừng dùng', () =>
   withDemoStorage(async () => {
     const code = 'P.999';
