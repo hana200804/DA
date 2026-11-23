@@ -59,3 +59,9 @@ signa:
   recognition:
     url: ${SIGNA_RECOGNITION_URL:http://localhost:8000}
   labels-path: ${SIGNA_LABELS_PATH:../ai/data/labels.yaml}
+  # Lát 1 · identity (IdentityProperties). Quản trị viên đầu tiên: chỉ tạo khi chưa có ADMIN và có
+  # đủ hai biến; không có mật khẩu mặc định.
+  identity:
+    bootstrap-admin:
+      email: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:}
+      password: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:}

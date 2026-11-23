@@ -105,11 +105,11 @@ Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã q
 
 ### Nhiệm vụ 4 · Quản trị viên đầu tiên
 
-**Tạo:** `identity/internal/BootstrapAdmin.java`, `BootstrapAdminProperties.java`, test.
+**Tạo:** `identity/internal/BootstrapAdmin.java`, `IdentityProperties.java` (`@ConfigurationProperties("signa.identity")`, khối `signa.identity.bootstrap-admin` ở cuối `application.yml`), `BootstrapAdminTest.java`.
 
-- [ ] Khi khởi động (`!migrate`): chưa có `ADMIN` và có đủ `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` thì tạo tài khoản `ADMIN` và ghi `USER/ROLE_CHANGED` với `actor_type = SYSTEM` trong cùng giao dịch. Thiếu biến thì bỏ qua. Mật khẩu sai chính sách thì dừng khởi động. Email đã có thì ghi cảnh báo và bỏ qua.
-- [ ] Unit test các nhánh với repository và recorder giả.
-- [ ] Commit.
+- [x] Khi khởi động (`!migrate`): chưa có `ADMIN` và có đủ `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` thì tạo tài khoản `ADMIN` và ghi `USER/ROLE_CHANGED` với `actor_type = SYSTEM` trong cùng giao dịch. Thiếu biến thì bỏ qua. Mật khẩu sai chính sách thì dừng khởi động. Email đã có thì ghi cảnh báo và bỏ qua.
+- [x] Unit test các nhánh với repository và recorder giả.
+- [x] Commit.
 
 ### Nhiệm vụ 5 · Ma trận quyền UT-B11
 
