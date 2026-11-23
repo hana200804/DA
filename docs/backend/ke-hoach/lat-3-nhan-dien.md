@@ -48,12 +48,12 @@
 
 **Tạo:** `recognition/internal/CallerIdentity.java`, `AnonymousCallerIdentity.java`, `RateLimit.java`, `RecognitionRateLimiter.java`; test `RateLimitTest`.
 
-- [ ] Khách 30 lần mỗi phút, khoá `rl:recognize:ip:<ip>`; người dùng 10 lần mỗi phút, khoá `rl:recognize:user:<id>`. IP lấy từ `request.getRemoteAddr()` (`forward-headers-strategy: framework` đã bật).
-- [ ] Cửa sổ cố định bằng Lua `INCR` + `EXPIRE` + `TTL`; vượt giới hạn → `429 RATE_LIMITED`, `Retry-After` là TTL còn lại.
-- [ ] Redis lỗi thì cho qua và ghi cảnh báo (fail-open): nhận diện công khai, dịch vụ đã tự giới hạn hàng chờ.
-- [ ] `CallerIdentity.userId()` trả `Optional<String>`; bản hiện tại luôn rỗng.
-- [ ] Unit test tính khoá và giới hạn theo người gọi.
-- [ ] Commit.
+- [x] Khách 30 lần mỗi phút, khoá `rl:recognize:ip:<ip>`; người dùng 10 lần mỗi phút, khoá `rl:recognize:user:<id>`. IP lấy từ `request.getRemoteAddr()` (`forward-headers-strategy: framework` đã bật).
+- [x] Cửa sổ cố định bằng Lua `INCR` + `EXPIRE` + `TTL`; vượt giới hạn → `429 RATE_LIMITED`, `Retry-After` là TTL còn lại.
+- [x] Redis lỗi thì cho qua và ghi cảnh báo (fail-open): nhận diện công khai, dịch vụ đã tự giới hạn hàng chờ.
+- [x] `CallerIdentity.userId()` trả `Optional<String>`; bản hiện tại luôn rỗng.
+- [x] Unit test tính khoá và giới hạn theo người gọi.
+- [x] Commit.
 
 ### Nhiệm vụ 4 · Endpoint, tra cứu biển, metric
 
