@@ -1,11 +1,13 @@
-# Hạ tầng cho máy dev: MySQL, Redis, MinIO. Chạy từ gốc repo:
-#   cp infra/.env.example infra/.env   # rồi đổi mật khẩu
-#   docker compose -f infra/compose.yaml up -d
+# Máy dev. Chạy từ gốc repo:
+#   cp infra/.env.example infra/.env                          # rồi đổi mật khẩu
+#   docker compose -f infra/compose.yaml up -d                # chỉ MySQL, Redis, MinIO
+#   docker compose -f infra/compose.yaml --profile migrate up migrate   # chỉ chạy migration
+#   docker compose -f infra/compose.yaml --profile app up -d --build    # thêm migrate và backend
 # Cổng chỉ mở trên 127.0.0.1. Phiên bản ảnh khớp backend/src/test/.../support/Containers.java.
 #
-# Backend chưa nằm trong Compose (thêm ở lát 1 cùng image). Khi chạy lâu dài, backend chỉ nhận
-# SIGNA_DB_APP_*; migration chạy riêng bằng profile migrate với SIGNA_DB_MIGRATOR_*
-# (xem backend/README.md). Lát 1 sẽ thêm service migrate chạy một lần.
+# migrate và backend dùng chung image backend/Dockerfile. migrate chạy Flyway bằng signa_migrator
+# rồi thoát; backend chạy lâu dài chỉ nhận SIGNA_DB_APP_* và chỉ khởi động khi migrate thành công.
+# migrate thuộc cả profile app vì Compose không khởi động phụ thuộc nằm ở profile chưa bật.
 name: signa
 
 services:
@@ -58,6 +60,48 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  migrate:
+    build: ../backend
+    image: signa-backend:local
+    profiles: ["migrate", "app"]
+    environment:
+      SPRING_PROFILES_ACTIVE: migrate
+      SIGNA_DB_URL: &db-url "jdbc:mysql://mysql:3306/signa?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
+      # Chỉ tên tài khoản ứng dụng, để V3__app_grants.sql cấp quyền; không có mật khẩu của nó.
+      SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
+      SIGNA_DB_MIGRATOR_USER: ${SIGNA_DB_MIGRATOR_USER:-signa_migrator}
+      SIGNA_DB_MIGRATOR_PASSWORD: ${SIGNA_DB_MIGRATOR_PASSWORD:?Đặt SIGNA_DB_MIGRATOR_PASSWORD trong infra/.env}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build: ../backend
+    image: signa-backend:local
+    profiles: ["app"]
+    environment:
+      SIGNA_DB_URL: *db-url
+      SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
+      SIGNA_DB_APP_PASSWORD: ${SIGNA_DB_APP_PASSWORD:?Đặt SIGNA_DB_APP_PASSWORD trong infra/.env}
+      SIGNA_REDIS_HOST: redis
+      SIGNA_MINIO_ENDPOINT: http://minio:9000
+      SIGNA_MINIO_PUBLIC_ENDPOINT: ${SIGNA_MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      SIGNA_MINIO_ACCESS_KEY: ${SIGNA_MINIO_ACCESS_KEY:?Đặt SIGNA_MINIO_ACCESS_KEY trong infra/.env}
+      SIGNA_MINIO_SECRET_KEY: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
+      # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).
+      SIGNA_BOOTSTRAP_ADMIN_EMAIL: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
+      SIGNA_BOOTSTRAP_ADMIN_PASSWORD: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
 
 volumes:
   mysql-data:

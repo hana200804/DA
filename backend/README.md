@@ -56,7 +56,20 @@ Backend có hai chế độ chạy, dùng hai tài khoản MySQL khác nhau:
 | `migrate`: chạy Flyway một lần rồi thoát | `signa_migrator` (DDL, `GRANT OPTION`) | `SIGNA_DB_MIGRATOR_USER`, `SIGNA_DB_MIGRATOR_PASSWORD` |
 | Ứng dụng chạy lâu dài, Flyway tắt | `signa_app` (quyền theo bảng, `audit_logs` chỉ `SELECT, INSERT`) | `SIGNA_DB_APP_USER`, `SIGNA_DB_APP_PASSWORD` |
 
-Ứng dụng chạy lâu dài **không** đọc mật khẩu migrator. Nếu backend bị chiếm, kẻ tấn công vẫn không sửa hay xoá được `audit_logs` (FR-23). Lát 1 sẽ thêm service `migrate` chạy một lần vào Compose. Hiện tại chạy bằng Gradle:
+Ứng dụng chạy lâu dài **không** đọc mật khẩu migrator. Nếu backend bị chiếm, kẻ tấn công vẫn không sửa hay xoá được `audit_logs` (FR-23).
+
+### Chạy backend trong Compose
+
+Dành cho web quản trị cần API thật mà không cài JDK. Image build từ [`Dockerfile`](Dockerfile) (JDK build, JRE chạy bằng user `signa` uid 10001):
+
+```sh
+docker compose -f infra/compose.yaml --profile app up -d --build   # MySQL, Redis, MinIO, migrate, backend
+docker compose -f infra/compose.yaml --profile migrate up migrate  # chỉ chạy migration
+```
+
+`migrate` chạy profile `migrate` với `SIGNA_DB_MIGRATOR_*` rồi thoát; `backend` chỉ nhận `SIGNA_DB_APP_*` và chỉ khởi động khi `migrate` kết thúc thành công. Backend nghe ở `http://127.0.0.1:8080`; web dev trỏ proxy Vite vào đó (`SIGNA_TARGET=http://localhost:8080`). Đặt `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` trong `infra/.env` để có tài khoản đăng nhập web quản trị.
+
+### Chạy bằng Gradle
 
 ```sh
 set -a; . ../infra/.env; set +a                                     # trong backend/
@@ -84,7 +97,18 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_RECOGNITION_URL` | `http://localhost:8000` | Dịch vụ nhận diện FastAPI |
 | `SIGNA_LABELS_PATH` | `../ai/data/labels.yaml` | Danh mục nhãn cho `import-labels` (lát 2) |
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
+| `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |
 
 ## Lưu ảnh
 
 Khi khởi động, backend tạo các bucket còn thiếu: `sign-crops`, `report-photos` (riêng tư, đọc qua URL ký) và `sign-icons` (đọc công khai). URL ký dùng `SIGNA_MINIO_PUBLIC_ENDPOINT` và được ký offline. Chữ ký gắn với host, nên proxy đứng trước MinIO phải giữ nguyên header `Host` của URL đó. Ảnh gửi chỉ để nhận diện không bao giờ được ghi vào MinIO (NFR-09).
+
+## Tài khoản và phân quyền
+
+API ở [`docs/07 §3`](../docs/07-api.md#3-tài-khoản). Token phiên là 32 byte ngẫu nhiên (base64url), gửi bằng `Authorization: Bearer`. Redis chỉ giữ SHA-256 của token: `session:{hash}` (hash `userId`, `role`, `client`, `createdAt`; TTL 30 ngày với `MOBILE`, 8 giờ với `WEB`, gia hạn mỗi lần dùng) và `user-sessions:{userId}`. Đổi mật khẩu thu hồi các phiên khác; module khác thu hồi mọi phiên qua `identity.api.SessionRevoker`.
+
+Quyền theo vai trò nạp từ `role_permissions` khi khởi động. Endpoint kiểm tra bằng `@PreAuthorize("hasAuthority('<mã quyền>')")` và lấy người dùng bằng `@AuthenticationPrincipal AuthenticatedUser`. Endpoint mới phải có dòng trong `PermissionMatrixTest` (UT-B11). Lỗi `401`, `403` của Spring Security và của `@PreAuthorize` cùng định dạng lỗi chung.
+
+Giới hạn: sai mật khẩu quá 10 lần trong 15 phút theo `rl:login:{email}:{ip}` thì `429` kèm `Retry-After`; nhập sai mật khẩu hiện tại khi đổi mật khẩu giới hạn tương tự theo `rl:password:{userId}`. IP lấy từ `X-Forwarded-For` (`server.forward-headers-strategy: framework`), nên backend chỉ được mở qua proxy ghi đè header này; Compose chỉ bind `127.0.0.1`.
+
+**Quản trị viên đầu tiên.** Khi khởi động, nếu chưa có tài khoản `ADMIN` và có đủ `SIGNA_BOOTSTRAP_ADMIN_EMAIL` cùng `SIGNA_BOOTSTRAP_ADMIN_PASSWORD`, backend tạo tài khoản `ADMIN` và ghi lịch sử `USER/ROLE_CHANGED` với `actor_type = SYSTEM`. Thiếu biến thì bỏ qua; mật khẩu sai chính sách thì không khởi động. Email đã thuộc tài khoản khác thì không nâng quyền tài khoản đó. Không có mật khẩu mặc định.

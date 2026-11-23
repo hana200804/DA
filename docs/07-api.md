@@ -93,6 +93,19 @@ Content-Type: application/json
 
 `client` là `MOBILE` hoặc `WEB`, quyết định thời hạn phiên. Web quản trị chỉ chấp nhận đăng nhập của tài khoản có `review:decide`. Sai mật khẩu quá 10 lần trong 15 phút theo email + IP thì trả `429`.
 
+Ràng buộc đầu vào: email được trim và chuyển chữ thường, ≤ 255 ký tự. Mật khẩu mới dài 8–72 ký tự và không quá 72 byte UTF-8, vì BCrypt chỉ dùng 72 byte đầu. `displayName` được trim, dài 1–100 ký tự.
+
+| Endpoint | Thành công | Lỗi riêng |
+| --- | --- | --- |
+| `POST /auth/register` `{ email, password, displayName }` | `201`, thân như `GET /me` | `409 CONFLICT` khi email đã đăng ký |
+| `POST /auth/login` | `200` | `401` cùng một thông điệp dù email có tồn tại hay không; `403` khi tài khoản `LOCKED` hoặc `WEB` thiếu `review:decide`, chỉ sau khi mật khẩu đúng; `429` kèm `Retry-After` |
+| `POST /auth/logout` | `204` | |
+| `GET /me` | `200` | |
+| `PATCH /me` `{ displayName }` | `200`, thân như `GET /me` | |
+| `PUT /me/password` `{ currentPassword, newPassword }` | `204`; phiên đang dùng vẫn hợp lệ | `422 BUSINESS_RULE` khi sai mật khẩu hiện tại; `429` khi sai quá 10 lần trong 15 phút |
+
+Token thiếu, sai hoặc đã thu hồi ở endpoint cần đăng nhập trả `401` kèm `WWW-Authenticate: Bearer`. Ở endpoint công khai, token như vậy bị bỏ qua và request được xử lý như khách. `expiresAt` tính tại lúc đăng nhập; mỗi lần dùng, phiên được gia hạn thêm một khoảng thời hạn đầy đủ.
+
 ## 4. Danh mục biển
 
 | Method | Đường dẫn | Quyền | Mô tả | FR |
