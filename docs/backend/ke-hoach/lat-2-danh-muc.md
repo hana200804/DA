@@ -98,12 +98,13 @@ public record SignTypeView(
 
 ### Nhiệm vụ 5 · Dữ liệu biển mẫu
 
-**Tạo:** `src/main/resources/db/demo/R__demo_data.sql`, `src/main/resources/application-demo.yml`.
+**Tạo:** `src/main/resources/db/demo/R__demo_data.sql`, `src/main/resources/application-demo.yml`, `src/test/.../catalog/DemoDataIT.java`.
 
-- [ ] Profile `demo` thêm `classpath:db/demo` vào `spring.flyway.locations`. Chạy cùng `migrate`: `--spring.profiles.active=migrate,demo`.
-- [ ] Tự chèn 5 nhóm và các loại biển dùng trong dữ liệu mẫu, giống hệt `labels.yaml` v1, bỏ qua nếu đã có. Flyway chạy trước khi nạp nhãn nên không phụ thuộc thứ tự.
-- [ ] 30 biển quanh Hà Nội (vĩ độ 21.02–21.04, kinh độ 105.80–105.85): 18 `APPROVED`, 6 `UNDER_REVIEW`, 6 `PENDING`. UUID cố định, chạy lại được (`ON DUPLICATE KEY UPDATE`). Toạ độ theo `docs/06 §9`.
-- [ ] Commit.
+- [x] Profile `demo` thêm `classpath:db/demo` vào `spring.flyway.locations`. Chạy cùng `migrate`: `--spring.profiles.active=migrate,demo`.
+- [x] Tự chèn 5 nhóm và các loại biển dùng trong dữ liệu mẫu, giống hệt `labels.yaml` v1, bỏ qua nếu đã có. Flyway chạy trước khi nạp nhãn nên không phụ thuộc thứ tự.
+- [x] `DemoDataIT` chạy file hai lần bằng `ResourceDatabasePopulator` (không qua Flyway để không thêm dòng `R__` vào lịch sử migration dùng chung), kiểm 18/6/6 trạng thái, toạ độ trong khung, nạp nhãn sau đó không đổi gì. Chỉ chạy trên CI.
+- [x] 30 biển quanh Hà Nội (vĩ độ 21.02–21.04, kinh độ 105.80–105.85): 18 `APPROVED`, 6 `UNDER_REVIEW`, 6 `PENDING`. UUID cố định, chạy lại được (`ON DUPLICATE KEY UPDATE`). Toạ độ theo `docs/06 §9`.
+- [x] Commit.
 
 ### Nhiệm vụ 6 · Tài liệu và kiểm tra cuối
 
