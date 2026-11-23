@@ -35,14 +35,25 @@ def inputs(tmp_path):
     labels = load_label_map(DEFAULT_PATH)
     class_id = labels.by_code("P.123a").id
     other_id = labels.by_code("other_prohibitory").id
+    rare = f"{class_id} 0.20 0.32 0.20 0.25\n"
+    other = f"{other_id} 0.72 0.30 0.15 0.10\n"
+    closeup = f"{class_id} 0.20 0.32 0.20 0.35\n"
+    train_labels = [
+        "",
+        rare,
+        other,
+        closeup,
+        rare + other,
+        rare + other,
+        rare + other,
+        rare + f"{class_id} 0.72 0.30 0.15 0.10\n",
+    ]
     rows = []
-    for index, split in enumerate(["train"] * 7 + ["val", "test", "field"]):
+    for index, split in enumerate(["train"] * len(train_labels) + ["val", "test", "field"]):
         path = PurePosixPath("images", f"{index}.png")
         Image.new("RGB", (320, 240), (25 + index, 32, 47)).save(source / path)
-        (source / label_path(path)).write_text(
-            f"{class_id} 0.20 0.32 0.20 0.22\n{other_id} 0.72 0.30 0.15 0.10\n",
-            encoding="utf-8",
-        )
+        annotation = train_labels[index] if split == "train" else rare + other
+        (source / label_path(path)).write_text(annotation, encoding="utf-8")
         rows.append(
             {
                 "path": str(path),
@@ -57,6 +68,7 @@ def inputs(tmp_path):
     samples = read_samples(source, intake, labels)
     base = tmp_path / "v1.1"
     write_bundle(source, base, samples, assign_splits(samples), labels, DEFAULT_PATH)
+    (base / "ATTRIBUTION.md").write_text("# Ghi công nguồn\n\nNội dung nguồn.\n", encoding="utf-8")
 
     templates = tmp_path / "templates"
     templates.mkdir()
@@ -73,9 +85,9 @@ def inputs(tmp_path):
         [
             {
                 "code": "P.123a",
-                "commons_file": "File:Fixture.svg",
+                "commons_file": "File:Fixture variant.svg",
                 "url": "",
-                "license": "CC0",
+                "license": "CC BY-SA 4.0",
                 "author": "Fixture",
                 "sha256": sha256(png),
             }
@@ -106,6 +118,17 @@ def test_generate_is_reproducible_and_preserves_train_background(inputs, tmp_pat
     }
     rows = read_csv(first / "intake.csv")
     assert len(rows) == 7 * 3 // 7
+    assert rows[0]["sequence"] == "route-0"
+    assert {row["sequence"] for row in rows} == {"route-0", "route-1", "route-2"}
+    report = json.loads((first / "generation.json").read_bytes())
+    assert report["backgrounds"] == {
+        "max_box_height": 0.25,
+        "rejected_closeup": 1,
+        "eligible_by_box_count": {"0": 1, "1": 2},
+        "used_by_box_count": {"0": 1, "1": 2},
+    }
+    assert report["copied_real_boxes"] == 2
+    assert report["copied_real_by_class"] == {"P.123a": 1, "other_prohibitory": 1}
     for row in rows:
         assert (row["source"], row["split"], row["tags"]) == (
             "synthetic",
@@ -146,6 +169,17 @@ def test_generate_is_reproducible_and_preserves_train_background(inputs, tmp_pat
             assert max(yy) < round(added.bottom * height)
 
 
+def test_generate_filters_closeups_with_custom_height(inputs, tmp_path):
+    base, templates, catalog = inputs
+    output = tmp_path / "strict"
+    generate(base, output, templates, catalog, max_background_box_height=0.20)
+    assert {row["sequence"] for row in read_csv(output / "intake.csv")} == {"route-0", "route-2"}
+    report = json.loads((output / "generation.json").read_bytes())
+    assert report["backgrounds"]["rejected_closeup"] == 6
+    assert report["backgrounds"]["max_box_height"] == 0.20
+    assert report["copied_real_by_class"] == {"other_prohibitory": 1}
+
+
 @pytest.mark.parametrize("split", ["val", "test", "field"])
 def test_background_override_rejects_evaluation_photos(inputs, tmp_path, split):
     base, _, _ = inputs
@@ -169,12 +203,13 @@ def test_background_override_keeps_the_external_sequence(inputs, tmp_path):
     trip = backgrounds / "train-trip-A"
     trip.mkdir(parents=True)
     Image.new("RGB", (320, 240), "green").save(trip / "001.png")
+    shutil.copyfile(trip / "001.png", trip / "duplicate.png")
     output = tmp_path / "synthetic"
     generate(base, output, templates, catalog, backgrounds=backgrounds, seed=17)
     labels = load_label_map(base / "labels.yaml")
-    for row in read_csv(output / "intake.csv"):
-        assert row["sequence"] == trip.name
-        assert len(read_yolo(output / label_path(PurePosixPath(row["path"])), labels)) == 1
+    (row,) = read_csv(output / "intake.csv")
+    assert row["sequence"] == trip.name
+    assert len(read_yolo(output / label_path(PurePosixPath(row["path"])), labels)) == 1
 
 
 @pytest.mark.parametrize("padding", [(0, 40), (44, 0)])
@@ -225,8 +260,8 @@ def test_package_keeps_evaluation_bytes_and_rejects_more_than_cap(inputs, tmp_pa
     intake = read_csv(bundle / "intake.csv")
     assert len(intake) == 3 and all((bundle / row["path"]).is_file() for row in intake)
     stats = json.loads((bundle / "stats.json").read_bytes())
-    assert stats["train"]["images"] == 10
-    assert stats["train"]["boxes"] == 23
+    assert stats["train"]["images"] == 11
+    assert stats["train"]["boxes"] == 16
     assert stats["train"]["synthetic_by_class"] == {"P.123a": 3}
     assert (bundle / "preview").is_dir()
     archive = tmp_path / "signa-v1.1-syn.zip"
@@ -238,6 +273,12 @@ def test_package_keeps_evaluation_bytes_and_rejects_more_than_cap(inputs, tmp_pa
     with ZipFile(archive) as zipped:
         assert zipped.testzip() is None
         assert zipped.read(f"{bundle.name}/coco/val.json") == (base / "coco/val.json").read_bytes()
+        attribution = zipped.read(f"{bundle.name}/ATTRIBUTION.md")
+        assert attribution == (bundle / "ATTRIBUTION.md").read_bytes()
+        assert "Nội dung nguồn." in attribution.decode()
+        assert "tác phẩm phái sinh và phải được chia sẻ theo CC BY-SA 4.0" in attribution.decode()
+        assert b"Fixture, CC BY-SA 4.0" in attribution
+        assert b"https://commons.wikimedia.org/wiki/File:Fixture_variant.svg" in attribution
 
     rows = read_csv(generated / "intake.csv")
     extra = rows[0] | {"path": "images/extra.png"}

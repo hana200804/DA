@@ -10,8 +10,10 @@ import json
 import math
 import shutil
 import tempfile
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 import numpy as np
@@ -39,6 +41,7 @@ TEMPLATE_CSV = DATA / "synthetic" / "templates.csv"
 INTAKE_FIELDS = ("path", "source", "sequence", "split", "tags")
 THRESHOLD = 150
 HEIGHT_RANGE = (16, 200)
+MAX_BACKGROUND_BOX_HEIGHT = 0.25
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 
@@ -48,6 +51,12 @@ class Frame:
     sequence: str
     sha256: str
     label: Path | None = None
+
+
+@dataclass(frozen=True)
+class Background:
+    frame: Frame
+    boxes: tuple[Box, ...]
 
 
 def sha256(path: Path) -> str:
@@ -134,6 +143,27 @@ def background_frames(base: Path, background_dir: Path | None) -> list[Frame]:
     return frames
 
 
+def eligible_backgrounds(
+    frames: list[Frame], label_map: LabelMap, max_box_height: float, rng: np.random.Generator
+) -> tuple[dict[str, Background], int]:
+    if not 0 < max_box_height <= 1:
+        raise ValueError("--max-background-box-height phải thuộc khoảng (0, 1]")
+    groups: dict[int, list[Background]] = {0: [], 1: []}
+    rejected_closeup = 0
+    for frame in frames:
+        boxes = read_yolo(frame.label, label_map) if frame.label else ()
+        if any(box.bottom - box.top > max_box_height + 1e-12 for box in boxes):
+            rejected_closeup += 1
+        elif len(boxes) <= 1:
+            groups[len(boxes)].append(Background(frame, boxes))
+    available = {}
+    for group in groups.values():
+        for index in rng.permutation(len(group)):
+            candidate = group[index]
+            available.setdefault(candidate.frame.sha256, candidate)
+    return available, rejected_closeup
+
+
 def read_template(path: Path, expected_sha: str) -> Image.Image:
     payload = path.read_bytes()
     if hashlib.sha256(payload).hexdigest() != expected_sha:
@@ -182,6 +212,12 @@ def render(template: Image.Image, height: int, rng: np.random.Generator) -> Imag
     sign = sign.crop(sign.getbbox())
     width = max(1, round(sign.width * height / sign.height))
     sign = sign.resize((width, height), Image.Resampling.LANCZOS)
+    # Giảm độ nét của ảnh render trước khi thêm nhiễu để gần với ảnh nền.
+    scale = rng.uniform(0.45, 0.75)
+    reduced = (max(1, round(width * scale)), max(1, round(height * scale)))
+    sign = sign.resize(reduced, Image.Resampling.LANCZOS).resize(
+        (width, height), Image.Resampling.BILINEAR
+    )
     color = ImageEnhance.Brightness(sign.convert("RGB")).enhance(rng.uniform(0.70, 1.30))
     color = ImageEnhance.Contrast(color).enhance(rng.uniform(0.70, 1.30))
     # Cùng một giá trị nhiễu cho ba kênh để giữ sắc độ.
@@ -264,27 +300,47 @@ def place(
 
 
 def compose(
-    background: Frame,
+    background: Background,
     template: Image.Image,
     class_id: int,
-    label_map: LabelMap,
     rng: np.random.Generator,
 ) -> tuple[Image.Image, Box] | None:
-    payload = background.path.read_bytes()
-    if hashlib.sha256(payload).hexdigest() != background.sha256:
-        raise ValueError(f"ảnh nền đã thay đổi: {background.path}")
+    frame = background.frame
+    payload = frame.path.read_bytes()
+    if hashlib.sha256(payload).hexdigest() != frame.sha256:
+        raise ValueError(f"ảnh nền đã thay đổi: {frame.path}")
     with Image.open(io.BytesIO(payload)) as original:
         image = original.convert("RGB")
-    boxes = read_yolo(background.label, label_map) if background.label else ()
     region = placement_region(image)
     _, top, _, bottom = region
     max_height = min(HEIGHT_RANGE[1], bottom - top - max(4, image.height // 100))
     if max_height < HEIGHT_RANGE[0]:
         return None
     height = int(rng.integers(HEIGHT_RANGE[0], max_height + 1))
-    sign = render(template, height, rng)
-    added = place(image, sign, boxes, class_id, rng, region)
-    return (image, added) if added else None
+    # Thử biển nhỏ hơn trước khi bỏ qua một nền ít box.
+    for size in dict.fromkeys((height, max(HEIGHT_RANGE[0], height // 2), HEIGHT_RANGE[0])):
+        sign = render(template, size, rng)
+        added = place(image, sign, background.boxes, class_id, rng, region)
+        if added is not None:
+            return image, added
+    return None
+
+
+def take_background(
+    available: dict[str, Background],
+    template: Image.Image,
+    class_id: int,
+    rng: np.random.Generator,
+) -> tuple[Background, Image.Image, Box] | None:
+    for background in available.values():
+        result = compose(background, template, class_id, rng)
+        if result is not None:
+            break
+    else:
+        return None
+    # Một SHA-256 chỉ có thể xuất hiện trong một ảnh đã sinh.
+    del available[background.frame.sha256]
+    return background, *result
 
 
 def generate(
@@ -296,6 +352,7 @@ def generate(
     threshold: int = THRESHOLD,
     seed: int = 0,
     backgrounds: Path | None = None,
+    max_background_box_height: float = MAX_BACKGROUND_BOX_HEIGHT,
 ) -> None:
     if output.exists():
         raise ValueError(f"đích đã tồn tại: {output}")
@@ -304,60 +361,87 @@ def generate(
     label_map = load_label_map(base / "labels.yaml")
     catalog = {row["code"]: row for row in read_csv(template_csv)}
     rng = np.random.default_rng(seed)
+    available, rejected_closeup = eligible_backgrounds(
+        frames, label_map, max_background_box_height, rng
+    )
+    eligible_counts = Counter(len(background.boxes) for background in available.values())
+    used_counts: Counter[int] = Counter()
+    copied: Counter[str] = Counter()
     rows = []
-    report = {}
+    report = {
+        code: {"real": real, "cap": real * 3 // 7, "synthetic": 0, "has_template": code in catalog}
+        for code, real in counts.items()
+    }
+    artwork = {
+        code: read_template(templates / f"{code}.png", catalog[code]["sha256"])
+        for code, row in report.items()
+        if row["cap"] and row["has_template"]
+    }
+    targets = [code for code in artwork for _ in range(report[code]["cap"])]
+    # Trộn thứ tự lớp để các nền 0 box được trải qua nhiều lớp.
+    rng.shuffle(targets)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent) as tmp:
         staged = Path(tmp) / "intake"
         (staged / "images").mkdir(parents=True)
         (staged / "labels").mkdir()
-        for code, real in counts.items():
-            cap = real * 3 // 7
-            generated = 0
-            if cap and code in catalog:
-                template = read_template(templates / f"{code}.png", catalog[code]["sha256"])
-                class_id = label_map.by_code(code).id
-                # Đổi nền sau mỗi lần thử, dùng tối đa 20 lần thử cho mỗi box.
-                for attempt in range(cap * 20):
-                    background = frames[int(rng.integers(len(frames)))]
-                    result = compose(background, template, class_id, label_map, rng)
-                    if result is None:
-                        continue
-                    image, box = result
-                    # Cùng mã và thứ tự tạo cho cùng seed, độc lập với thư mục đích.
-                    path = PurePosixPath("images", f"syn-{class_id:02d}-{attempt:05d}.png")
-                    image.save(staged / path, compress_level=1)
-                    original = background.label.read_bytes() if background.label else b""
-                    newline = b"\n" if original and not original.endswith(b"\n") else b""
-                    (staged / label_path(path)).write_bytes(
-                        original + newline + (box.yolo() + "\n").encode("utf-8")
-                    )
-                    rows.append(
-                        {
-                            "path": str(path),
-                            "source": "synthetic",
-                            "sequence": background.sequence,
-                            "split": "train",
-                            "tags": SYNTHETIC_BOXES_TAG + "1",
-                        }
-                    )
-                    generated += 1
-                    if generated == cap:
-                        break
-            report[code] = {
-                "real": real,
-                "cap": cap,
-                "synthetic": generated,
-                "has_template": code in catalog,
-            }
+        for code in targets:
+            if not available:
+                break
+            class_id = label_map.by_code(code).id
+            result = take_background(available, artwork[code], class_id, rng)
+            if result is None:
+                continue
+            background, image, box = result
+            frame = background.frame
+            generated = report[code]["synthetic"]
+            path = PurePosixPath("images", f"syn-{class_id:02d}-{generated:05d}.png")
+            image.save(staged / path, compress_level=1)
+            original = frame.label.read_bytes() if frame.label else b""
+            newline = b"\n" if original and not original.endswith(b"\n") else b""
+            (staged / label_path(path)).write_bytes(
+                original + newline + (box.yolo() + "\n").encode("utf-8")
+            )
+            rows.append(
+                {
+                    "path": str(path),
+                    "source": "synthetic",
+                    "sequence": frame.sequence,
+                    "split": "train",
+                    "tags": SYNTHETIC_BOXES_TAG + "1",
+                }
+            )
+            report[code]["synthetic"] += 1
+            used_counts[len(background.boxes)] += 1
+            copied.update(
+                label_map.by_id(original_box.class_id).code for original_box in background.boxes
+            )
         if not rows:
             raise ValueError("không sinh được ảnh nào từ bộ hình vẽ và nền đã chọn")
-        write_csv(staged / "intake.csv", INTAKE_FIELDS, rows)
+        write_csv(staged / "intake.csv", INTAKE_FIELDS, sorted(rows, key=lambda row: row["path"]))
         write_json(
-            staged / "generation.json", {"seed": seed, "threshold": threshold, "classes": report}
+            staged / "generation.json",
+            {
+                "seed": seed,
+                "threshold": threshold,
+                "classes": report,
+                "copied_real_boxes": copied.total(),
+                "copied_real_by_class": dict(sorted(copied.items())),
+                "backgrounds": {
+                    "max_box_height": max_background_box_height,
+                    "rejected_closeup": rejected_closeup,
+                    "eligible_by_box_count": {count: eligible_counts[count] for count in (0, 1)},
+                    "used_by_box_count": {count: used_counts[count] for count in (0, 1)},
+                },
+            },
         )
         staged.rename(output)
     print(f"Ảnh tổng hợp: {len(rows)}")
+    print(f"Nền bị loại vì box cao hơn {max_background_box_height:.1%}: {rejected_closeup}")
+    print(f"Nền đã dùng: {used_counts[0]} ảnh 0 box, {used_counts[1]} ảnh 1 box")
+    print(f"Box thật chép từ nền: {copied.total()}")
+    for code, count in sorted(copied.items()):
+        print(f"  {code}: {count}")
     for code, row in report.items():
         synthetic, real = row["synthetic"], row["real"]
         ratio = 100 * synthetic / (real + synthetic) if real else 0
@@ -441,6 +525,39 @@ def write_zip(bundle: Path, name: str, archive_path: Path) -> None:
                     shutil.copyfileobj(source, target)
 
 
+def write_attribution(base: Path, bundle: Path, template_csv: Path, used_classes: set[str]) -> None:
+    attribution = ["# Ghi công dữ liệu tổng hợp"]
+    original = base / "ATTRIBUTION.md"
+    if original.is_file():
+        text = original.read_text(encoding="utf-8").strip()
+        attribution.append("## " + text.removeprefix("# ") if text.startswith("# ") else text)
+    templates = [row for row in read_csv(template_csv) if row["code"] in used_classes]
+    if templates:
+        attribution.extend(
+            [
+                "## Hình vẽ từ Wikimedia Commons",
+                f"Signa dùng {len(templates)} hình vẽ và đã biến đổi, dán chúng lên ảnh nền. "
+                "Bảng dưới đây lấy tên tác giả và giấy phép từ [templates.csv](templates.csv).",
+            ]
+        )
+        credits = []
+        for row in sorted(templates, key=lambda row: row["code"]):
+            title = quote(row["commons_file"].replace(" ", "_"), safe=":")
+            source = f"https://commons.wikimedia.org/wiki/{title}"
+            credits.append(
+                f"- `{row['code']}` — {row['author']}, {row['license']}. "
+                f"[Tệp trên Wikimedia Commons]({source})"
+            )
+        attribution.append("\n".join(credits))
+        if any(row["license"] == "CC BY-SA 4.0" for row in templates):
+            attribution.append(
+                "Ảnh tổng hợp sử dụng hình vẽ CC BY-SA 4.0 là tác phẩm phái sinh và phải "
+                "được chia sẻ theo CC BY-SA 4.0. "
+                "[Điều khoản CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)"
+            )
+    (bundle / "ATTRIBUTION.md").write_text("\n\n".join(attribution) + "\n", encoding="utf-8")
+
+
 def package(
     base: Path,
     synthetic: Path,
@@ -504,7 +621,6 @@ def package(
             yaml.safe_dump(config, sort_keys=False, allow_unicode=True), encoding="utf-8"
         )
         provenance = (
-            "ATTRIBUTION.md",
             "source-audit.json",
             "vn82-box-fixes.csv",
             "vn82-to-signa.csv",
@@ -513,6 +629,7 @@ def package(
             if (base / name).is_file():
                 shutil.copyfile(base / name, bundle / name)
         shutil.copyfile(template_csv, bundle / "templates.csv")
+        write_attribution(base, bundle, template_csv, set(stats["train"]["synthetic_by_class"]))
         shutil.copyfile(synthetic / "generation.json", bundle / "generation.json")
         synthesized = [row for row in train if row["source"] == "synthetic"]
         write_csv(
@@ -545,6 +662,7 @@ def main() -> None:
     gen.add_argument("--backgrounds", type=Path)
     gen.add_argument("--seed", type=int, default=0)
     gen.add_argument("--threshold", type=int, default=THRESHOLD)
+    gen.add_argument("--max-background-box-height", type=float, default=MAX_BACKGROUND_BOX_HEIGHT)
     gen.add_argument("--output", type=Path, default=BASE.with_name("v1.1-syn-intake"))
     pack = commands.add_parser("package", help="Ghép train và giữ nguyên các tập đánh giá")
     pack.add_argument("--synthetic", type=Path, default=BASE.with_name("v1.1-syn-intake"))
@@ -564,6 +682,7 @@ def main() -> None:
                 threshold=args.threshold,
                 seed=args.seed,
                 backgrounds=args.backgrounds,
+                max_background_box_height=args.max_background_box_height,
             )
         else:
             package(
