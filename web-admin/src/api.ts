@@ -34,6 +34,7 @@ import { reviewDemo } from './reviewDemo.ts';
 export const isDemo = import.meta.env.VITE_DATA_MODE !== 'api';
 export const isSigna =
   !isDemo && import.meta.env.VITE_API_CONTRACT !== 'legacy';
+export const isLegacy = !isDemo && !isSigna;
 const signa = createReviewApi();
 export const signaSessionApi = signa;
 export const comparisonApi = isDemo ? compareDemo : signa;
@@ -79,13 +80,14 @@ export async function request<T>(
       );
     }
     if (payload.result?.ok !== true) {
+      const message = payload.result?.message || '';
       if (
         /session.*(invalid|expir|not found)|invalid.*session|phiên.*hết hạn/i.test(
-          payload.result?.message || '',
+          message,
         )
       )
         throw new SessionExpiredError();
-      throw new Error(payload.result?.message || 'Yêu cầu chưa được xử lý.');
+      throw new Error(message || 'Yêu cầu chưa được xử lý.');
     }
     return payload.data;
   } catch (error) {
@@ -101,11 +103,27 @@ export async function request<T>(
   }
 }
 type RawPage<T> = { data: T[]; totalRecords: number; totalPages: number };
-const pageResult = <T>(r: RawPage<T>): Page<T> => ({
-  rows: r.data || [],
-  total: r.totalRecords || 0,
-  pages: Math.max(1, r.totalPages || 1),
-});
+function pageResult<T>(rows: T[], total: number, pages: number): Page<T> {
+  return {
+    rows: rows || [],
+    total: total || 0,
+    pages: Math.max(1, pages || 1),
+  };
+}
+async function fetchRttsPage<T>(
+  path: string,
+  sessionId: string,
+  page: number,
+  size: number,
+  filters?: object,
+): Promise<Page<T>> {
+  const { data, totalRecords, totalPages } = await request<RawPage<T>>(
+    'rtts',
+    path,
+    { sessionId, pageNumber: page, pageSize: size, ...filters },
+  );
+  return pageResult(data, totalRecords, totalPages);
+}
 function sorted<T extends { createdAt: string }>(rows: T[], sort: string) {
   return [...rows].sort((a, b) =>
     sort === 'oldest'
@@ -137,15 +155,12 @@ export const api = {
   },
   async types(sessionId: string): Promise<SignType[]> {
     if (isDemo) return signTypes;
-    return (
-      (
-        await request<{ data: SignType[] }>(
-          'signs',
-          '/sign-type/v1.0/get-sign-types-list',
-          { sessionId },
-        )
-      ).data || []
+    const { data } = await request<{ data: SignType[] }>(
+      'signs',
+      '/sign-type/v1.0/get-sign-types-list',
+      { sessionId },
     );
+    return data || [];
   },
   async signs(sessionId: string, f: Filters): Promise<Page<Sign>> {
     if (isDemo)
@@ -173,11 +188,7 @@ export const api = {
       signTypeId: f.typeId || undefined,
       name: f.query || undefined,
     });
-    return {
-      rows: r.productList || [],
-      total: r.totalProducts || 0,
-      pages: Math.max(1, r.totalPages || 1),
-    };
+    return pageResult(r.productList, r.totalProducts, r.totalPages);
   },
   async editSign(sessionId: string, id: string, name: string) {
     if (isDemo) {
@@ -217,32 +228,26 @@ export const api = {
         f.size,
       );
     }
-    return pageResult(
-      await request<RawPage<Upload>>(
-        'rtts',
-        '/rtts/v1.0/get-list-rtts-not-verify',
-        {
-          sessionId,
-          pageNumber: f.page,
-          pageSize: f.size,
-          searchText: f.query || undefined,
-          sortBy: 'created_at',
-          sortDir: f.sort === 'oldest' ? 'asc' : 'desc',
-        },
-      ),
+    return fetchRttsPage<Upload>(
+      '/rtts/v1.0/get-list-rtts-not-verify',
+      sessionId,
+      f.page,
+      f.size,
+      {
+        searchText: f.query || undefined,
+        sortBy: 'created_at',
+        sortDir: f.sort === 'oldest' ? 'asc' : 'desc',
+      },
     );
   },
   async duplicates(sessionId: string, row: Upload): Promise<Upload[]> {
     if (isDemo) return nearbyApproved(readDemo().uploads, row);
-    return (
-      (
-        await request<{ data: Upload[] }>(
-          'rtts',
-          '/rtts/v1.0/get-list-rtts-verified',
-          { sessionId, rttsId: row.id },
-        )
-      ).data || []
+    const { data } = await request<{ data: Upload[] }>(
+      'rtts',
+      '/rtts/v1.0/get-list-rtts-verified',
+      { sessionId, rttsId: row.id },
     );
+    return data || [];
   },
   async decide(
     sessionId: string,
@@ -272,12 +277,11 @@ export const api = {
         f.page,
         f.size,
       );
-    return pageResult(
-      await request<RawPage<Report>>(
-        'rtts',
-        '/rtts/v1.0/get-list-report-rtts',
-        { sessionId, pageNumber: f.page, pageSize: f.size },
-      ),
+    return fetchRttsPage<Report>(
+      '/rtts/v1.0/get-list-report-rtts',
+      sessionId,
+      f.page,
+      f.size,
     );
   },
   async users(sessionId: string, f: Filters): Promise<Page<Contributor>> {
@@ -288,19 +292,16 @@ export const api = {
       );
       return paginate(rows, f.page, f.size);
     }
-    return pageResult(
-      await request<RawPage<Contributor>>(
-        'rtts',
-        '/rtts/v1.0/get-list-user-upload-rtts',
-        {
-          sessionId,
-          pageNumber: f.page,
-          pageSize: f.size,
-          username: f.query || undefined,
-          sortBy: f.sort === 'pending' ? 'PENDING' : 'APPROVAL',
-          sortDir: 'DESC',
-        },
-      ),
+    return fetchRttsPage<Contributor>(
+      '/rtts/v1.0/get-list-user-upload-rtts',
+      sessionId,
+      f.page,
+      f.size,
+      {
+        username: f.query || undefined,
+        sortBy: f.sort === 'pending' ? 'PENDING' : 'APPROVAL',
+        sortDir: 'DESC',
+      },
     );
   },
   async user(sessionId: string, username: string): Promise<UserDetail> {
@@ -321,13 +322,12 @@ export const api = {
         page,
         6,
       );
-    return pageResult(
-      await request<RawPage<Upload>>('rtts', '/rtts/v1.0/get-cust-upload-his', {
-        sessionId,
-        username,
-        pageNumber: page,
-        pageSize: 6,
-      }),
+    return fetchRttsPage<Upload>(
+      '/rtts/v1.0/get-cust-upload-his',
+      sessionId,
+      page,
+      6,
+      { username },
     );
   },
   async remove(sessionId: string, id: string) {

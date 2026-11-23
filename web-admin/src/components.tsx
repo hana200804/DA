@@ -449,12 +449,10 @@ export function Evidence({
       <div className="evidence-empty">
         <div className="evidence-grid" />
         <SignGraphic code={code} large />
-        <span>{demo ? 'Minh họa dữ liệu mẫu' : 'Chưa có ảnh hợp lệ'}</span>
-        <small>
-          {demo
-            ? 'Không phải ảnh chụp thực tế'
-            : 'Không thể hiển thị ảnh của bản ghi này'}
-        </small>
+        <span>
+          {demo ? 'Ảnh minh họa, không phải ảnh chụp' : 'Chưa có ảnh hợp lệ'}
+        </span>
+        {!demo && <small>Không thể hiển thị ảnh của bản ghi này</small>}
       </div>
     );
   return (

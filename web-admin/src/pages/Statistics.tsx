@@ -8,7 +8,7 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { isDemo, reviewApi } from '../api';
+import { reviewApi } from '../api';
 import { Empty, ErrorPanel, Loading, useLoad } from '../components';
 import { errorMessage } from '../domain';
 import { mapView } from '../mapGeometry';
@@ -78,7 +78,6 @@ export function StatisticsPage({ token }: { token: string }) {
             Theo dõi đề xuất, kết quả kiểm duyệt và phân bố biển trên bản đồ.
           </p>
         </div>
-        {isDemo && <span className="subtle-tag">Dữ liệu mẫu</span>}
       </div>
       <section className="panel statistics-filter">
         <form
