@@ -113,12 +113,12 @@ Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã q
 
 ### Nhiệm vụ 5 · Ma trận quyền UT-B11
 
-**Tạo:** `src/test/.../identity/PermissionMatrixTest.java`.
+**Tạo:** `src/test/.../identity/web/PermissionMatrixTest.java` (cùng gói với `SecurityConfig`; `@WebMvcTest` nạp mọi controller).
 
-- [ ] Hằng ma trận vai trò × quyền; một ca đối chiếu với bảng ở `docs/06 §4` (đọc file Markdown). `SchemaIT` đã đối chiếu cùng ma trận với CSDL.
-- [ ] Khung bảng `endpoint → quyền cần` (`PUBLIC`, `AUTHENTICATED` hoặc mã quyền); với mỗi vai trò và khách, suy ra mã mong đợi: khách `401`, thiếu quyền `403`, đủ quyền thì không phải `401`/`403`.
-- [ ] Dòng cho endpoint lát 1 và hai endpoint mẫu trong test có `@PreAuthorize` (`review:decide`, `catalog:manage`) để chứng minh khung bắt được thiếu quyền.
-- [ ] Commit.
+- [x] Hằng ma trận vai trò × quyền; một ca đối chiếu với bảng ở `docs/06 §4` (đọc file Markdown). `SchemaIT` đã đối chiếu cùng ma trận với CSDL.
+- [x] Khung bảng `endpoint → quyền cần` (`PUBLIC`, `AUTHENTICATED` hoặc mã quyền); với mỗi vai trò và khách, suy ra mã mong đợi: khách `401`, thiếu quyền `403`, đủ quyền thì không phải `401`/`403`.
+- [x] Dòng cho endpoint lát 1 và hai endpoint mẫu trong test có `@PreAuthorize` (`review:decide`, `catalog:manage`) để chứng minh khung bắt được thiếu quyền.
+- [x] Commit.
 
 ### Nhiệm vụ 6 · Test tích hợp
 
