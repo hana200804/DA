@@ -21,6 +21,7 @@ import { errorMessage, SessionExpiredError } from '../domain';
 import { ReviewApiError } from '../reviewApi';
 import {
   isReviewable,
+  reviewReasonProblem,
   suggestionLabels,
   type Location,
   type ReviewDecision,
@@ -324,12 +325,14 @@ function ReviewForm({
   const [action, setAction] = useState<Action | null>(null);
   const [photo, setPhoto] = useState(0);
   const [reason, setReason] = useState('');
+  const [reasonTouched, setReasonTouched] = useState(false);
   const [code, setCode] = useState(sign.signTypeCode);
   const [lat, setLat] = useState(String(sign.location.lat));
   const [lng, setLng] = useState(String(sign.location.lng));
   const weights = Object.entries(sign.codeWeights).sort((a, b) => b[1] - a[1]);
   const editing = action === 'correct' || action === 'edit';
   const needsReason = action === 'reject' || action === 'remove';
+  const reasonProblem = needsReason ? reviewReasonProblem(reason) : null;
   const coordinate = { lat: Number(lat), lng: Number(lng) };
   const validLocation =
     !!lat.trim() &&
@@ -352,7 +355,7 @@ function ReviewForm({
     event.preventDefault();
     if (busy || disabled || !action) return;
     if (action === 'reject' || action === 'remove') {
-      if (reason.trim()) void onSave(sign, { action, reason });
+      if (!reasonProblem) void onSave(sign, { action, reason });
     } else if (action === 'correct' || action === 'edit') {
       if (code.trim() && validLocation && changed) {
         void onSave(sign, {
@@ -537,15 +540,36 @@ function ReviewForm({
             </div>
           )}
           {needsReason && (
-            <label className="field">
-              Lý do
-              <textarea
-                required
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                disabled={busy}
-              />
-            </label>
+            <>
+              <label className="field">
+                Lý do
+                <textarea
+                  required
+                  value={reason}
+                  aria-invalid={reasonTouched && !!reasonProblem}
+                  aria-describedby={
+                    reasonTouched && reasonProblem
+                      ? 'review-reason-error'
+                      : undefined
+                  }
+                  onChange={(event) => {
+                    setReason(event.target.value);
+                    setReasonTouched(true);
+                  }}
+                  onBlur={() => setReasonTouched(true)}
+                  disabled={busy}
+                />
+              </label>
+              {reasonTouched && reasonProblem && (
+                <div
+                  className="inline-error"
+                  id="review-reason-error"
+                  role="alert"
+                >
+                  {reasonProblem}
+                </div>
+              )}
+            </>
           )}
           <div className="modal-actions">
             <button
@@ -555,6 +579,7 @@ function ReviewForm({
               onClick={() => {
                 setAction(null);
                 setReason('');
+                setReasonTouched(false);
                 setCode(sign.signTypeCode);
                 setLat(String(sign.location.lat));
                 setLng(String(sign.location.lng));
@@ -567,7 +592,7 @@ function ReviewForm({
               type="submit"
               disabled={
                 busy ||
-                (needsReason && !reason.trim()) ||
+                !!reasonProblem ||
                 (editing && (!code.trim() || !validLocation || !changed))
               }
             >

@@ -47,6 +47,19 @@ export type ReviewDecision =
   | { action: 'remove'; reason: string }
   | { action: 'keep' };
 
+export function reviewReasonProblem(reason: string) {
+  const length = reason.trim().length;
+  return length < 1 || length > 1_000
+    ? 'Vui lòng nhập lý do dài từ 1 đến 1.000 ký tự.'
+    : null;
+}
+
+export function normalizeReviewReason(reason: string) {
+  const problem = reviewReasonProblem(reason);
+  if (problem) throw new Error(problem);
+  return reason.trim();
+}
+
 export const suggestionLabels: Record<ReviewSuggestion, string> = {
   INSPECT: 'Cần xem kỹ',
   APPROVE: 'Nên duyệt',

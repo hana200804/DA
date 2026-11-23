@@ -176,30 +176,43 @@ test('duyệt và sửa rồi duyệt gửi đúng phiên bản và phần chỉ
   );
 });
 
-test('từ chối và gỡ đều yêu cầu lý do', async () => {
+test('FR-31 lý do từ chối và gỡ biển phải có từ 1 đến 1.000 ký tự', async () => {
+  const cases = [
+    { action: 'reject', sign: pending },
+    { action: 'remove', sign: underReview },
+  ] as const;
+  const validReasons = ['x', 'x'.repeat(1_000)];
   await mockFetch(
-    [new Response(null, { status: 204 }), new Response(null, { status: 204 })],
+    Array.from({ length: 4 }, () => new Response(null, { status: 204 })),
     async (calls) => {
-      await assert.rejects(
-        api.decide('token', pending, { action: 'reject', reason: '   ' }),
-        /nhập lý do/,
+      for (const { action, sign } of cases) {
+        for (const reason of ['', '   ', 'x'.repeat(1_001)]) {
+          await assert.rejects(
+            api.decide('token', sign, { action, reason }),
+            /1 đến 1\.000 ký tự/,
+          );
+        }
+      }
+      assert.equal(calls.length, 0);
+
+      for (const { action, sign } of cases) {
+        for (const reason of validReasons)
+          await api.decide('token', sign, {
+            action,
+            reason: ' ' + reason + ' ',
+          });
+      }
+      assert.deepEqual(
+        calls,
+        cases.flatMap(({ action }) =>
+          validReasons.map((reason) => ({
+            path: '/api/v1/admin/signs/sign-1/' + action,
+            method: 'POST',
+            auth: 'Bearer token',
+            body: { version: 7, reason },
+          })),
+        ),
       );
-      await assert.rejects(
-        api.decide('token', underReview, { action: 'remove', reason: '' }),
-        /nhập lý do/,
-      );
-      await api.decide('token', pending, {
-        action: 'reject',
-        reason: ' Mã biển sai ',
-      });
-      await api.decide('token', underReview, {
-        action: 'remove',
-        reason: 'Biển đã tháo',
-      });
-      assert.equal(calls[0].path, '/api/v1/admin/signs/sign-1/reject');
-      assert.deepEqual(calls[0].body, { version: 7, reason: 'Mã biển sai' });
-      assert.equal(calls[1].path, '/api/v1/admin/signs/sign-1/remove');
-      assert.deepEqual(calls[1].body, { version: 7, reason: 'Biển đã tháo' });
     },
   );
 });
@@ -318,6 +331,31 @@ test('demo gom nhiều đề xuất, sắp theo gợi ý và từ chối phiên 
     await assert.rejects(
       reviewDemo.decide('demo', sample, { action: 'approve' }),
       { code: 'SIGN_ALREADY_PROCESSED' },
+    );
+  }));
+
+test('demo FR-31 giữ nguyên biển và lịch sử khi lý do quá dài', () =>
+  withDemoStorage(async () => {
+    const queue = await reviewDemo.queue('demo', { page: 1, size: 30 });
+    const row = queue.rows.find(({ status }) => status === 'UNDER_REVIEW')!;
+    const sign = await reviewDemo.detail('demo', row.id);
+    await assert.rejects(
+      reviewDemo.decide('demo', sign, {
+        action: 'remove',
+        reason: 'x'.repeat(1_001),
+      }),
+      /1 đến 1\.000 ký tự/,
+    );
+    assert.deepEqual(await reviewDemo.detail('demo', sign.id), sign);
+    assert.equal(
+      (
+        await reviewDemo.auditLogs('demo', {
+          signId: sign.id,
+          page: 1,
+          size: 8,
+        })
+      ).total,
+      0,
     );
   }));
 
