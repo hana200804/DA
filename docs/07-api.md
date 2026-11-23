@@ -120,6 +120,10 @@ Content-Type: application/json
 
 Ứng dụng tải danh mục một lần, lưu vào Room và chỉ tải lại khi ETag đổi.
 
+`GET /sign-types` trả `ETag` mạnh (băm nội dung) và `Cache-Control: no-cache`. Gửi `If-None-Match` khớp thì nhận `304` không có body. Chỉ trả loại đang dùng. `labelMapVersion` là phiên bản danh mục nhãn lớn nhất trong các loại đó, `null` khi chưa nạp nhãn. `iconUrl` là `/icons/{icon_key}` hoặc `null`; `recognizable` là `true` khi loại có trong danh mục nhãn.
+
+`GET /sign-types/{code}` trả một phần tử cùng dạng, `404 NOT_FOUND` nếu không có mã hoặc loại đã ngừng dùng.
+
 `GET /sign-categories` trả `{ "items": [{ "code", "name", "description", "sortOrder" }] }`, sắp theo `sortOrder`.
 
 ## 5. Nhận diện

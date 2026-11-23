@@ -108,8 +108,8 @@ public record SignTypeView(
 
 ### Nhiệm vụ 6 · Tài liệu và kiểm tra cuối
 
-- [ ] `docs/06` §5 thêm cột `label_name`. `docs/07` §4 ghi ETag, `304`, `404`. `backend/README.md` ghi `SIGNA_CATALOG_IMPORT_ON_STARTUP`, `--import-labels`, profile `demo`.
-- [ ] `./gradlew spotlessCheck test compileTestJava` thành công; markdownlint sạch; commit.
+- [x] `docs/06` §5 thêm cột `label_name`. `docs/07` §4 ghi ETag, `304`, `404`. `backend/README.md` ghi `SIGNA_CATALOG_IMPORT_ON_STARTUP`, `--import-labels`, profile `demo`.
+- [x] `./gradlew spotlessCheck test compileTestJava` thành công; markdownlint sạch; commit.
 
 ## Phần 2 · Sau khi merge lát 1
 
@@ -123,7 +123,7 @@ Chưa làm. Cần `SecurityConfig`, quyền `catalog:manage` và `audit.api.Audi
 - [ ] `PUT /api/v1/admin/sign-types/{code}/icon`: multipart part `icon`, PNG/JPEG/WebP ≤ 1 MB, kiểm tra magic byte, lưu `sign-icons/{code}.{ext}`, cập nhật `icon_key`, xoá ảnh cũ nếu khác khoá.
 - [ ] Mỗi thay đổi ghi lịch sử `actor_type = USER` và xoá `cache:sign-types` sau commit.
 - [ ] Thêm dòng vào `PermissionMatrixTest`; IT cho `403` khi thiếu `catalog:manage`.
-- [ ] Spring Security của lát 1 mặc định thêm `Cache-Control: no-store`, làm hỏng ETag. Phần 1 đã đặt `Cache-Control: no-cache` tường minh cho `GET /sign-types` (Security không ghi đè header đã có). Sau khi merge, thêm test kiểm `GET /sign-types`, `/sign-categories`, `/sign-types/{code}` có `no-cache` chứ không phải `no-store`.
+- [ ] Spring Security của lát 1 mặc định thêm `Cache-Control: no-store`, làm hỏng ETag. Phần 1 đã đặt `Cache-Control: no-cache` tường minh cho `GET /sign-types` (Security không ghi đè header đã có). Sau khi ghép lát 1, đặt `Cache-Control` tường minh cho cả `GET /sign-categories` và `GET /sign-types/{code}`, rồi thêm test kiểm cả ba endpoint có `no-cache` chứ không phải `no-store`.
 - [ ] Web trang danh mục chạy với API thật.
 
 ## Tiến độ
@@ -133,3 +133,11 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 **2026-11-23.** Bắt đầu phần 1 trên `backend/2-catalog` (đã có lát 0).
 
 - Nhánh chưa có `audit.api.AuditRecorder` (lát 1 tạo). Phần 1 dùng interface tạm `catalog.internal.CatalogAuditPort` cùng cài đặt chỉ ghi log `LoggingCatalogAuditPort`; phần 2 nối vào `AuditRecorder`.
+
+**2026-11-23, kết thúc phần 1.** Phần 1 xong trên `backend/2-catalog`, 5 nhiệm vụ đã commit.
+
+- Worker đầu bị dừng giữa nhiệm vụ 6 vì máy hết RAM. Worker sau kiểm tra phần dở (tài liệu `docs/06`, `docs/07`, `backend/README.md`) và commit tiếp. Máy ít RAM: chạy một lệnh Gradle mỗi lúc.
+- `./gradlew spotlessCheck test compileTestJava` thành công: 50 unit test đạt, 30 trong số đó thuộc `catalog`. `LabelImportIT`, `CatalogApiIT`, `DemoDataIT` chỉ compile trên máy, chạy trên CI (`./gradlew integrationTest`, cần Docker).
+- Quyết định: thêm cột `sign_types.label_name` (V20) để biết quản trị viên đã sửa `name` hay chưa. Lệnh nạp không sửa nhóm đã có, không đụng `active`. ETag là 128 bit đầu của SHA-256 của body. Cache Redis có TTL 24 giờ, Redis lỗi thì đọc MySQL. Dữ liệu mẫu tự chèn nhóm và 14 loại biển giống `labels.yaml` v1.
+- Còn chờ phần 2: nối `CatalogAuditPort` vào `audit.api.AuditRecorder`. Sau khi ghép lát 1, đặt `Cache-Control` tường minh cho mọi GET danh mục.
+- Rủi ro: chưa chạy IT nào trên máy. `R__demo_data.sql` ghi vào bảng `signs` của module `sign`, chỉ ở profile `demo`, và cột của bảng này có thể đổi khi ghép lát 3.
