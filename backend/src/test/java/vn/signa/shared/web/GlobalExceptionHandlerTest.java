@@ -1,5 +1,6 @@
 package vn.signa.shared.web;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -10,9 +11,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +32,8 @@ import vn.signa.shared.error.ErrorCode;
 @Import({
   GlobalExceptionHandler.class,
   RequestIdFilter.class,
-  GlobalExceptionHandlerTest.FakeController.class
+  GlobalExceptionHandlerTest.FakeController.class,
+  GlobalExceptionHandlerTest.OpenSecurity.class
 })
 class GlobalExceptionHandlerTest {
 
@@ -82,8 +90,39 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.message").value("labelMapVersion không hỗ trợ"));
   }
 
+  @Test
+  void accessDeniedForSignedInUserIs403() throws Exception {
+    mvc.perform(get("/fake/denied").with(user("u-1")))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+        .andExpect(jsonPath("$.requestId").exists());
+  }
+
+  @Test
+  void accessDeniedForGuestIs401() throws Exception {
+    mvc.perform(get("/fake/denied"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+  }
+
+  /** Mở mọi đường dẫn: test này chỉ kiểm tra ánh xạ lỗi, không kiểm tra phân quyền. */
+  @TestConfiguration
+  static class OpenSecurity {
+    @Bean
+    SecurityFilterChain open(HttpSecurity http) throws Exception {
+      return http.csrf(AbstractHttpConfigurer::disable)
+          .authorizeHttpRequests(a -> a.anyRequest().permitAll())
+          .build();
+    }
+  }
+
   @RestController
   static class FakeController {
+    @GetMapping("/fake/denied")
+    void denied() {
+      throw new AccessDeniedException("thiếu quyền");
+    }
+
     record Body(@NotBlank String name) {}
 
     @GetMapping("/fake/not-found")

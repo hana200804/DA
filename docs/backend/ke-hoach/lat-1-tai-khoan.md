@@ -48,15 +48,15 @@
 
 **Tạo:** `identity/api/SessionRevoker.java`, `identity/api/AuthenticatedUser.java`, `identity/internal/SessionTokens.java`, `Session.java`, `SessionStore.java`, `RedisSessionStore.java`, `SessionService.java`, `Client.java`, `RolePermissions.java`, `IdentityStartup.java`, `identity/web/SecurityConfig.java`, `SessionAuthenticationFilter.java`, `SessionAuthentication.java`, `SecurityErrorWriter.java`; sửa `shared/web/GlobalExceptionHandler.java`, `build.gradle.kts`.
 
-- [ ] Thêm `spring-boot-starter-security` và gói test tương ứng; tắt `UserDetailsService` sinh mật khẩu mặc định.
-- [ ] `SessionTokens`: 32 byte từ `SecureRandom`, base64url không padding (43 ký tự); `hash(token)` là SHA-256 hex; token sai định dạng bị loại trước khi tra Redis.
-- [ ] `RedisSessionStore`: `session:{hash}` là hash `userId`, `role`, `client`, `createdAt` có TTL; `user-sessions:{userId}` là set các hash. Tra phiên thì gia hạn TTL theo `client` (`MOBILE` 30 ngày, `WEB` 8 giờ). Khi tạo phiên, dọn hash đã hết hạn khỏi set.
-- [ ] `SessionService` cài `SessionRevoker.revokeAll(userId)`, thêm `revoke(sessionId)` và `revokeOthers(userId, keepSessionId)`.
-- [ ] `RolePermissions` nạp `role_permissions` vào bộ nhớ khi khởi động (`IdentityStartup`, `@Profile("!migrate")`).
-- [ ] `SecurityConfig`: stateless, tắt CSRF, form login, HTTP Basic; `@EnableMethodSecurity`; filter đọc `Authorization: Bearer`, đặt principal `AuthenticatedUser` cùng quyền; `userId` vào MDC. Công khai: `POST /auth/register`, `POST /auth/login`, `/actuator/health/**`, `/api/v1/openapi.json`, Swagger UI; đặt sẵn `GET /sign-types/**`, `GET /sign-categories/**`, `GET /signs/**`, `GET /recognition/**`, `POST /recognition/detect`. Còn lại cần đăng nhập.
-- [ ] Entry point và access denied handler ghi `ErrorResponse` (kèm `WWW-Authenticate: Bearer` cho `401`); `GlobalExceptionHandler` ánh xạ `AccessDeniedException` của `@PreAuthorize` sang `403`, hoặc `401` nếu chưa đăng nhập.
-- [ ] Unit test: `SessionTokensTest`, `SessionServiceTest` (kho phiên giả trong bộ nhớ), `GlobalExceptionHandlerTest` thêm ca `403`.
-- [ ] Commit.
+- [x] Thêm `spring-boot-starter-security` và gói test tương ứng; tắt `UserDetailsService` sinh mật khẩu mặc định.
+- [x] `SessionTokens`: 32 byte từ `SecureRandom`, base64url không padding (43 ký tự); `hash(token)` là SHA-256 hex; token sai định dạng bị loại trước khi tra Redis.
+- [x] `RedisSessionStore`: `session:{hash}` là hash `userId`, `role`, `client`, `createdAt` có TTL; `user-sessions:{userId}` là set các hash. Tra phiên thì gia hạn TTL theo `client` (`MOBILE` 30 ngày, `WEB` 8 giờ). Khi tạo phiên, dọn hash đã hết hạn khỏi set.
+- [x] `SessionService` cài `SessionRevoker.revokeAll(userId)`, thêm `revoke(sessionId)` và `revokeOthers(userId, keepSessionId)`.
+- [x] `RolePermissions` nạp `role_permissions` vào bộ nhớ khi khởi động (`IdentityStartup`, `@Profile("!migrate")`).
+- [x] `SecurityConfig`: stateless, tắt CSRF, form login, HTTP Basic; `@EnableMethodSecurity`; filter đọc `Authorization: Bearer`, đặt principal `AuthenticatedUser` cùng quyền; `userId` vào MDC. Công khai: `POST /auth/register`, `POST /auth/login`, `/actuator/health/**`, `/api/v1/openapi.json`, Swagger UI; đặt sẵn `GET /sign-types/**`, `GET /sign-categories/**`, `GET /signs/**`, `GET /recognition/**`, `POST /recognition/detect`. Còn lại cần đăng nhập.
+- [x] Entry point và access denied handler ghi `ErrorResponse` (kèm `WWW-Authenticate: Bearer` cho `401`); `GlobalExceptionHandler` ánh xạ `AccessDeniedException` của `@PreAuthorize` sang `403`, hoặc `401` nếu chưa đăng nhập.
+- [x] Unit test: `SessionTokensTest`, `SessionServiceTest` (kho phiên giả trong bộ nhớ), `GlobalExceptionHandlerTest` thêm ca `403`.
+- [x] Commit.
 
 ### Nhiệm vụ 3 · API tài khoản
 
