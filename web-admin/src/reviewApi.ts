@@ -229,8 +229,12 @@ export function createReviewApi(base = '/api/v1') {
         .slice()
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     },
-    async catalogTypes() {
-      const result = await request<{ items: CatalogSignType[] }>('/sign-types');
+    async catalogTypes(adminToken?: string) {
+      const path = adminToken ? '/admin/sign-types' : '/sign-types';
+      const result = await request<{ items: CatalogSignType[] }>(
+        path,
+        adminToken,
+      );
       return result.items.map((row) => ({
         ...row,
         active: row.active ?? true,
@@ -524,30 +528,13 @@ export function createReviewApi(base = '/api/v1') {
             location: decision.location,
           });
           break;
-        case 'edit': {
-          await request(path, token, 'PATCH', {
+        case 'edit':
+          await request(path + '/keep', token, 'POST', {
             version,
             signTypeCode: decision.signTypeCode,
             location: decision.location,
           });
-          // PATCH may only edit the record. Read the new version before confirming it.
-          const updated = await detail(token, sign.id);
-          if (updated.status === 'APPROVED' && updated.version === version + 1)
-            break;
-          if (
-            updated.status !== 'UNDER_REVIEW' ||
-            updated.version !== version + 1
-          )
-            throw new ReviewApiError(
-              409,
-              'SIGN_ALREADY_PROCESSED',
-              'Biển đã được xử lý.',
-            );
-          await request(path + '/keep', token, 'POST', {
-            version: updated.version,
-          });
           break;
-        }
         case 'keep':
           await request(path + '/keep', token, 'POST', { version });
           break;
