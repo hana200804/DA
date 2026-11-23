@@ -59,13 +59,13 @@
 
 **Tạo:** `recognition/internal/SignInfoLookup.java`, `NoSignInfoLookup.java`, `RecognitionService.java`, `DetectResult.java`; `recognition/web/RecognitionController.java`; test `RecognitionControllerTest` (`@WebMvcTest`).
 
-- [ ] `GET /api/v1/recognition/models` trả `defaultModel` và `models[]` (`modelName`, `modelVersion`, `labelMapVersion`, `modelCard`) đúng như dịch vụ.
-- [ ] `POST /api/v1/recognition/detect`: multipart `image`, `model` tuỳ chọn trong `yolov5`, `yolov8`, `detr`, sai thì `400`. Thứ tự: giới hạn tần suất, kích thước ≤ 10 000 000 byte (`413`), magic bytes (`415`), chuẩn bị ảnh, gọi dịch vụ, quy đổi box, bổ sung `name`, `description`, `iconUrl`.
-- [ ] `SignInfoLookup.lookup(codes)` tra theo lô; bản hiện tại trả rỗng nên ba trường là `null`.
-- [ ] Response theo [API §5](../../07-api.md#5-nhận-diện): `model { name, version, labelMapVersion }`, `image { width, height }`, `inferenceMs`, `detections[]`.
-- [ ] Timer `signa.recognition.duration`, tag `model` (`yolov5`, `yolov8`, `detr`, `default`) và `outcome` (`success`, `unavailable`, `rejected`).
-- [ ] `@WebMvcTest`: models; detect thành công đúng JSON; `model` sai; `415`; `413`; `429` có `Retry-After`; `503` có `Retry-After`; metric được ghi.
-- [ ] Commit.
+- [x] `GET /api/v1/recognition/models` trả `defaultModel` và `models[]` (`modelName`, `modelVersion`, `labelMapVersion`, `modelCard`) đúng như dịch vụ.
+- [x] `POST /api/v1/recognition/detect`: multipart `image`, `model` tuỳ chọn trong `yolov5`, `yolov8`, `detr`, sai thì `400`. Thứ tự: giới hạn tần suất, kích thước ≤ 10 000 000 byte (`413`), magic bytes (`415`), chuẩn bị ảnh, gọi dịch vụ, quy đổi box, bổ sung `name`, `description`, `iconUrl`.
+- [x] `SignInfoLookup.lookup(codes)` tra theo lô; bản hiện tại trả rỗng nên ba trường là `null`.
+- [x] Response theo [API §5](../../07-api.md#5-nhận-diện): `model { name, version, labelMapVersion }`, `image { width, height }`, `inferenceMs`, `detections[]`.
+- [x] Timer `signa.recognition.duration`, tag `model` (`yolov5`, `yolov8`, `detr`, `default`) và `outcome` (`success`, `unavailable`, `rejected`).
+- [x] `@WebMvcTest`: models; detect thành công đúng JSON; `model` sai; `415`; `413`; `429` có `Retry-After`; `503` có `Retry-After`; metric được ghi.
+- [x] Commit.
 
 ### Nhiệm vụ 5 · Test tích hợp với WireMock
 
