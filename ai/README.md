@@ -302,12 +302,78 @@ cố định của notebook, chọn GPU rồi **Run all**. Để tiếp tục l�
 và `SIGNA_ALLOW_BATCH_CHANGE=1`. `meta.json` ghi batch và bản phụ thuộc theo phiên.
 Mỗi lượt hoàn tất có dự đoán val và `metrics.json` của bộ đánh giá chung.
 
-Notebook YOLOv8 đọc kích thước ảnh, cỡ mô hình và batch từ biến môi trường `SIGNA_IMGSZ`
-(mặc định 640), `SIGNA_SIZES` (mặc định `n,s`) và `SIGNA_BATCH` (mặc định 16).
-Tên run là `yolov8{size}-{IMGSZ}-v1.1-main-s0`. Thí nghiệm AI-07 về biển nhỏ thêm
+Notebook YOLOv8 đọc kích thước ảnh, cỡ mô hình, batch và bộ dữ liệu từ biến môi trường
+`SIGNA_IMGSZ` (mặc định 640), `SIGNA_SIZES` (mặc định `n,s`), `SIGNA_BATCH` (mặc định 16) và
+`SIGNA_DATASET_VERSION` (mặc định `v1.1`). Tên run là
+`yolov8{size}-{IMGSZ}-{SIGNA_DATASET_VERSION}-main-s0`, nên mặc định vẫn là
+`yolov8{size}-{IMGSZ}-v1.1-main-s0`. Thí nghiệm AI-07 về biển nhỏ thêm
 `%env SIGNA_IMGSZ=960` và `%env SIGNA_SIZES=s` vào ô `%env` đầu notebook, cạnh
 `%env SIGNA_NOTEBOOK_COMMIT=<SHA>`, chọn L4 (hoặc A100) rồi **Run all**. Xem
 [`yolov8s-960-v1.1-main-s0`](experiments/yolov8s-960-v1.1-main-s0/README.md).
+
+## Thí nghiệm có và không có dữ liệu tổng hợp · v1.1-syn
+
+Thí nghiệm AI-07 đo tác động của [bộ v1.1-syn](data/README.md#bộ-dữ-liệu-tổng-hợp-v11-syn) lên
+recall lớp hiếm ([Dữ liệu §7](../docs/05-du-lieu.md#7-dữ-liệu-tổng-hợp)). Lượt đối chứng là
+`yolov8n-640-v1.1-main-s0` đã có. Lượt mới `yolov8n-640-v1.1-syn-main-s0` chỉ đổi bộ dữ liệu.
+Hai lượt dùng cùng YOLOv8n, ảnh 640, batch 16, seed 0 và
+[bảng tăng cường chung](configs/augment.md). Chưa có kết quả.
+
+1. Tải `signa-v1.1-syn.zip` lên thư mục gốc My Drive, cạnh `signa-v1.1.zip`. Đối chiếu SHA-256
+   với [bảng của lượt dựng](data/README.md#kết-quả-seed-0) trước khi tải lên.
+2. Mở [`train_yolov8_main_v1.1.ipynb`](notebooks/train_yolov8_main_v1.1.ipynb) trên Colab, chọn
+   **L4 GPU**. Thêm một ô mã ở đầu notebook:
+
+   ```text
+   %env SIGNA_NOTEBOOK_COMMIT=<SHA>
+   %env SIGNA_DATASET_VERSION=v1.1-syn
+   %env SIGNA_SIZES=n
+   %env SIGNA_IMGSZ=640
+   ```
+
+   Không đặt `SIGNA_BATCH`. Thay `<SHA>` bằng SHA trên liên kết cố định của notebook.
+3. **Runtime → Run all.** Notebook đối chiếu `manifest.csv` trong gói với
+   [`manifests/v1.1-syn.csv`](data/manifests/v1.1-syn.csv). Notebook dừng nếu các dòng val, test
+   hoặc field khác `v1.1.csv`, nếu có ảnh `source=synthetic` ngoài train, hoặc nếu `coco/val.json`
+   khác SHA-256 của v1.1. Mất phiên thì giữ ô `%env` và **Run all** lại để tiếp tục từ `last.pt`.
+4. Sau khi train, notebook xuất `evaluation/predictions-val.json` và chấm bằng `signa_ai.evaluate`
+   ra `metrics.json`. `config.yaml`, `meta.json`, `metrics.json` và
+   `evaluation/export-config.json` ghi `dataset_version` là `v1.1-syn`. Để chấm lại ở máy, chạy
+   từ `ai/` với GT val v1.1, vì val của hai bộ trùng từng byte:
+
+   ```sh
+   run="/path/to/My Drive/Signa/experiments/yolov8n-640-v1.1-syn-main-s0"
+   uv run --no-sync python -m signa_ai.evaluate \
+     --gt data/processed/v1.1/coco/val.json \
+     --pred "$run/evaluation/predictions-val.json" \
+     --manifest data/processed/v1.1/manifest.csv \
+     --out /tmp/metrics-val-v1.1-syn.json
+   ```
+
+5. So hai lượt bằng [`scripts/compare_synthetic.py`](scripts/compare_synthetic.py):
+
+   ```sh
+   uv run --no-sync python scripts/compare_synthetic.py \
+     experiments/yolov8n-640-v1.1-main-s0/metrics.json \
+     /tmp/metrics-val-v1.1-syn.json --out /tmp/compare-synthetic-val.md
+   ```
+
+Script đọc 12 lớp hiếm từ [`synthetic/templates.csv`](data/synthetic/templates.csv), hoặc từ
+`--rare-classes I.409,P.104,…`. Bảng gồm AP@0.5:0.95, recall và số box GT val của từng lớp hiếm,
+trung bình các lớp hiếm, mAP@0.5 và mAP@0.5:0.95 toàn bộ, kèm chênh lệch. Script từ chối hai tệp
+khác `label_map_version`, khác số ảnh hoặc số box GT val, hoặc khác chế độ chấm. Hai tệp phải cùng
+chọn ngưỡng F1 cao nhất trên val, hoặc cùng ngưỡng khóa qua `--threshold`.
+
+**Giao thức:** chỉ so trên **val**. Không dùng test để quyết định có dùng dữ liệu tổng hợp hay
+không. Test chỉ chạy sau khi đã chốt cấu hình ([Thiết kế AI §4](../docs/04-thiet-ke-ai.md#4-giao-thức-đánh-giá-và-chọn-mô-hình)).
+Báo cáo kèm ba lưu ý của script. Mỗi cấu hình chỉ có một seed. Val có ít box cho mỗi lớp hiếm nên
+chênh lệch nhỏ có thể là nhiễu. v1.1-syn chép thêm 422 box thật từ ảnh nền, phải nêu theo từng lớp
+như [bảng box chép thêm](data/README.md#kết-quả-seed-0).
+
+**Chi phí ước tính, chưa đo:** lượt gốc mất 5,48 giờ L4 cho 187 epoch với 6.679 ảnh train.
+v1.1-syn có 7.297 ảnh train, nhiều hơn 9%, nên lượt mới cần khoảng 5,5–6 giờ L4 tùy epoch dừng
+sớm. Số compute unit bằng số giờ nhân đơn giá L4 mà Colab hiển thị lúc chạy. Bước so sánh chạy
+trên CPU trong vài giây.
 
 ## Chấm test và đo thời gian · v1.1
 
