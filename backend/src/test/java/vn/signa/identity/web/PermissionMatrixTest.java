@@ -47,8 +47,10 @@ import vn.signa.identity.internal.SessionService;
  * khai báo quyền cần ({@link Access}), mã mong đợi suy ra từ {@link #MATRIX}. Khách nhận {@code
  * 401}; thiếu quyền nhận {@code 403}; đủ quyền thì không phải {@code 401}/{@code 403}.
  *
- * <p><b>Các lát sau:</b> thêm dòng vào {@link #ENDPOINTS} và {@code @MockitoBean} cho phụ thuộc của
- * controller mới. Không sửa luật suy ra mã mong đợi.
+ * <p><b>Các lát sau:</b> thêm dòng {@link Endpoint#of} vào {@link #ENDPOINTS} cho endpoint mới, kèm
+ * thân request hợp lệ nếu có, và {@code @MockitoBean} cho phụ thuộc của controller mới. Dòng {@link
+ * Endpoint#reserved} của lát mình đổi sang {@link Endpoint#of} khi có controller. Không sửa {@link
+ * #violation}.
  */
 @WebMvcTest
 @Import({
@@ -79,6 +81,7 @@ class PermissionMatrixTest {
   }
 
   static final String GUEST = "GUEST";
+  static final String PROBE = "/api/v1/test-probe";
   static final List<String> ROLES = List.of(GUEST, "USER", "MODERATOR", "ADMIN");
 
   /** Quyền cần cho một endpoint. */
@@ -101,7 +104,24 @@ class PermissionMatrixTest {
     }
   }
 
-  record Endpoint(HttpMethod method, String path, String body, Access access) {
+  /**
+   * Một dòng ma trận. {@code hasController = true} khi endpoint đã có controller trong lát này: vai
+   * trò đủ quyền phải nhận {@code 2xx} hoặc lỗi nghiệp vụ {@code 4xx}, không được {@code 404},
+   * {@code 405}. {@code false} cho quy tắc đặt sẵn của lát sau, chưa có controller nên {@code 404}.
+   */
+  record Endpoint(
+      HttpMethod method, String path, String body, Access access, boolean hasController) {
+
+    /** Endpoint đã có controller. */
+    static Endpoint of(HttpMethod method, String path, String body, Access access) {
+      return new Endpoint(method, path, body, access, true);
+    }
+
+    /** Quy tắc bảo mật đặt sẵn, chưa có controller. */
+    static Endpoint reserved(HttpMethod method, String path, Access access) {
+      return new Endpoint(method, path, null, access, false);
+    }
+
     @Override
     public String toString() {
       return method + " " + path;
@@ -116,38 +136,54 @@ class PermissionMatrixTest {
   static final List<Endpoint> ENDPOINTS =
       List.of(
           // Lát 1 · tài khoản (docs/07 §3)
-          new Endpoint(HttpMethod.POST, "/api/v1/auth/register", REGISTER, Access.PUBLIC),
-          new Endpoint(HttpMethod.POST, "/api/v1/auth/login", LOGIN, Access.PUBLIC),
-          new Endpoint(HttpMethod.POST, "/api/v1/auth/logout", null, Access.AUTHENTICATED),
-          new Endpoint(HttpMethod.GET, "/api/v1/me", null, Access.AUTHENTICATED),
-          new Endpoint(
+          Endpoint.of(HttpMethod.POST, "/api/v1/auth/register", REGISTER, Access.PUBLIC),
+          Endpoint.of(HttpMethod.POST, "/api/v1/auth/login", LOGIN, Access.PUBLIC),
+          Endpoint.of(HttpMethod.POST, "/api/v1/auth/logout", null, Access.AUTHENTICATED),
+          Endpoint.of(HttpMethod.GET, "/api/v1/me", null, Access.AUTHENTICATED),
+          Endpoint.of(
               HttpMethod.PATCH, "/api/v1/me", "{\"displayName\":\"B\"}", Access.AUTHENTICATED),
-          new Endpoint(
+          Endpoint.of(
               HttpMethod.PUT,
               "/api/v1/me/password",
               "{\"currentPassword\":\"cu-12345\",\"newPassword\":\"moi-12345\"}",
               Access.AUTHENTICATED),
-          // Quy tắc công khai đặt sẵn cho lát 2–4; chưa có controller nên trả 404.
-          new Endpoint(HttpMethod.GET, "/api/v1/sign-types", null, Access.PUBLIC),
-          new Endpoint(HttpMethod.GET, "/api/v1/sign-categories", null, Access.PUBLIC),
-          new Endpoint(HttpMethod.GET, "/api/v1/signs", null, Access.PUBLIC),
-          new Endpoint(HttpMethod.GET, "/api/v1/recognition/models", null, Access.PUBLIC),
-          new Endpoint(HttpMethod.POST, "/api/v1/recognition/detect", null, Access.PUBLIC),
-          new Endpoint(HttpMethod.GET, "/actuator/health", null, Access.PUBLIC),
+          // Quy tắc công khai đặt sẵn cho lát 2–4. Lát có controller đổi dòng sang Endpoint.of.
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-types", Access.PUBLIC),
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-categories", Access.PUBLIC),
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/signs", Access.PUBLIC),
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/recognition/models", Access.PUBLIC),
+          Endpoint.reserved(HttpMethod.POST, "/api/v1/recognition/detect", Access.PUBLIC),
+          // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
+          Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
-          new Endpoint(HttpMethod.POST, "/api/v1/signs", null, Access.AUTHENTICATED),
-          new Endpoint(HttpMethod.GET, "/api/v1/admin/signs", null, Access.AUTHENTICATED),
+          Endpoint.reserved(HttpMethod.POST, "/api/v1/signs", Access.AUTHENTICATED),
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/signs", Access.AUTHENTICATED),
           // Tự kiểm: endpoint mẫu có @PreAuthorize chứng minh khung bắt được thiếu quyền.
-          new Endpoint(
-              HttpMethod.GET,
-              "/api/v1/test-probe/review",
-              null,
-              Access.permission("review:decide")),
-          new Endpoint(
-              HttpMethod.GET,
-              "/api/v1/test-probe/catalog",
-              null,
-              Access.permission("catalog:manage")));
+          Endpoint.of(HttpMethod.GET, PROBE + "/review", null, Access.permission("review:decide")),
+          Endpoint.of(
+              HttpMethod.GET, PROBE + "/catalog", null, Access.permission("catalog:manage")));
+
+  /**
+   * Luật suy ra mã mong đợi; trả lý do sai hoặc {@code null} nếu đúng. Các lát sau không sửa luật.
+   */
+  static String violation(Endpoint endpoint, String role, int status) {
+    if (!endpoint.access().allows(role)) {
+      int expected = role.equals(GUEST) ? 401 : 403;
+      return status == expected ? null : "cần " + expected + ", nhận " + status;
+    }
+    if (status == 401 || status == 403) {
+      return "đủ quyền nhưng nhận " + status;
+    }
+    if (endpoint.hasController()) {
+      boolean ok = (status >= 200 && status < 300) || (status >= 400 && status < 500);
+      if (!ok || status == 404 || status == 405) {
+        return "đã có controller, cần 2xx hoặc lỗi nghiệp vụ 4xx, nhận "
+            + status
+            + (status == 404 || status == 405 ? " (controller chưa được nạp?)" : "");
+      }
+    }
+    return null;
+  }
 
   @Autowired MockMvc mvc;
   @MockitoBean AccountService accounts;
@@ -185,13 +221,43 @@ class PermissionMatrixTest {
 
     int status = mvc.perform(request).andReturn().getResponse().getStatus();
 
-    if (endpoint.access().allows(role)) {
-      assertThat(status).as("%s với %s", endpoint, role).isNotIn(401, 403);
-    } else if (role.equals(GUEST)) {
-      assertThat(status).as("%s với khách", endpoint).isEqualTo(401);
-    } else {
-      assertThat(status).as("%s với %s", endpoint, role).isEqualTo(403);
-    }
+    assertThat(violation(endpoint, role, status)).as("%s với %s", endpoint, role).isNull();
+  }
+
+  /**
+   * Tự kiểm: một dòng khai báo có controller nhưng controller không được nạp thì khung phải báo
+   * lỗi. Gọi thật một đường dẫn không có controller nào.
+   */
+  @Test
+  void missingControllerIsCaught() throws Exception {
+    Endpoint missing = Endpoint.of(HttpMethod.GET, PROBE + "/missing", null, Access.AUTHENTICATED);
+    int status =
+        mvc.perform(
+                request(missing.method(), missing.path())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + WebTestSessions.token("USER")))
+            .andReturn()
+            .getResponse()
+            .getStatus();
+
+    assertThat(status).isEqualTo(404);
+    assertThat(violation(missing, "USER", status)).contains("controller chưa được nạp");
+    assertThat(violation(missing, GUEST, 401)).isNull();
+  }
+
+  @Test
+  void ruleRejectsWrongStatuses() {
+    Endpoint review =
+        Endpoint.of(HttpMethod.GET, PROBE + "/review", null, Access.permission("review:decide"));
+    assertThat(violation(review, "MODERATOR", 200)).isNull();
+    assertThat(violation(review, "MODERATOR", 422)).isNull();
+    assertThat(violation(review, "MODERATOR", 405)).isNotNull();
+    assertThat(violation(review, "MODERATOR", 500)).isNotNull();
+    assertThat(violation(review, "USER", 404)).isNotNull();
+    assertThat(violation(review, "USER", 403)).isNull();
+    assertThat(violation(review, GUEST, 403)).isNotNull();
+    Endpoint reserved = Endpoint.reserved(HttpMethod.GET, "/api/v1/signs", Access.PUBLIC);
+    assertThat(violation(reserved, GUEST, 404)).isNull();
+    assertThat(violation(reserved, GUEST, 401)).isNotNull();
   }
 
   @Test
@@ -228,13 +294,13 @@ class PermissionMatrixTest {
 
   @RestController
   static class ProbeController {
-    @GetMapping("/api/v1/test-probe/review")
+    @GetMapping(PROBE + "/review")
     @PreAuthorize("hasAuthority('review:decide')")
     String review() {
       return "ok";
     }
 
-    @GetMapping("/api/v1/test-probe/catalog")
+    @GetMapping(PROBE + "/catalog")
     @PreAuthorize("hasAuthority('catalog:manage')")
     String catalog() {
       return "ok";

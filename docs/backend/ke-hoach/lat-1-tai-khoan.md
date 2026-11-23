@@ -37,7 +37,14 @@ public record AuditEntry(
 }
 ```
 
-Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã quyền>')")`; lấy người dùng bằng `@AuthenticationPrincipal vn.signa.identity.api.AuthenticatedUser user` (`userId()`, `role()`, `permissions()`, `has(...)`). Thu hồi phiên: `vn.signa.identity.api.SessionRevoker.revokeAll(userId)`. Endpoint mới thêm dòng vào `PermissionMatrixTest`, không sửa luật của khung.
+Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã quyền>')")`; lấy người dùng bằng `@AuthenticationPrincipal vn.signa.identity.api.AuthenticatedUser user` (`userId()`, `role()`, `permissions()`, `has(...)`). Thu hồi phiên: `vn.signa.identity.api.SessionRevoker.revokeAll(userId)`.
+
+Thêm dòng vào `PermissionMatrixTest` (UT-B11) ở phần 2 của mỗi lát:
+
+1. Mỗi endpoint mới là một dòng `Endpoint.of(method, path, body, access)` trong `ENDPOINTS`. `access` là `Access.PUBLIC`, `Access.AUTHENTICATED` hoặc `Access.permission("<mã quyền>")`, khớp cột **Quyền** ở `docs/07`. `body` là thân request hợp lệ (hoặc `null`), để vai trò đủ quyền đi tới controller.
+2. Thêm `@MockitoBean` cho phụ thuộc của controller mới và stub đủ để controller trả `2xx` hoặc lỗi nghiệp vụ `4xx`.
+3. Dòng `Endpoint.reserved(...)` của lát mình (quy tắc công khai đặt sẵn) đổi sang `Endpoint.of(...)` khi đã có controller.
+4. Không sửa `violation(...)`. Luật: khách `401`; thiếu quyền `403`; đủ quyền thì không được `401`, `403`; dòng `Endpoint.of` còn không được `404`, `405` hay `5xx`, nên controller không được nạp là test fail (ca tự kiểm `missingControllerIsCaught`).
 
 ## Ràng buộc chung
 
@@ -116,7 +123,7 @@ Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã q
 **Tạo:** `src/test/.../identity/web/PermissionMatrixTest.java` (cùng gói với `SecurityConfig`; `@WebMvcTest` nạp mọi controller).
 
 - [x] Hằng ma trận vai trò × quyền; một ca đối chiếu với bảng ở `docs/06 §4` (đọc file Markdown). `SchemaIT` đã đối chiếu cùng ma trận với CSDL.
-- [x] Khung bảng `endpoint → quyền cần` (`PUBLIC`, `AUTHENTICATED` hoặc mã quyền); với mỗi vai trò và khách, suy ra mã mong đợi: khách `401`, thiếu quyền `403`, đủ quyền thì không phải `401`/`403`.
+- [x] Khung bảng `endpoint → quyền cần` (`PUBLIC`, `AUTHENTICATED` hoặc mã quyền) và cờ đã có controller hay chưa; với mỗi vai trò và khách, suy ra mã mong đợi: khách `401`, thiếu quyền `403`, đủ quyền thì không phải `401`/`403`. Siết thêm (việc bổ sung): dòng đã có controller mà vai trò đủ quyền nhận `404`, `405` hoặc `5xx` thì fail; ca tự kiểm `missingControllerIsCaught` gọi một đường dẫn không có controller.
 - [x] Dòng cho endpoint lát 1 và hai endpoint mẫu trong test có `@PreAuthorize` (`review:decide`, `catalog:manage`) để chứng minh khung bắt được thiếu quyền.
 - [x] Commit.
 
@@ -148,7 +155,7 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 
 **2026-11-23.** NV0–NV7 đã commit trên `backend/1-identity`, chưa push.
 
-- Trên máy: `./gradlew clean spotlessCheck test compileTestJava` thành công, 161/161 unit test đạt sau việc bổ sung (trong đó `PermissionMatrixTest` 66 ca: 16 endpoint × 4 vai trò, cùng 2 ca đối chiếu; 5 ca `X-Forwarded-For` chạy Tomcat thật, không cần Docker). `markdownlint` sạch.
+- Trên máy: `./gradlew clean spotlessCheck test compileTestJava` thành công, 163/163 unit test đạt sau việc bổ sung (trong đó `PermissionMatrixTest` 68 ca: 16 endpoint × 4 vai trò, cùng 4 ca đối chiếu và tự kiểm; 5 ca `X-Forwarded-For` chạy Tomcat thật, không cần Docker). `markdownlint` sạch.
 - Chỉ verify được trên CI (máy không có Docker): `AuthIT` (IT-B10, đăng ký đến đăng xuất, khoá, `WEB`, `429`, token sai, log, khoá Redis), `BootstrapAdminIT`, `AuditRecorderIT`; build `backend/Dockerfile` và chạy `infra/compose.yaml` với profile `migrate`, `app`. Đã thử trên máy: tách lớp `-Djarmode=tools` và `JarLauncher` khởi động được; YAML Compose parse được, chưa chạy `docker compose config`.
 - Quyết định tự đưa ra:
   - Đăng ký trả `201` với hồ sơ như `/me`, không tự đăng nhập. Đăng xuất và đổi mật khẩu trả `204`, `PATCH /me` trả hồ sơ mới. Đã ghi vào `docs/07 §3`.
