@@ -24,6 +24,23 @@ class GridCellTest {
   }
 
   @Test
+  void viewportSizedBboxKeepsTheZoomFormula() {
+    // Khung 3840 × 2160 px ở zoom 14: rộng 3840 / 256 ô bản đồ.
+    double width = 3840.0 / 256 * 360 / (1 << 14);
+    var bbox = new BoundingBox(105.8, 21.0, 105.8 + width, 21.0 + width * 2160 / 3840);
+
+    assertThat(GridCell.sizeDeg(14, bbox)).isEqualTo(GridCell.sizeDeg(14));
+  }
+
+  @Test
+  void hugeBboxAtHighZoomIsCappedAt128CellsPerAxis() {
+    var world = new BoundingBox(-180, -85, 180, 85);
+
+    assertThat(GridCell.sizeDeg(22, world)).isEqualTo(360.0 / 128);
+    assertThat(GridCell.sizeDeg(0, world)).isEqualTo(45);
+  }
+
+  @Test
   void rejectsZoomOutsideRange() {
     assertThatThrownBy(() -> GridCell.sizeDeg(-1)).isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> GridCell.sizeDeg(23)).isInstanceOf(IllegalArgumentException.class);

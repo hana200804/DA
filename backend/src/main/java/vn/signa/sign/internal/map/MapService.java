@@ -36,7 +36,8 @@ public class MapService {
     if (signs.size() <= MAX_SIGNS) {
       return new MapResult.Signs(signs);
     }
-    return new MapResult.Clusters(repository.countByCell(query, GridCell.sizeDeg(query.zoom())));
+    return new MapResult.Clusters(
+        repository.countByCell(query, GridCell.sizeDeg(query.zoom(), query.bbox())));
   }
 
   /** Rỗng khi biển không tồn tại hoặc chưa công bố, đã bị từ chối hay đã gỡ. */

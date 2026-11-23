@@ -46,6 +46,7 @@ class MapServiceTest {
     var clusters = List.of(new MapCluster(new LatLng(0.5, 0.5), 700));
     when(repository.findSigns(query, 501)).thenReturn(signs(501));
     when(repository.countByCell(query, GridCell.sizeDeg(10))).thenReturn(clusters);
+    assertThat(GridCell.sizeDeg(10, query.bbox())).isEqualTo(GridCell.sizeDeg(10));
 
     MapResult result = service.find(query);
 
