@@ -195,25 +195,46 @@ def overlaps(box: Box, left: float, top: float, right: float, bottom: float) -> 
     return box.left < right and box.right > left and box.top < bottom and box.bottom > top
 
 
+def trim_paired_bars(dark_lines: np.ndarray) -> tuple[int, int]:
+    size = len(dark_lines)
+    content = np.flatnonzero(~dark_lines)
+    if content.size:
+        start, stop = int(content[0]), int(content[-1]) + 1
+        end_bar = size - stop
+        if min(start, end_bar) >= 4 and abs(start - end_bar) <= max(3, min(start, end_bar) // 10):
+            return start, stop
+    return 0, size
+
+
+def placement_region(frame: Image.Image) -> tuple[int, int, int, int]:
+    # Ảnh VN82 thường có hai dải đen do giữ tỷ lệ khung hình.
+    dark = np.asarray(frame.convert("L")) <= 12
+    left, right = trim_paired_bars(dark.mean(axis=0) >= 0.995)
+    top, bottom = trim_paired_bars(dark.mean(axis=1) >= 0.995)
+    return left, top, right, min(frame.height // 2, (top + bottom) // 2)
+
+
 def place(
     frame: Image.Image,
     sign: Image.Image,
     boxes: tuple[Box, ...],
     class_id: int,
     rng: np.random.Generator,
+    region: tuple[int, int, int, int],
 ) -> Box | None:
     width, height = frame.size
     margin = max(4, round(0.01 * min(width, height)))
-    side_width = round(width * 0.35)
+    region_left, region_top, region_right, region_bottom = region
+    side_width = round((region_right - region_left) * 0.35)
     xmax = side_width - sign.width - margin
-    ymax = height // 2 - sign.height
-    if xmax < margin or ymax < margin:
+    ymax = region_bottom - sign.height
+    ymin = region_top + margin
+    if xmax < margin or ymax < ymin:
         return None
     for _ in range(16):
-        x = int(rng.integers(margin, xmax + 1))
-        if rng.integers(0, 2):
-            x = width - x - sign.width
-        y = int(rng.integers(margin, ymax + 1))
+        offset = int(rng.integers(margin, xmax + 1))
+        x = region_right - offset - sign.width if rng.integers(0, 2) else region_left + offset
+        y = int(rng.integers(ymin, ymax + 1))
         right, bottom = x + sign.width, y + sign.height
         if any(
             overlaps(
@@ -255,12 +276,14 @@ def compose(
     with Image.open(io.BytesIO(payload)) as original:
         image = original.convert("RGB")
     boxes = read_yolo(background.label, label_map) if background.label else ()
-    max_height = min(HEIGHT_RANGE[1], image.height // 2 - max(4, image.height // 100))
+    region = placement_region(image)
+    _, top, _, bottom = region
+    max_height = min(HEIGHT_RANGE[1], bottom - top - max(4, image.height // 100))
     if max_height < HEIGHT_RANGE[0]:
         return None
     height = int(rng.integers(HEIGHT_RANGE[0], max_height + 1))
     sign = render(template, height, rng)
-    added = place(image, sign, boxes, class_id, rng)
+    added = place(image, sign, boxes, class_id, rng, region)
     return (image, added) if added else None
 
 

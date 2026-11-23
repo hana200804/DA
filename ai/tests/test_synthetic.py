@@ -177,6 +177,25 @@ def test_background_override_keeps_the_external_sequence(inputs, tmp_path):
         assert len(read_yolo(output / label_path(PurePosixPath(row["path"])), labels)) == 1
 
 
+@pytest.mark.parametrize("padding", [(0, 40), (44, 0)])
+def test_generate_avoids_black_bars(inputs, tmp_path, padding):
+    base, templates, catalog = inputs
+    pad_x, pad_y = padding
+    backgrounds = tmp_path / "backgrounds"
+    trip = backgrounds / "trip"
+    trip.mkdir(parents=True)
+    frame = Image.new("RGB", (320, 240), "black")
+    frame.paste("gray", (pad_x, pad_y, 320 - pad_x, 240 - pad_y))
+    frame.save(trip / "001.png")
+    output = tmp_path / "synthetic"
+    generate(base, output, templates, catalog, backgrounds=backgrounds, seed=18)
+    labels = load_label_map(base / "labels.yaml")
+    for row in read_csv(output / "intake.csv"):
+        (box,) = read_yolo(output / label_path(PurePosixPath(row["path"])), labels)
+        assert pad_x < box.left * frame.width < box.right * frame.width < frame.width - pad_x
+        assert pad_y < box.top * frame.height < box.bottom * frame.height <= frame.height / 2
+
+
 def test_render_preserves_horizontal_and_vertical_orientation(inputs):
     _, templates, _ = inputs
     rng = np.random.default_rng(2026)

@@ -61,7 +61,7 @@ Mỗi lớp nhận tối đa `floor(box thật × 3 / 7)` box dán, tương ứn
 
 Script lấy PNG do Wikimedia Commons render từ SVG biển báo Việt Nam theo QCVN 41. API `imageinfo` cung cấp URL và `extmetadata` cung cấp thông tin ghi công. Công cụ chấp nhận PD, CC0, CC BY và CC BY-SA, ghi lý do loại tệp ra stderr. Cả 12 mã trên có hình vẽ, với giấy phép CC BY-SA 4.0 và tác giả ghi là Government of Vietnam. `P.124a` dùng biến thể cấm quay đầu sang trái `P124a1`. Bảng CSV ghi tên tệp Commons và SHA-256 của từng PNG. Các PNG chỉ lưu trong `processed/synthetic-templates/`. [Bảng nguồn](synthetic/templates.csv) · [SVG của P.124a](https://commons.wikimedia.org/wiki/File:Vietnam_road_sign_P124a1.svg) · [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
-Do chưa có video thực địa, v1.1-syn chỉ dùng ảnh train v1.1 làm nền. Công cụ lấy `sequence` từ manifest, đặt biển vào hai bên ở nửa trên ảnh và chừa lề quanh box gốc. Biển được biến đổi phối cảnh nhẹ, xoay tối đa 10°, có chiều cao 16–200 px, thay đổi sáng và tương phản, làm nhoè, thêm nhiễu và có thể bị che một phần. Biển giữ hướng và sắc độ.
+Do chưa có video thực địa, v1.1-syn chỉ dùng ảnh train v1.1 làm nền. Công cụ lấy `sequence` từ manifest, đặt biển vào hai bên ở nửa trên ảnh, tránh dải đen đóng khung và chừa lề quanh box gốc. Biển được biến đổi phối cảnh nhẹ, xoay tối đa 10°, có chiều cao 16–200 px, thay đổi sáng và tương phản, làm nhoè, thêm nhiễu và có thể bị che một phần. Biển giữ hướng và sắc độ.
 
 Chạy từ thư mục `ai/` sau khi đã dựng v1.1:
 
@@ -74,7 +74,7 @@ uv run --extra data python -m signa_ai.synthetic package
 
 Dùng cùng ảnh nguồn, hình vẽ, phiên bản Pillow và NumPy, ngưỡng và seed để tái tạo từng byte của ảnh, nhãn và CSV sinh ra. Dùng `generate --backgrounds <thư-mục>` khi có khung hình đã xác nhận không có biển từ video dành riêng cho train. Xếp ảnh theo `<thư-mục>/<sequence>/<tên-ảnh>` và dùng mã chuỗi tuyến đã chốt cho tập train. Công cụ đối chiếu chuỗi và SHA-256 với val, test và field của manifest gốc.
 
-`generate` ghi ảnh, nhãn, `intake.csv` và thống kê từng lớp vào `processed/v1.1-syn-intake/`. `package` ghép với v1.1 qua pipeline YOLO/COCO, sao chép từng byte ảnh, nhãn YOLO và JSON COCO của val, test và field. Lượt seed 0 có **618 ảnh tổng hợp**, đưa train lên **7.297 ảnh và 15.195 box**. Tệp `processed/signa-v1.1-syn.sha256` ghi SHA-256 của ZIP và manifest. Cấu hình YOLO trong gói có đường dẫn tuyệt đối như v1.1. `processed/v1.1-syn/preview/` chứa 6 ảnh xem mẫu có box vẽ sẵn, với màu xanh cho biển dán và màu vàng cho box gốc.
+`generate` ghi ảnh, nhãn, `intake.csv` và thống kê từng lớp vào `processed/v1.1-syn-intake/`. `package` ghép với v1.1 qua pipeline YOLO/COCO, sao chép từng byte ảnh, nhãn YOLO và JSON COCO của val, test và field. Lượt seed 0 có **618 ảnh tổng hợp**, đưa train lên **7.297 ảnh và 15.146 box**. Tệp `processed/signa-v1.1-syn.sha256` ghi SHA-256 của ZIP và manifest. Cấu hình YOLO trong gói có đường dẫn tuyệt đối như v1.1. `processed/v1.1-syn/preview/` chứa 6 ảnh xem mẫu có box vẽ sẵn, với màu xanh cho biển dán và màu vàng cho box gốc.
 
 ## Bộ chạy thử v0.1
 
