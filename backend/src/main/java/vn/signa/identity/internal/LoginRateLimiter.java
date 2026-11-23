@@ -5,8 +5,11 @@ import org.springframework.stereotype.Component;
 import vn.signa.shared.error.ApiException;
 
 /**
- * Sai quá {@value #MAX_FAILURES} lần trong 15 phút theo {@code rl:login:{email}:{ip}} thì {@code
- * 429} kèm {@code Retry-After} (docs/06 §10, NFR-10). Cửa sổ cố định, bắt đầu từ lần sai đầu.
+ * Giới hạn số lần thử mật khẩu: quá {@value #MAX_FAILURES} lần trong 15 phút thì {@code 429} kèm
+ * {@code Retry-After} (docs/06 §10, NFR-10). Cửa sổ cố định, bắt đầu từ lần thử đầu.
+ *
+ * <p>Mỗi lần thử được giữ chỗ bằng một {@code INCR} trước khi so mật khẩu, nên nhiều request song
+ * song cũng không vượt được giới hạn. Đúng mật khẩu thì xoá bộ đếm.
  */
 @Component
 class LoginRateLimiter {
@@ -20,24 +23,25 @@ class LoginRateLimiter {
     this.counter = counter;
   }
 
-  /** Ném {@code RATE_LIMITED} nếu đã sai đủ {@value #MAX_FAILURES} lần trong cửa sổ. */
-  void checkAllowed(String email, String ip) {
-    String key = key(email, ip);
-    if (counter.get(key) >= MAX_FAILURES) {
+  /** Giữ chỗ một lần thử; ném {@code RATE_LIMITED} nếu đã thử đủ {@value #MAX_FAILURES} lần. */
+  void acquire(String key) {
+    if (counter.increment(key, WINDOW) > MAX_FAILURES) {
       long seconds = Math.max(1, counter.remaining(key).toSeconds());
       throw ApiException.rateLimited((int) Math.min(seconds, WINDOW.toSeconds()));
     }
   }
 
-  void recordFailure(String email, String ip) {
-    counter.increment(key(email, ip), WINDOW);
+  void reset(String key) {
+    counter.reset(key);
   }
 
-  void reset(String email, String ip) {
-    counter.reset(key(email, ip));
-  }
-
-  static String key(String email, String ip) {
+  /** Đăng nhập: theo email và IP (docs/06 §10). */
+  static String loginKey(String email, String ip) {
     return "rl:login:" + email + ":" + ip;
+  }
+
+  /** Nhập sai mật khẩu hiện tại khi đổi mật khẩu: theo người dùng. */
+  static String passwordKey(String userId) {
+    return "rl:password:" + userId;
   }
 }

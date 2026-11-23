@@ -80,14 +80,14 @@ public class AccountService {
   }
 
   public LoginResult login(String email, String password, Client client, String ip) {
-    limiter.checkAllowed(email, ip);
+    String limitKey = LoginRateLimiter.loginKey(email, ip);
+    limiter.acquire(limitKey);
     UserRecord user = users.findByEmail(email).orElse(null);
     boolean matches = matches(password, user == null ? dummyHash : user.passwordHash());
     if (user == null || !matches) {
-      limiter.recordFailure(email, ip);
       throw new ApiException(ErrorCode.UNAUTHENTICATED, BAD_CREDENTIALS);
     }
-    limiter.reset(email, ip);
+    limiter.reset(limitKey);
     // Chỉ báo trạng thái tài khoản cho người đã nhập đúng mật khẩu.
     if (user.status() == UserStatus.LOCKED) {
       throw new ApiException(ErrorCode.FORBIDDEN, "Tài khoản đã bị khoá");
@@ -118,13 +118,19 @@ public class AccountService {
     return profile(userId);
   }
 
-  /** Sai mật khẩu hiện tại thì {@code 422}; xong thì thu hồi mọi phiên khác (FR-01, IT-B10). */
+  /**
+   * Sai mật khẩu hiện tại thì {@code 422}, quá 10 lần trong 15 phút thì {@code 429}; xong thì thu
+   * hồi mọi phiên khác (FR-01, IT-B10).
+   */
   public void changePassword(
       String userId, String currentSessionId, String currentPassword, String newPassword) {
     UserRecord user = load(userId);
+    String limitKey = LoginRateLimiter.passwordKey(userId);
+    limiter.acquire(limitKey);
     if (!matches(currentPassword, user.passwordHash())) {
       throw new ApiException(ErrorCode.BUSINESS_RULE, "Mật khẩu hiện tại không đúng");
     }
+    limiter.reset(limitKey);
     users.updatePasswordHash(userId, encoder.encode(newPassword), clock.instant());
     sessions.revokeOthers(userId, currentSessionId);
     log.info("Đổi mật khẩu userId={}, đã thu hồi các phiên khác", userId);

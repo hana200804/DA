@@ -187,6 +187,19 @@ class AccountServiceTest {
   }
 
   @Test
+  void repeatedWrongCurrentPasswordIsRateLimited() {
+    when(users.findById("u-1")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    for (int i = 0; i < 10; i++) {
+      assertThatThrownBy(() -> accounts.changePassword("u-1", "s", "sai-mat-khau", "moi-12345"))
+          .isInstanceOfSatisfying(
+              ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.BUSINESS_RULE));
+    }
+    assertThatThrownBy(() -> accounts.changePassword("u-1", "s", PASSWORD, "moi-12345"))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.RATE_LIMITED));
+  }
+
+  @Test
   void profileOfDeletedUserIsUnauthenticated() {
     when(users.findById("u-9")).thenReturn(Optional.empty());
 

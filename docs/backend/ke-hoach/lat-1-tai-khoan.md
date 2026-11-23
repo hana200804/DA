@@ -8,6 +8,37 @@
 
 **Công nghệ:** như [lát 0](lat-0-khung.md), thêm Spring Security 7 (`spring-boot-starter-security`), BCrypt của Spring Security, Spring Data Redis (`StringRedisTemplate`), Jackson 3 (`tools.jackson`).
 
+## Hợp đồng cho lát khác
+
+Lát 2, 5 dùng `audit.api` song song với lát 1, nên chữ ký dưới đây giữ ổn định:
+
+```java
+package vn.signa.audit.api;
+
+public interface AuditRecorder {
+  /** Phải gọi trong giao dịch của bên gọi (propagation MANDATORY). requestId lấy từ MDC. */
+  void record(AuditEntry entry);
+}
+
+public record AuditEntry(
+    AuditEntityType entityType, // SIGN, REPORT, SIGN_TYPE, SIGN_CATEGORY, USER
+    String entityId,            // ≤ 36 ký tự
+    String action,              // ≤ 40 ký tự, theo bảng docs/06 §8
+    ActorType actorType,        // USER (actorId bắt buộc) hoặc SYSTEM (actorId = null)
+    String actorId,
+    Map<String, ?> before,      // các trường thay đổi, ghi JSON; có thể null
+    Map<String, ?> after,
+    String reason) {            // ≤ 1000 ký tự; có thể null
+
+  static AuditEntry bySystem(AuditEntityType, String entityId, String action,
+      Map<String, ?> before, Map<String, ?> after, String reason);
+  static AuditEntry byUser(String actorId, AuditEntityType, String entityId, String action,
+      Map<String, ?> before, Map<String, ?> after, String reason);
+}
+```
+
+Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã quyền>')")`; lấy người dùng bằng `@AuthenticationPrincipal vn.signa.identity.api.AuthenticatedUser user` (`userId()`, `role()`, `permissions()`, `has(...)`). Thu hồi phiên: `vn.signa.identity.api.SessionRevoker.revokeAll(userId)`. Endpoint mới thêm dòng vào `PermissionMatrixTest`, không sửa luật của khung.
+
 ## Ràng buộc chung
 
 - Dùng `JdbcClient` và SQL viết tay. `identity` chỉ đụng `users`, `roles`, `permissions`, `role_permissions`; `audit` chỉ đụng `audit_logs` (`TableOwnershipTest`). Module khác chỉ gọi qua gói `api`.
@@ -20,7 +51,7 @@
 
 1. Sai email và sai mật khẩu trả cùng `401` cùng thông điệp; email không tồn tại vẫn chạy BCrypt với một hash giả để thời gian phản hồi tương đương.
 2. `LOCKED` và `WEB` thiếu `review:decide` chỉ trả `403` **sau khi** mật khẩu đúng, để không lộ trạng thái tài khoản cho người không biết mật khẩu.
-3. Lần sai thứ 11 trong 15 phút theo `rl:login:{email}:{ip}` trả `429` kèm `Retry-After`, không kiểm tra mật khẩu nữa.
+3. Lần thử thứ 11 trong 15 phút theo `rl:login:{email}:{ip}` trả `429` kèm `Retry-After`, không kiểm tra mật khẩu nữa. Mỗi lần thử giữ chỗ bằng `INCR` **trước** khi so mật khẩu nên request song song không vượt giới hạn; đúng mật khẩu thì xoá bộ đếm. Nhập sai mật khẩu hiện tại khi đổi mật khẩu cũng giới hạn như vậy theo `rl:password:{userId}`.
 4. Lỗi `401`, `403` do filter, entry point hay `@PreAuthorize` sinh ra đều có body `ErrorResponse` và `requestId`.
 5. Đổi mật khẩu xoá mọi phiên khác của người đó, giữ phiên đang dùng; phiên cũ dùng lại trả `401` (IT-B10).
 6. Mật khẩu dài quá 72 byte UTF-8 bị từ chối ở đăng ký và đổi mật khẩu, vì BCrypt chỉ dùng 72 byte đầu.
@@ -64,7 +95,7 @@
 
 - [x] `POST /api/v1/auth/register`: email trim và lowercase, `@Email`, ≤ 255; mật khẩu 8–72 ký tự và ≤ 72 byte UTF-8; `displayName` trim, 1–100. Vai trò `USER`. Trùng email `409 CONFLICT`. Trả `201` với hồ sơ như `/me`.
 - [x] `POST /api/v1/auth/login` `{ email, password, client }` trả `{ token, expiresAt, user: { id, displayName, role, permissions } }`; thứ tự kiểm tra: giới hạn → mật khẩu (`401` chung) → `LOCKED` (`403`) → `WEB` cần `review:decide` (`403`) → tạo phiên, cập nhật `last_login_at`, xoá bộ đếm sai.
-- [x] `LoginRateLimiter`: cửa sổ cố định `INCR` cùng `EXPIRE` 15 phút; đủ 10 lần sai thì `429` với `Retry-After` là TTL còn lại.
+- [x] `LoginRateLimiter`: cửa sổ cố định `INCR` cùng `EXPIRE` 15 phút, giữ chỗ trước khi so mật khẩu; lần thứ 11 thì `429` với `Retry-After` là TTL còn lại. Thêm `rl:password:{userId}` cho đổi mật khẩu (sau rà soát bảo mật).
 - [x] `POST /api/v1/auth/logout` thu hồi phiên hiện tại, trả `204`.
 - [x] `GET /api/v1/me` trả thẳng `{ id, email, displayName, role, permissions }`; `PATCH /api/v1/me` `{ displayName }` trả hồ sơ mới.
 - [x] `PUT /api/v1/me/password` `{ currentPassword, newPassword }`: sai mật khẩu cũ `422 BUSINESS_RULE`; xong thì thu hồi các phiên khác, trả `204`.
