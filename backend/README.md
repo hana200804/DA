@@ -97,6 +97,7 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_RECOGNITION_URL` | `http://localhost:8000` | Dịch vụ nhận diện FastAPI |
 | `SIGNA_LABELS_PATH` | `../ai/data/labels.yaml` | Danh mục nhãn cho `import-labels` (lát 2) |
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
+| `SIGNA_TRUSTED_PROXIES` | dải IP riêng | Biểu thức chính quy các proxy được tin `X-Forwarded-For`, ví dụ `172\.18\.0\.5` |
 | `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |
 
 ## Lưu ảnh
@@ -109,6 +110,11 @@ API ở [`docs/07 §3`](../docs/07-api.md#3-tài-khoản). Token phiên là 32 b
 
 Quyền theo vai trò nạp từ `role_permissions` khi khởi động. Endpoint kiểm tra bằng `@PreAuthorize("hasAuthority('<mã quyền>')")` và lấy người dùng bằng `@AuthenticationPrincipal AuthenticatedUser`. Endpoint mới phải có dòng trong `PermissionMatrixTest` (UT-B11). Lỗi `401`, `403` của Spring Security và của `@PreAuthorize` cùng định dạng lỗi chung.
 
-Giới hạn: sai mật khẩu quá 10 lần trong 15 phút theo `rl:login:{email}:{ip}` thì `429` kèm `Retry-After`; nhập sai mật khẩu hiện tại khi đổi mật khẩu giới hạn tương tự theo `rl:password:{userId}`. IP lấy từ `X-Forwarded-For` (`server.forward-headers-strategy: framework`), nên backend chỉ được mở qua proxy ghi đè header này; Compose chỉ bind `127.0.0.1`.
+Giới hạn: sai mật khẩu quá 10 lần trong 15 phút theo `rl:login:{email}:{ip}` thì `429` kèm `Retry-After`; nhập sai mật khẩu hiện tại khi đổi mật khẩu giới hạn tương tự theo `rl:password:{userId}`. IP của client do `RemoteIpValve` của Tomcat xác định (`server.forward-headers-strategy: native`). Valve chỉ đọc `X-Forwarded-For` khi kết nối đến từ proxy khớp `SIGNA_TRUSTED_PROXIES`, mặc định là các dải IP riêng 10/8, 172.16/12, 192.168/16, 127/8 và `::1`. Client bên ngoài gửi header giả thì vẫn bị tính theo IP thật (`TrustedProxyForwardedForTest`, `UntrustedForwardedForTest`).
+
+Hai điều kiện để giới hạn theo IP có hiệu lực:
+
+- nginx (lát 10) phải **ghi đè** header bằng `proxy_set_header X-Forwarded-For $remote_addr;`, không dùng `$proxy_add_x_forwarded_for`. Nếu nối thêm, một máy trong mạng LAN (IP riêng, được tin như proxy) có thể chèn IP tuỳ ý vào trước chuỗi.
+- Cổng backend không mở cho mạng có client dùng IP riêng. Compose chỉ bind `127.0.0.1`. Khi biết IP cố định của nginx, đặt `SIGNA_TRUSTED_PROXIES` đúng IP đó.
 
 **Quản trị viên đầu tiên.** Khi khởi động, nếu chưa có tài khoản `ADMIN` và có đủ `SIGNA_BOOTSTRAP_ADMIN_EMAIL` cùng `SIGNA_BOOTSTRAP_ADMIN_PASSWORD`, backend tạo tài khoản `ADMIN` và ghi lịch sử `USER/ROLE_CHANGED` với `actor_type = SYSTEM`. Thiếu biến thì bỏ qua; mật khẩu sai chính sách thì không khởi động. Email đã thuộc tài khoản khác thì không nâng quyền tài khoản đó. Không có mật khẩu mặc định.

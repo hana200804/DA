@@ -148,7 +148,7 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 
 **2026-11-23.** NV0–NV7 đã commit trên `backend/1-identity`, chưa push.
 
-- Trên máy: `./gradlew clean spotlessCheck test compileTestJava` thành công, 156/156 unit test đạt (trong đó `PermissionMatrixTest` 66 ca: 16 endpoint × 4 vai trò, cùng 2 ca đối chiếu). `markdownlint` sạch.
+- Trên máy: `./gradlew clean spotlessCheck test compileTestJava` thành công, 161/161 unit test đạt sau việc bổ sung (trong đó `PermissionMatrixTest` 66 ca: 16 endpoint × 4 vai trò, cùng 2 ca đối chiếu; 5 ca `X-Forwarded-For` chạy Tomcat thật, không cần Docker). `markdownlint` sạch.
 - Chỉ verify được trên CI (máy không có Docker): `AuthIT` (IT-B10, đăng ký đến đăng xuất, khoá, `WEB`, `429`, token sai, log, khoá Redis), `BootstrapAdminIT`, `AuditRecorderIT`; build `backend/Dockerfile` và chạy `infra/compose.yaml` với profile `migrate`, `app`. Đã thử trên máy: tách lớp `-Djarmode=tools` và `JarLauncher` khởi động được; YAML Compose parse được, chưa chạy `docker compose config`.
 - Quyết định tự đưa ra:
   - Đăng ký trả `201` với hồ sơ như `/me`, không tự đăng nhập. Đăng xuất và đổi mật khẩu trả `204`, `PATCH /me` trả hồ sơ mới. Đã ghi vào `docs/07 §3`.
@@ -160,9 +160,9 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
   - Lỗi Redis khi tra phiên trả `500 INTERNAL_ERROR` cùng định dạng chung.
   - `migrate` thuộc cả profile `app`, vì Compose không khởi động phụ thuộc ở profile chưa bật. `docker compose up -d` vẫn chỉ dựng hạ tầng như lát 0.
 - Theo quy tắc làm song song: không sửa `shared/`. Ánh xạ `AccessDeniedException` nằm ở `identity.web.AccessDeniedAdvice`. `GlobalExceptionHandlerTest` thêm một `SecurityFilterChain` mở mọi đường dẫn, vì có Spring Security thì test cũ nhận `401`. `SignaApplication` loại `UserDetailsServiceAutoConfiguration` để không ghi mật khẩu sinh ngẫu nhiên ra log. Phụ thuộc thêm ở cuối khối `dependencies` kèm `// lát 1`, cấu hình ở khối `signa.identity`. Không thêm migration.
-- Việc còn lại: push, mở PR, chạy CI cho các `*IT`. `docs/06 §10` cần sửa `session:{token}` thành `session:{sha256(token)}`, `user-sessions` giữ hash, và thêm `rl:password:{userId}`. Lát này không được sửa `docs/06`.
+- Việc còn lại: push, mở PR, chạy CI cho các `*IT`. `docs/06 §10` đã sửa theo code (việc bổ sung). Sơ đồ `docs/03 §6.6` vẫn ghi `session:{token}`, chưa được phép sửa.
 - Rủi ro:
-  - IP cho giới hạn đăng nhập lấy từ `X-Forwarded-For` do `server.forward-headers-strategy: framework` của lát 0. Nếu backend mở thẳng ra ngoài, kẻ tấn công đổi header để vượt giới hạn. Lát 10 cần nginx ghi đè header này, hoặc chuyển sang `native` kèm danh sách proxy tin cậy.
+  - Đã xử lý (việc bổ sung): `server.forward-headers-strategy` chuyển từ `framework` sang `native`. Tomcat chỉ tin `X-Forwarded-For` từ proxy khớp `SIGNA_TRUSTED_PROXIES` (mặc định là dải IP riêng). Còn lại: nginx lát 10 phải ghi đè `X-Forwarded-For $remote_addr`.
   - Web quản trị coi phiên hết hạn theo `expiresAt` lúc đăng nhập (8 giờ), dù server gia hạn khi dùng.
   - Tài khoản bị khoá vẫn giữ phiên cũ cho tới khi lát 8 gọi `SessionRevoker.revokeAll`.
   - Spring Security thêm `Cache-Control: no-cache, no-store` vào response. Lát 2 cần tắt header này cho `/sign-types` nếu muốn client cache theo ETag.
