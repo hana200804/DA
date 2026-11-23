@@ -54,6 +54,7 @@ import {
 } from './reportTypes.ts';
 import {
   isReviewable,
+  normalizeReviewReason,
   type ReviewDecision,
   type ReviewDetail,
   type ReviewFilters,
@@ -540,8 +541,7 @@ export function createReviewApi(base = '/api/v1') {
           break;
         case 'reject':
         case 'remove': {
-          const reason = decision.reason.trim();
-          if (!reason) throw new Error('Vui lòng nhập lý do.');
+          const reason = normalizeReviewReason(decision.reason);
           await request(path + '/' + decision.action, token, 'POST', {
             version,
             reason,

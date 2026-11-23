@@ -26,6 +26,7 @@ import type { DemoDB, Report, Status } from './types';
 import { ReviewApiError } from './reviewApi.ts';
 import {
   isReviewable,
+  normalizeReviewReason,
   type ReviewDecision,
   type ReviewDetail,
   type ReviewFilters,
@@ -482,8 +483,9 @@ export const reviewDemo = {
       );
 
     const before = mapSnapshot(sign);
+    const reason =
+      'reason' in decision ? normalizeReviewReason(decision.reason) : undefined;
     if (decision.action === 'reject' || decision.action === 'remove') {
-      if (!decision.reason.trim()) throw new Error('Vui lòng nhập lý do.');
       sign.status = decision.action === 'reject' ? 'REJECTED' : 'REMOVED';
     } else {
       if (decision.action !== 'keep') {
@@ -507,14 +509,7 @@ export const reviewDemo = {
       keep: 'KEPT',
       remove: 'REMOVED',
     }[decision.action];
-    recordSignChange(
-      db,
-      rows,
-      sign,
-      action,
-      before,
-      'reason' in decision ? decision.reason.trim() : undefined,
-    );
+    recordSignChange(db, rows, sign, action, before, reason);
     writeDemo(db);
   },
 };
