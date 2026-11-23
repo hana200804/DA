@@ -123,7 +123,7 @@ Bộ lọc loại **782 ảnh train** có box cao hơn 25% chiều cao ảnh. L�
 | `other_warning` | 42 |
 | **Tổng** | **422** |
 
-Tệp `processed/signa-v1.1-syn.sha256` ghi hai SHA-256 của lượt dựng này.
+Tệp `processed/signa-v1.1-syn.sha256` ghi hai SHA-256 của lượt dựng này. Bản sao manifest trong Git nằm ở [manifests/v1.1-syn.csv](manifests/v1.1-syn.csv), để notebook huấn luyện đối chiếu gói trên Drive.
 
 | Tệp | SHA-256 |
 | --- | --- |
