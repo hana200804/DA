@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Images, ScanLine } from 'lucide-react';
 import { comparisonApi, isDemo } from '../api';
 import { Empty, ErrorPanel, Loading, useLoad } from '../components';
@@ -20,6 +20,7 @@ const formatPercent = (value?: number | null) =>
     : (value * 100).toFixed(2) + '%';
 
 export function ModelComparison({ token }: { token: string }) {
+  const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [src, setSrc] = useState('');
   const [result, setResult] = useState<Comparison | null>(null);
@@ -33,19 +34,37 @@ export function ModelComparison({ token }: { token: string }) {
     : [...evaluationRows, referenceEvaluation];
 
   useEffect(() => {
-    if (!file) {
-      setSrc('');
-      return;
-    }
+    if (!file) return;
+
     const url = URL.createObjectURL(file);
-    setSrc(url);
-    return () => URL.revokeObjectURL(url);
+    const preview = new Image();
+    preview.src = url;
+    let current = true;
+    void preview.decode().then(
+      () => {
+        if (current && fileInput.current?.files?.[0] === file) setSrc(url);
+      },
+      () => {
+        if (!current || fileInput.current?.files?.[0] !== file) return;
+        if (fileInput.current) fileInput.current.value = '';
+        setFile(null);
+        setError(
+          'Không thể mở ảnh. Hãy chọn một tệp JPEG, PNG hoặc WebP hợp lệ.',
+        );
+      },
+    );
+
+    return () => {
+      current = false;
+      URL.revokeObjectURL(url);
+    };
   }, [file]);
 
   function choose(event: React.ChangeEvent<HTMLInputElement>) {
     const image = event.currentTarget.files?.[0];
     setResult(null);
     setError('');
+    setSrc('');
     setFile(null);
     if (!image) return;
     try {
@@ -59,7 +78,7 @@ export function ModelComparison({ token }: { token: string }) {
 
   async function compare(event: React.FormEvent) {
     event.preventDefault();
-    if (!file || busy) return;
+    if (!file || !src || busy) return;
     setBusy(true);
     setError('');
     setResult(null);
@@ -99,6 +118,7 @@ export function ModelComparison({ token }: { token: string }) {
           <label className="field">
             Ảnh so sánh · JPEG, PNG hoặc WebP, tối đa 10 MB
             <input
+              ref={fileInput}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={choose}
@@ -108,7 +128,7 @@ export function ModelComparison({ token }: { token: string }) {
           <button
             className="button primary"
             type="submit"
-            disabled={!file || busy}
+            disabled={!file || !src || busy}
           >
             <Images size={16} /> {busy ? 'Đang so sánh…' : 'So sánh 3 mô hình'}
           </button>

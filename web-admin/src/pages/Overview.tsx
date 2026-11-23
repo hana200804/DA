@@ -298,7 +298,7 @@ export function Overview({
                   <div>
                     <h2>
                       {isDemo
-                        ? 'Nhịp đóng góp trong tuần mẫu'
+                        ? 'Nhịp đóng góp trong tuần'
                         : 'Quy trình kiểm duyệt'}
                     </h2>
                     <p>

@@ -31,7 +31,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
-import { api, isDemo, isSigna, signaSessionApi } from './api';
+import { api, isDemo, isLegacy, isSigna, signaSessionApi } from './api';
 import { Empty, Loading, Modal } from './components';
 import { errorMessage, SessionExpiredError } from './domain';
 import { DEMO_KEY } from './demo';
@@ -59,7 +59,7 @@ const menu = [
   { id: 'signs', title: 'Danh mục biển báo', icon: Signpost },
   {
     id: 'types',
-    title: isDemo || isSigna ? 'Nhóm biển báo' : 'Loại biển báo',
+    title: isLegacy ? 'Loại biển báo' : 'Nhóm biển báo',
     icon: Tags,
   },
   { id: 'map', title: 'Bản đồ biển báo', icon: MapPinned },
@@ -71,17 +71,19 @@ const menu = [
   { id: 'compare', title: 'So sánh mô hình', icon: ScanLine },
   { id: 'stats', title: 'Thống kê', icon: ChartNoAxesColumnIncreasing },
 ] as const;
-const visibleMenu = menu.filter(
-  ({ id }) =>
-    (id !== 'map' &&
-      id !== 'audit' &&
-      id !== 'accounts' &&
-      id !== 'compare' &&
-      id !== 'stats') ||
-    isDemo ||
-    isSigna,
-);
+const pagesUnavailableInLegacy: PageKey[] = [
+  'map',
+  'audit',
+  'accounts',
+  'compare',
+  'stats',
+];
+const visibleMenu = isLegacy
+  ? menu.filter(({ id }) => !pagesUnavailableInLegacy.includes(id))
+  : menu;
 const sessionKey = `visionmap.session.${isDemo ? 'demo' : isSigna ? 'signa' : 'api'}`;
+const expiredMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+
 function readStoredSession(): unknown {
   try {
     return JSON.parse(sessionStorage.getItem(sessionKey) || 'null');
@@ -162,8 +164,7 @@ function Workspace() {
     setLoginMessage(message);
   }, []);
   useEffect(() => {
-    const expired = () =>
-      endSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    const expired = () => endSession(expiredMessage);
     window.addEventListener('visionmap:expired', expired);
     return () => window.removeEventListener('visionmap:expired', expired);
   }, [endSession]);
@@ -171,8 +172,7 @@ function Workspace() {
     if (!isSigna) return;
     const stored = readStoredSession();
     if (!isCurrentSignaSession(stored)) {
-      if (stored != null)
-        endSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      if (stored != null) endSession(expiredMessage);
       setRestoring(false);
       return;
     }
@@ -196,8 +196,7 @@ function Workspace() {
     if (!isSigna || !admin?.expiresAt) return;
     const expires = Date.parse(admin.expiresAt);
     const expireIfNeeded = () => {
-      if (Date.now() >= expires)
-        endSession('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      if (Date.now() >= expires) endSession(expiredMessage);
     };
     const timer = setTimeout(
       expireIfNeeded,
@@ -236,36 +235,117 @@ function Workspace() {
       setBusy(false);
     }
   }
+  function handleLogin(user: Admin) {
+    const { sessionId, expiresAt, email } = user;
+    const session = isSigna ? { sessionId, expiresAt, email } : user;
+    sessionStorage.setItem(sessionKey, JSON.stringify(session));
+    setAdmin(user);
+    setLoginMessage('');
+    if (!location.hash || location.hash === '#main-content')
+      navigate('overview');
+    else setPage(readPage());
+  }
+
   if (restoring)
     return (
       <div className="session-loading">
         <Loading />
       </div>
     );
-  if (!admin)
-    return (
-      <Login
-        message={loginMessage}
-        onLogin={(user) => {
-          const session = isSigna
-            ? {
-                sessionId: user.sessionId,
-                expiresAt: user.expiresAt,
-                email: user.email,
-              }
-            : user;
-          sessionStorage.setItem(sessionKey, JSON.stringify(session));
-          setAdmin(user);
-          setLoginMessage('');
-          if (!location.hash || location.hash === '#main-content')
-            navigate('overview');
-          else setPage(readPage());
-        }}
-      />
-    );
+  if (!admin) return <Login message={loginMessage} onLogin={handleLogin} />;
+
   const can = (permission: string) =>
     isDemo || hasSignaPermission(admin, permission);
   const canOpen = (key: PageKey) => !isSigna || canOpenSignaPage(admin, key);
+
+  function renderPage(user: Admin) {
+    const { sessionId } = user;
+    if (!canOpen(page))
+      return (
+        <Empty
+          title="Bạn không có quyền truy cập"
+          text="Tài khoản hiện tại thiếu quyền cho màn hình này."
+        />
+      );
+
+    switch (page) {
+      case 'overview':
+        return (
+          <Overview
+            sessionId={sessionId}
+            fullName={user.fullName || user.username}
+            canResolveReports={!isSigna || can('report:resolve')}
+            navigate={navigate}
+          />
+        );
+      case 'signs':
+        return isLegacy ? (
+          <Catalog sessionId={sessionId} notify={setToast} />
+        ) : (
+          <SignaCatalog
+            token={sessionId}
+            canManage={can('catalog:manage')}
+            notify={setToast}
+          />
+        );
+      case 'types': {
+        const browseSigns = () => navigate('signs');
+        return isLegacy ? (
+          <Types sessionId={sessionId} onBrowse={browseSigns} />
+        ) : (
+          <SignaCategories
+            token={sessionId}
+            canManage={can('catalog:manage')}
+            notify={setToast}
+            onBrowse={browseSigns}
+          />
+        );
+      }
+      case 'pending':
+      case 'reports':
+        if (isLegacy)
+          return (
+            <Reviews
+              key={page}
+              sessionId={sessionId}
+              kind={page}
+              notify={setToast}
+            />
+          );
+        return page === 'pending' ? (
+          <SignReviews token={sessionId} notify={setToast} />
+        ) : (
+          <SignReports token={sessionId} notify={setToast} />
+        );
+      case 'map':
+        return (
+          <MapSigns
+            token={sessionId}
+            canReadAudit={can('audit:read')}
+            canEdit={can('sign:edit')}
+            notify={setToast}
+          />
+        );
+      case 'audit':
+        return <AuditHistory token={sessionId} />;
+      case 'stats':
+        return <StatisticsPage token={sessionId} />;
+      case 'compare':
+        return <ModelComparison token={sessionId} />;
+      case 'accounts':
+        return <Accounts admin={user} notify={setToast} />;
+      case 'users':
+        return isSigna ? (
+          <Empty
+            title="Chức năng chưa kết nối với Signa"
+            text="Bạn có thể mở mục Biển báo chờ duyệt để sử dụng luồng kiểm duyệt."
+          />
+        ) : (
+          <Contributors sessionId={sessionId} notify={setToast} />
+        );
+    }
+  }
+
   return (
     <div className="workspace">
       <a className="skip-link" href="#main-content">
@@ -330,10 +410,12 @@ function Workspace() {
             Hướng dẫn sử dụng
             <ArrowRight size={14} />
           </button>
-          <div className="connection-state">
-            <i className={isDemo ? 'demo' : ''} />
-            {isDemo ? 'Chế độ dữ liệu mẫu' : 'Kết nối qua API'}
-          </div>
+          {!isDemo && (
+            <div className="connection-state">
+              <i />
+              Kết nối qua API
+            </div>
+          )}
         </div>
       </aside>
       <div className="workspace-main">
@@ -390,11 +472,9 @@ function Workspace() {
         {isDemo && (
           <div className="demo-banner">
             <span>
-              <span className="demo-dot" />
-              <b>Bản trải nghiệm</b>
-              <span className="demo-banner-detail">
-                {' '}
-                · Dữ liệu mẫu, thay đổi được lưu trên trình duyệt này.
+              <span className="demo-dot" aria-hidden="true" />
+              <span>
+                <b>Chế độ demo</b> · Thay đổi chỉ lưu trên trình duyệt này
               </span>
             </span>
             <button onClick={() => setReset(true)}>
@@ -403,100 +483,7 @@ function Workspace() {
           </div>
         )}
         <main id="main-content" tabIndex={-1} key={version}>
-          <div className="content-wrap">
-            {!canOpen(page) ? (
-              <Empty
-                title="Bạn không có quyền truy cập"
-                text="Tài khoản hiện tại thiếu quyền cho màn hình này."
-              />
-            ) : (
-              <>
-                {page === 'overview' && (
-                  <Overview
-                    sessionId={admin.sessionId}
-                    fullName={admin.fullName || admin.username}
-                    canResolveReports={!isSigna || can('report:resolve')}
-                    navigate={navigate}
-                  />
-                )}{' '}
-                {page === 'signs' &&
-                  (isDemo || isSigna ? (
-                    <SignaCatalog
-                      token={admin.sessionId}
-                      canManage={can('catalog:manage')}
-                      notify={setToast}
-                    />
-                  ) : (
-                    <Catalog sessionId={admin.sessionId} notify={setToast} />
-                  ))}
-                {page === 'types' &&
-                  (isDemo || isSigna ? (
-                    <SignaCategories
-                      token={admin.sessionId}
-                      canManage={can('catalog:manage')}
-                      notify={setToast}
-                      onBrowse={() => navigate('signs')}
-                    />
-                  ) : (
-                    <Types
-                      sessionId={admin.sessionId}
-                      onBrowse={() => navigate('signs')}
-                    />
-                  ))}
-                {page === 'map' && (isDemo || isSigna) && (
-                  <MapSigns
-                    token={admin.sessionId}
-                    canReadAudit={can('audit:read')}
-                    canEdit={can('sign:edit')}
-                    notify={setToast}
-                  />
-                )}
-                {page === 'pending' && (isDemo || isSigna) && (
-                  <SignReviews token={admin.sessionId} notify={setToast} />
-                )}
-                {page === 'reports' && (isDemo || isSigna) && (
-                  <SignReports token={admin.sessionId} notify={setToast} />
-                )}
-                {!isDemo &&
-                  !isSigna &&
-                  (page === 'reports' || page === 'pending') && (
-                    <Reviews
-                      key={page}
-                      sessionId={admin.sessionId}
-                      kind={page}
-                      notify={setToast}
-                    />
-                  )}{' '}
-                {page === 'audit' && <AuditHistory token={admin.sessionId} />}
-                {page === 'stats' && <StatisticsPage token={admin.sessionId} />}
-                {page === 'compare' && (
-                  <ModelComparison token={admin.sessionId} />
-                )}
-                {page === 'accounts' && (
-                  <Accounts admin={admin} notify={setToast} />
-                )}
-                {page === 'users' && !isSigna && (
-                  <Contributors sessionId={admin.sessionId} notify={setToast} />
-                )}
-                {isSigna &&
-                  page !== 'map' &&
-                  page !== 'pending' &&
-                  page !== 'reports' &&
-                  page !== 'audit' &&
-                  page !== 'accounts' &&
-                  page !== 'compare' &&
-                  page !== 'stats' &&
-                  page !== 'signs' &&
-                  page !== 'types' &&
-                  page !== 'overview' && (
-                    <Empty
-                      title="Chức năng chưa kết nối với Signa"
-                      text="Bạn có thể mở mục Biển báo chờ duyệt để sử dụng luồng kiểm duyệt."
-                    />
-                  )}
-              </>
-            )}
-          </div>
+          <div className="content-wrap">{renderPage(admin)}</div>
           <footer className="site-footer">
             <span>© {new Date().getFullYear()} VisionMap</span>
             <span>
@@ -616,11 +603,12 @@ function Workspace() {
               </p>
             </div>
           </div>
-          <div className="notice">
-            {isDemo
-              ? 'Bạn đang dùng dữ liệu mẫu. Có thể thử các thao tác và đặt lại dữ liệu từ thanh thông báo.'
-              : 'Bạn đang làm việc với backend thật. Hãy kiểm tra thông tin trước khi xác nhận thay đổi.'}
-          </div>
+          {!isDemo && (
+            <div className="notice">
+              Bạn đang làm việc với backend thật. Hãy kiểm tra thông tin trước
+              khi xác nhận thay đổi.
+            </div>
+          )}
           <div className="modal-actions">
             <button className="button primary" onClick={() => setHelp(false)}>
               Đã hiểu <Check size={16} />
@@ -725,7 +713,7 @@ function Login({
           <h2>{isDemo ? 'Khám phá VisionMap' : 'Đăng nhập quản trị'}</h2>
           <p>
             {isDemo
-              ? 'Trải nghiệm các công cụ quản lý biển báo với bộ dữ liệu mẫu có sẵn.'
+              ? 'Thử các chức năng quản lý biển báo với dữ liệu mẫu.'
               : 'Đăng nhập để quản lý biển báo và kiểm duyệt đóng góp từ cộng đồng.'}
           </p>
           {message && (
@@ -735,26 +723,8 @@ function Login({
           )}
           {isDemo ? (
             <div className="demo-login-info">
-              <span className="subtle-tag">BẢN TRẢI NGHIỆM</span>
-              <h3>Sẵn sàng để bắt đầu.</h3>
-              <p>
-                Không cần tài khoản. Bạn có thể tra cứu, chỉnh sửa, xét duyệt và
-                theo dõi đóng góp.
-              </p>
-              <ul>
-                <li>
-                  <Check size={15} />
-                  Dữ liệu mẫu được lưu trên trình duyệt
-                </li>
-                <li>
-                  <Check size={15} />
-                  Đặt lại dữ liệu bất cứ lúc nào
-                </li>
-                <li>
-                  <Check size={15} />
-                  Không thay đổi dữ liệu của hệ thống thật
-                </li>
-              </ul>
+              <h3>Không cần tài khoản</h3>
+              <p>Thay đổi chỉ lưu trên trình duyệt này và có thể đặt lại.</p>
             </div>
           ) : (
             <>
@@ -818,12 +788,12 @@ function Login({
               </>
             )}
           </button>
-          <div className="login-note">
-            <ShieldCheck size={14} />
-            {isDemo
-              ? 'Dữ liệu minh họa · Không yêu cầu mật khẩu'
-              : 'Dành cho tài khoản quản trị được cấp quyền'}
-          </div>
+          {!isDemo && (
+            <div className="login-note">
+              <ShieldCheck size={14} />
+              Dành cho tài khoản quản trị được cấp quyền
+            </div>
+          )}
         </form>
         <footer>
           © {new Date().getFullYear()} VisionMap{' '}
