@@ -64,13 +64,14 @@
 
 ### Nhiệm vụ 5 · Cấu hình, lưu trữ ảnh, Compose
 
-**Tạo:** `shared/storage/ObjectStorage.java` (interface: `put(Bucket, String key, byte[] data, String contentType)`, `delete(Bucket, String key)`, `presignedGet(Bucket, String key, Duration ttl)`, `exists(Bucket, String key)`), `shared/storage/Bucket.java` (enum `SIGN_CROPS("sign-crops")`, `REPORT_PHOTOS("report-photos")`, `SIGN_ICONS("sign-icons")`), `shared/storage/MinioObjectStorage.java` (tạo bucket còn thiếu khi khởi động; `sign-icons` đọc công khai), `shared/config/SignaProperties.java`, `shared/time/ClockConfig.java`, `application.yml`, `infra/compose.yaml`, `infra/.env.example`, `src/test/java/vn/signa/ApplicationIT.java`, `shared/storage/MinioObjectStorageIT.java`.
+**Tạo:** `shared/storage/ObjectStorage.java` (interface: `put(Bucket, String key, byte[] data, String contentType)`, `delete(Bucket, String key)`, `presignedGet(Bucket, String key, Duration ttl)`, `exists(Bucket, String key)`), `shared/storage/Bucket.java` (enum `SIGN_CROPS("sign-crops")`, `REPORT_PHOTOS("report-photos")`, `SIGN_ICONS("sign-icons")`), `shared/storage/MinioObjectStorage.java` (tạo bucket còn thiếu khi khởi động qua `MinioBucketInitializer`; `sign-icons` đọc công khai; URL ký theo `signa.minio.public-endpoint`), `shared/storage/ObjectStorageException.java`, `shared/config/MigrateAndExit.java`, `application-migrate.yml`, `shared/config/SignaProperties.java`, `shared/time/ClockConfig.java`, `application.yml`, `infra/compose.yaml`, `infra/.env.example`, `src/test/java/vn/signa/ApplicationIT.java`, `shared/storage/MinioObjectStorageIT.java`, `shared/storage/MinioObjectStorageTest.java`, `shared/config/ApplicationConfigTest.java`.
 
-- [ ] Cấu hình qua biến môi trường: `SIGNA_DB_URL`, `SIGNA_DB_APP_USER/PASSWORD`, `SIGNA_DB_MIGRATOR_USER/PASSWORD`, `SIGNA_REDIS_HOST/PORT`, `SIGNA_MINIO_ENDPOINT/ACCESS_KEY/SECRET_KEY`, `SIGNA_RECOGNITION_URL`, `SIGNA_LABELS_PATH`. Log có cấu trúc `logstash` ở profile mặc định, văn bản thường ở `local`.
-- [ ] `ApplicationIT`: ứng dụng khởi động trên container; `/actuator/health` trả `UP`; `/api/v1/openapi.json` trả 200; ba bucket tồn tại sau khởi động.
-- [ ] `MinioObjectStorageIT`: `put` rồi `presignedGet` đọc được; không chữ ký thì `sign-crops` trả 403.
-- [ ] `compose.yaml`: `mysql` (8.4, mount `infra/mysql/init`), `redis` (7.4), `minio`, healthcheck cho cả ba; cổng chỉ bind `127.0.0.1`.
-- [ ] Commit.
+- [x] Cấu hình qua biến môi trường: `SIGNA_DB_URL`, `SIGNA_DB_APP_USER/PASSWORD`, `SIGNA_DB_MIGRATOR_USER/PASSWORD` (chỉ profile `migrate`), `SIGNA_REDIS_HOST/PORT`, `SIGNA_MINIO_ENDPOINT/ACCESS_KEY/SECRET_KEY`, `SIGNA_RECOGNITION_URL`, `SIGNA_LABELS_PATH`. Log có cấu trúc `logstash` ở profile mặc định, văn bản thường ở `local`.
+- [x] Tách migrator khỏi backend chạy lâu dài (rà soát bảo mật): mặc định `spring.flyway.enabled: ${SIGNA_MIGRATE:false}`, không có user/password migrator; profile `migrate` bật Flyway, `web-application-type: none`, `MigrateAndExit` thoát sau khi migrate; test IT bật Flyway qua `@DynamicPropertySource`; `ApplicationConfigTest` chứng minh mặc định tắt.
+- [x] `ApplicationIT`: ứng dụng khởi động trên container; `/actuator/health` trả `UP`; `/api/v1/openapi.json` trả 200; ba bucket tồn tại sau khởi động. Chỉ compile trên máy, chạy trên CI.
+- [x] `MinioObjectStorageIT`: `put` rồi `presignedGet` đọc được; không chữ ký thì `sign-crops`, `report-photos` trả 403; `sign-icons` đọc công khai. Chỉ compile trên máy, chạy trên CI. Unit test `MinioObjectStorageTest` chứng minh ký URL theo `public-endpoint` không gọi mạng.
+- [x] `compose.yaml`: `mysql` (8.4, mount `infra/mysql/init`), `redis` (7.4), `minio`, healthcheck cho cả ba; cổng chỉ bind `127.0.0.1`. MinIO dùng `pgsty/minio` vì ảnh `minio/minio` không còn công khai. Chưa chạy `docker compose config` (máy không có Docker).
+- [x] Commit.
 
 ### Nhiệm vụ 6 · CI và README
 
