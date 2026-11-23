@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: signa-backend
+  datasource:
+    url: ${SIGNA_DB_URL:jdbc:mysql://localhost:3306/signa?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${SIGNA_DB_APP_USER:signa_app}
+    password: ${SIGNA_DB_APP_PASSWORD:}
+  flyway:
+    user: ${SIGNA_DB_MIGRATOR_USER:signa_migrator}
+    password: ${SIGNA_DB_MIGRATOR_PASSWORD:}
+    placeholders:
+      app_user: "'${spring.datasource.username}'@'%'"
+  data:
+    redis:
+      host: ${SIGNA_REDIS_HOST:localhost}
+      port: ${SIGNA_REDIS_PORT:6379}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${SIGNA_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+
+springdoc:
+  api-docs:
+    path: /api/v1/openapi.json
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: logstash
+
+signa:
+  minio:
+    endpoint: ${SIGNA_MINIO_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${SIGNA_MINIO_PUBLIC_ENDPOINT:http://localhost:9000}
+    access-key: ${SIGNA_MINIO_ACCESS_KEY:}
+    secret-key: ${SIGNA_MINIO_SECRET_KEY:}
+    region: us-east-1
+  recognition:
+    url: ${SIGNA_RECOGNITION_URL:http://localhost:8000}
+  labels-path: ${SIGNA_LABELS_PATH:../ai/data/labels.yaml}
