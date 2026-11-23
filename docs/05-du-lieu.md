@@ -161,6 +161,8 @@ Cùng một danh sách cho cả ba mô hình. Mỗi bộ công cụ cấu hình 
 4. Tối đa 30% số box của mỗi lớp trong train; không bao giờ có trong val, test, tập thực địa.
 5. Thí nghiệm có / không có dữ liệu tổng hợp được báo cáo riêng trên recall lớp hiếm.
 
+v1.1-syn tạm dùng ảnh train v1.1 làm nền do chưa có video thực địa. Báo cáo so sánh có và không có dữ liệu tổng hợp phải nêu số box thật được chép thêm từ ảnh nền theo từng lớp. [Cách dựng v1.1-syn](../ai/data/README.md#bộ-dữ-liệu-tổng-hợp-v11-syn)
+
 ## 8. Mất cân bằng lớp
 
 - Gộp mã quá hiếm vào `other_<nhóm>` (§2).

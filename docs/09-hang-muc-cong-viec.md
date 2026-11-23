@@ -70,7 +70,7 @@ Cuối tuần 12 **đóng băng tính năng**.
 - [ ] Kiểm soát chất lượng nhãn bằng hai người gán độc lập. [Quy tắc QC](05-du-lieu.md#kiểm-soát-chất-lượng)
 - [ ] Video thực địa ngày, đêm, mưa kèm GPS và nhãn chuẩn của tuyến
 - [ ] Tập thực địa đã gán nhãn
-- [ ] Dữ liệu tổng hợp cho lớp hiếm
+- [ ] Dữ liệu tổng hợp cho lớp hiếm (đã có công cụ sinh, chờ thí nghiệm có/không trên Colab). [Cách dựng v1.1-syn](../ai/data/README.md#bộ-dữ-liệu-tổng-hợp-v11-syn)
 - [x] [Script kiểm tra dữ liệu, chuyển YOLO ↔ COCO, sinh manifest có hash](../ai/data/README.md)
 
 **Hoàn thành khi:** dữ liệu có manifest và chia tập cố định. Xác nhận giấy phép, hoàn tất QC và lập thống kê dữ liệu.

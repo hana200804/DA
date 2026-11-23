@@ -6,6 +6,10 @@
 - Trang bản lọc trùng khai báo CC BY 4.0. Trang bản VQA ghi giấy phép nguồn ảnh là CC BY-SA 4.0. Signa lưu ghi công và áp dụng điều kiện CC BY-SA 4.0 cho ảnh và nhãn VNTS đã sửa khi chia sẻ. Q3 cần xác nhận lại giấy phép trên trang Kaggle gốc trước khi phát hành dữ liệu chính thức. [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 - Signa trích mỗi ảnh một lần từ Parquet, chuyển khung sang YOLO và COCO, đổi mã có ánh xạ rõ ràng và giữ tập test đã chọn của bên phát hành. Các thay đổi nằm ở [quy trình dữ liệu](../README.md).
 
+## Hình vẽ biển báo từ Wikimedia Commons
+
+v1.1-syn dùng 12 hình vẽ CC BY-SA 4.0 từ Wikimedia Commons. Ảnh tổng hợp là tác phẩm phái sinh và phải được chia sẻ theo CC BY-SA 4.0. [Tác giả và tệp nguồn](../synthetic/templates.csv) · [Điều khoản CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+
 ## Ứng viên mở rộng
 
 | Nguồn | Bằng chứng và phần cần kiểm tra |

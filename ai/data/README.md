@@ -9,6 +9,7 @@
 | `reviews/` | Bảng rà nhãn thủ công, ví dụ biến thể `W.207` của VN82 | Có |
 | `manifests/` | Manifest `vX.Y.csv` có SHA-256 từng ảnh | Có |
 | `templates/` | Mẫu CSV thu dữ liệu thực địa | Có |
+| [`synthetic/templates.csv`](synthetic/templates.csv) | Nguồn, giấy phép và SHA-256 của hình vẽ biển báo | Có |
 | `raw/` | Tệp tải về, giữ nguyên | Không |
 | `processed/` | Bộ đã xuất YOLO và COCO, dựng lại được từ `raw/` | Không |
 
@@ -36,6 +37,100 @@ uv run --no-sync python scripts/prepare_vn82_v1.py \
 ```
 
 Trên Colab, làm theo [hướng dẫn VN82](sources/vn82.md#bắt-đầu-trên-colab) với `signa-v1.1.zip` và thư mục `/content/v1.1`.
+
+## Bộ dữ liệu tổng hợp v1.1-syn
+
+Công cụ AI-07 chạy trên CPU với Pillow và NumPy. Mặc định, lớp hiếm có **dưới 150 box** trong `train.by_class` của `processed/v1.1/stats.json` và nằm ngoài nhóm mã `other_*`. Tùy chọn `--threshold` nhận ngưỡng cho cả bước tải hình vẽ và bước sinh.
+
+| Mã lớp hiếm | Box thật trong train v1.1 | Box dán với seed 0 | Giới hạn box dán |
+| --- | ---: | ---: | ---: |
+| `I.409` | 148 | 63 | 63 |
+| `P.104` | 110 | 47 | 47 |
+| `P.123a` | 142 | 60 | 60 |
+| `P.124a` | 144 | 61 | 61 |
+| `P.124d` | 109 | 46 | 46 |
+| `P.135` | 133 | 57 | 57 |
+| `R.420` | 115 | 49 | 49 |
+| `W.203a` | 104 | 44 | 44 |
+| `W.203c` | 121 | 51 | 51 |
+| `W.208` | 107 | 45 | 45 |
+| `W.220` | 113 | 48 | 48 |
+| `W.239b` | 111 | 47 | 47 |
+
+Mỗi lớp nhận tối đa `floor(box thật × 3 / 7)` box dán, tương ứng 30% tổng box thật và box dán. Ảnh tổng hợp giữ nhãn của nền. Thẻ `synthetic_boxes=1` trong `tags` đánh dấu box cuối là biển dán. Các box chép từ nền vẫn có trong YOLO và COCO, còn quota dựa trên số box từ train v1.1 gốc.
+
+Script lấy PNG do Wikimedia Commons render từ SVG biển báo Việt Nam theo QCVN 41. API `imageinfo` cung cấp URL và `extmetadata` cung cấp thông tin ghi công. Công cụ chấp nhận PD, CC0, CC BY và CC BY-SA, ghi lý do loại tệp ra stderr. Cả 12 mã trên có hình vẽ, với giấy phép CC BY-SA 4.0 và tác giả ghi là Government of Vietnam. `P.124a` dùng biến thể cấm quay đầu sang trái `P124a1`. Bảng CSV ghi tên tệp Commons và SHA-256 của từng PNG. Các PNG chỉ lưu trong `processed/synthetic-templates/`. [Bảng nguồn](synthetic/templates.csv) · [SVG của P.124a](https://commons.wikimedia.org/wiki/File:Vietnam_road_sign_P124a1.svg) · [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+
+Do chưa có video thực địa, v1.1-syn chỉ dùng ảnh train v1.1 làm nền. Công cụ ưu tiên ảnh 0 box rồi đến ảnh 1 box và dùng mỗi ảnh nền tối đa một lần. Tùy chọn `--max-background-box-height` mặc định là `0.25`, loại ảnh có box gốc cao hơn 25% chiều cao ảnh. Công cụ lấy `sequence` từ manifest, đặt biển vào hai bên ở nửa trên ảnh, tránh dải đen đóng khung và chừa lề quanh box gốc.
+
+Biển được biến đổi phối cảnh nhẹ, xoay tối đa 10°, có chiều cao 16–200 px, thay đổi sáng và tương phản, làm nhoè, thêm nhiễu và có thể bị che một phần. Để giảm chênh lệch độ nét với ảnh nền, công cụ thu nhỏ biển theo hệ số ngẫu nhiên 0,45–0,75 rồi phóng lại trước khi thêm nhiễu. Biển giữ hướng và sắc độ.
+
+Chạy từ thư mục `ai/` sau khi đã dựng v1.1:
+
+```sh
+uv run --extra data python scripts/download_synthetic_templates.py
+uv run --extra data python -m signa_ai.synthetic generate --seed 0
+uv run --extra data python -m signa_ai.synthetic package
+(cd data/processed && sha256sum -c signa-v1.1-syn.sha256)
+```
+
+Dùng cùng ảnh nguồn, hình vẽ, phiên bản Pillow và NumPy, tham số và seed để tái tạo từng byte của ảnh, nhãn và CSV sinh ra. Dùng `generate --backgrounds <thư-mục>` khi có khung hình đã xác nhận không có biển từ video dành riêng cho train. Xếp ảnh theo `<thư-mục>/<sequence>/<tên-ảnh>` và dùng mã chuỗi tuyến đã chốt cho tập train. Công cụ đối chiếu chuỗi và SHA-256 với val, test và field của manifest gốc.
+
+`generate` ghi ảnh, nhãn, `intake.csv` và `generation.json` vào `processed/v1.1-syn-intake/`. `package` ghép với v1.1 qua pipeline YOLO/COCO, sao chép từng byte ảnh, nhãn YOLO và JSON COCO của val, test và field. Tệp `ATTRIBUTION.md` trong gói ghi công 12 hình vẽ từ Commons và điều khoản chia sẻ tác phẩm phái sinh. Cấu hình YOLO trong gói có đường dẫn tuyệt đối như v1.1.
+
+### Kết quả seed 0
+
+Bộ lọc loại **782 ảnh train** có box cao hơn 25% chiều cao ảnh. Lượt này dùng **196 nền 0 box** và **422 nền 1 box** để tạo **618 ảnh tổng hợp**. Train có **7.297 ảnh và 14.323 box**, gồm 13.283 box gốc, 618 box dán và **422 box thật chép thêm**. So sánh có và không có dữ liệu tổng hợp phải nêu số box thật chép thêm theo từng lớp vì việc lặp lại nhãn thật cũng có thể ảnh hưởng kết quả.
+
+| Mã lớp | Box thật chép thêm |
+| --- | ---: |
+| `I.407a` | 4 |
+| `I.409` | 25 |
+| `I.423` | 2 |
+| `I.434a` | 1 |
+| `P.103a` | 12 |
+| `P.103c` | 8 |
+| `P.104` | 6 |
+| `P.105` | 1 |
+| `P.106a` | 5 |
+| `P.123a` | 18 |
+| `P.123b` | 6 |
+| `P.124c` | 2 |
+| `P.127_50` | 2 |
+| `P.127_80` | 10 |
+| `P.130` | 16 |
+| `P.131a` | 19 |
+| `P.135` | 4 |
+| `P.137` | 10 |
+| `R.303` | 6 |
+| `R.415a` | 1 |
+| `R.420` | 17 |
+| `W.201a` | 7 |
+| `W.202` | 2 |
+| `W.203a` | 8 |
+| `W.203c` | 9 |
+| `W.207` | 7 |
+| `W.208` | 2 |
+| `W.210` | 23 |
+| `W.220` | 15 |
+| `W.224` | 2 |
+| `W.225` | 9 |
+| `W.239b` | 1 |
+| `W.245a` | 11 |
+| `other_indication` | 1 |
+| `other_mandatory` | 31 |
+| `other_prohibitory` | 77 |
+| `other_warning` | 42 |
+| **Tổng** | **422** |
+
+Tệp `processed/signa-v1.1-syn.sha256` ghi hai SHA-256 của lượt dựng này.
+
+| Tệp | SHA-256 |
+| --- | --- |
+| `signa-v1.1-syn.zip` | `49e086b85446db1006d25c3824f6a72449cd93d98854c62408529b4439a7fcba` |
+| `v1.1-syn/manifest.csv` | `24d86e904f38fd6860c85c7fe69b9414355105b157e0b5d22e9c0d467398f1cb` |
+
+`processed/v1.1-syn/preview/` chứa 6 ảnh xem mẫu có box vẽ sẵn, với màu xanh cho biển dán và màu vàng cho box gốc.
 
 ## Bộ chạy thử v0.1
 
