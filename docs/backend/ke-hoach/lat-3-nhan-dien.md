@@ -71,11 +71,11 @@
 
 **Tạo:** `src/test/java/vn/signa/recognition/RecognitionIT.java`.
 
-- [ ] IT-B08: dịch vụ giả trả chậm 6 giây → `503 RECOGNITION_UNAVAILABLE` sau khoảng 5 giây.
-- [ ] IT-B09: sau khi nhận diện, không bucket MinIO nào có object mới.
-- [ ] IT-B13: ảnh 2560×1920 → dịch vụ giả nhận ảnh 1280×960, box trả về đúng toạ độ ảnh gốc, `image` là 2560×1920.
-- [ ] `429` ở lần thứ 31 từ cùng IP; `415` với file text đặt tên `.jpg`.
-- [ ] Chỉ compile trên máy, chạy trên CI. Commit.
+- [x] IT-B08: dịch vụ giả trả chậm 6 giây → `503 RECOGNITION_UNAVAILABLE` sau khoảng 5 giây.
+- [x] IT-B09: sau khi nhận diện, không bucket MinIO nào có object mới.
+- [x] IT-B13: ảnh 2560×1920 → dịch vụ giả nhận ảnh 1280×960, box trả về đúng toạ độ ảnh gốc, `image` là 2560×1920.
+- [x] `429` ở lần thứ 31 từ cùng IP; `415` với file text đặt tên `.jpg`.
+- [x] Chỉ compile trên máy, chạy trên CI. Commit.
 
 ## Phần 2 · Sau khi merge lát 1 và lát 2
 
@@ -87,4 +87,22 @@
 
 Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
 
-**2026-11-23.** Đã viết kế hoạch, chưa bắt đầu mã.
+**2026-11-23.** Phần 1 (NV1–NV5) đã commit trên `backend/3-recognition`, chưa push.
+
+- Trên máy: `./gradlew spotlessCheck test compileTestJava` thành công, 61/61 unit test đạt, trong đó 41 test mới của lát 3 (`ImageFormatTest` 4, `ImageProcessorTest` 8, `RecognitionClientTest` 12, `RateLimitTest` 7, `RecognitionControllerTest` 10). `markdownlint` sạch.
+- Đã thử tay (test tạm, không commit) `RecognitionClient` thật với WireMock: dịch vụ chậm 6 giây thì lỗi sau 5011 ms; địa chỉ không phản hồi thì lỗi sau 1002 ms; ảnh 2560×1920 tới dịch vụ là JPEG 1280×960.
+- Chỉ verify được trên CI (máy không có Docker): `RecognitionIT` gồm IT-B08, IT-B09, IT-B13, `429` ở lần thứ 31, `415`, truyền `X-Request-Id` khi gọi `/v1/models`; Lua script giới hạn tần suất chạy trên Redis thật.
+- Quyết định:
+  - Giới hạn 10 000 000 byte và 25 triệu pixel, bằng đúng dịch vụ.
+  - `model` chỉ nhận `yolov5`, `yolov8`, `detr`, không nhận `modelVersion` dù dịch vụ có nhận.
+  - Ảnh có cạnh dài ≤ 1280 px được gửi nguyên byte.
+  - Lỗi `5xx` nào của dịch vụ cũng thành `503`; `400`, `413`, `415` giữ nguyên ý nghĩa.
+  - Box trả số thực, không làm tròn.
+  - Redis lỗi thì cho qua (fail-open).
+  - Cấu hình riêng nằm ở `RecognitionProperties` với giá trị mặc định trong mã, không sửa `application.yml`.
+- Nối ở phần 2: `AnonymousCallerIdentity` (luôn khách) thay bằng principal của lát 1; `NoSignInfoLookup` (`name`, `description`, `iconUrl` luôn `null`) thay bằng `catalog.api.SignCatalog` của lát 2.
+- Rủi ro, cần người điều phối quyết vì nằm ở file dùng chung:
+  - `spring.servlet.multipart.file-size-threshold` mặc định 0 nên Tomcat ghi file multipart tạm ra đĩa trong lúc xử lý request. Nên đặt `11MB` trong `application.yml` để ảnh nhận diện chỉ nằm trong bộ nhớ (NFR-09).
+  - `forward-headers-strategy: framework` lấy IP từ giá trị đầu của `X-Forwarded-For`, nên khách tự đặt header này để vượt giới hạn 30 lần mỗi phút. nginx (lát 10) phải ghi đè `X-Forwarded-For $remote_addr`, và cổng backend không được mở ra ngoài.
+  - Backend giải mã và mã hoá lại ảnh lớn nên bỏ thẻ EXIF Orientation. Ứng dụng đã chuẩn hoá hướng theo docs/07 §5 thì không sao. Ảnh nhỏ gửi nguyên còn thẻ thì dịch vụ xoay, box tính theo ảnh đã xoay trong khi `image` là kích thước chưa xoay.
+  - JPEG CMYK lớn hơn 1280 px có thể không giải mã được bằng ImageIO chuẩn và trả `415`; khi cần thì thêm `imageio-jpeg` của TwelveMonkeys.
