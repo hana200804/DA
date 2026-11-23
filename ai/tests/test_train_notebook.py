@@ -81,6 +81,7 @@ def load_main_notebook(version):
             "NOTEBOOK_COMMIT": None,
             "GPU": "fake",
             "IMGSZ": 640,
+            "DATASET_VERSION": "v1.1",
             "label_map": SimpleNamespace(version=1),
         },
     )
@@ -126,7 +127,7 @@ def load_yolov8_main(imgsz, **extra):
     return functions
 
 
-SETTINGS = {"IMGSZ", "SIZES", "MAIN_BATCH", "BATCH"}
+SETTINGS = {"IMGSZ", "SIZES", "MAIN_BATCH", "BATCH", "DATASET_VERSION"}
 
 
 def yolov8_settings(environ):
@@ -150,17 +151,35 @@ def yolov8_settings(environ):
 
 
 def test_yolov8_defaults_keep_main_run():
-    assert yolov8_settings({}) == {"IMGSZ": 640, "SIZES": ["n", "s"], "MAIN_BATCH": 16, "BATCH": 16}
+    assert yolov8_settings({}) == {
+        "IMGSZ": 640, "SIZES": ["n", "s"], "MAIN_BATCH": 16, "BATCH": 16,
+        "DATASET_VERSION": "v1.1",
+    }
 
 
 def test_yolov8_settings_from_environment():
     settings = yolov8_settings({"SIGNA_IMGSZ": "960", "SIGNA_SIZES": "s"})
-    assert settings == {"IMGSZ": 960, "SIZES": ["s"], "MAIN_BATCH": 16, "BATCH": 16}
+    assert settings == {
+        "IMGSZ": 960, "SIZES": ["s"], "MAIN_BATCH": 16, "BATCH": 16, "DATASET_VERSION": "v1.1",
+    }
     assert yolov8_settings({"SIGNA_SIZES": " n , s "})["SIZES"] == ["n", "s"]
     assert yolov8_settings({"SIGNA_BATCH": "8"})["BATCH"] == 8
+    synthetic = {"SIGNA_DATASET_VERSION": "v1.1-syn", "SIGNA_SIZES": "n", "SIGNA_IMGSZ": "640"}
+    assert yolov8_settings(synthetic) == {
+        "IMGSZ": 640, "SIZES": ["n"], "MAIN_BATCH": 16, "BATCH": 16,
+        "DATASET_VERSION": "v1.1-syn",
+    }
 
 
-@pytest.mark.parametrize("environ", [{"SIGNA_IMGSZ": "1000"}, {"SIGNA_SIZES": "m"}])
+@pytest.mark.parametrize(
+    "environ",
+    [
+        {"SIGNA_IMGSZ": "1000"},
+        {"SIGNA_SIZES": "m"},
+        {"SIGNA_DATASET_VERSION": "v1.2"},
+        {"SIGNA_DATASET_VERSION": "v1.1-syn/"},
+    ],
+)
 def test_yolov8_settings_reject_invalid(environ):
     with pytest.raises(AssertionError):
         yolov8_settings(environ)
@@ -177,6 +196,24 @@ def test_yolov8_640_reproduces_main_config(size):
 
     assert config == committed
     assert "batch_note" not in config
+
+
+def test_yolov8_synthetic_changes_only_dataset_version():
+    baseline = load_yolov8_main(640)
+    synthetic = load_yolov8_main(640, DATASET_VERSION="v1.1-syn")
+    assert synthetic["run_name"]("n") == "yolov8n-640-v1.1-syn-main-s0"
+    committed = yaml.safe_load(
+        (AI_ROOT / "experiments" / "yolov8n-640-v1.1-main-s0" / "config.yaml").read_text()
+    )
+
+    config = synthetic["run_config"](synthetic["train_args"]("n"))
+
+    assert config["dataset_version"] == "v1.1-syn"
+    assert config["name"] == "yolov8n-640-v1.1-syn-main-s0"
+    differences = {key for key in committed if committed[key] != config[key]}
+    assert differences == {"dataset_version", "name"}
+    assert config.keys() == committed.keys()
+    assert baseline["run_config"](baseline["train_args"]("n")) == committed
 
 
 def test_yolov8_960_names_run_and_records_imgsz():
@@ -201,13 +238,15 @@ def test_yolov8_smaller_batch_is_noted():
     assert "16" in config["batch_note"] and "8" in config["batch_note"]
 
 
-def test_yolov8_meta_and_export_config_record_imgsz(tmp_path):
+@pytest.mark.parametrize("dataset_version", ["v1.1", "v1.1-syn"])
+def test_yolov8_meta_and_export_config_record_imgsz(tmp_path, dataset_version):
     def fake_evaluate(*args):
         out = Path(args[args.index("--out") + 1])
-        out.write_text(json.dumps({"mAP50": 0.5}))
+        out.write_text(json.dumps({"label_map_version": 1, "map_50": 0.5}))
 
     functions = load_yolov8_main(
         960,
+        DATASET_VERSION=dataset_version,
         hashlib=hashlib,
         sh=Mock(side_effect=fake_evaluate),
         sys=SimpleNamespace(executable="python"),
@@ -223,10 +262,97 @@ def test_yolov8_meta_and_export_config_record_imgsz(tmp_path):
 
     functions["write_predictions_and_evaluate"](tmp_path, best, lambda truth: [])
 
-    assert json.loads((tmp_path / "meta.json").read_text())["imgsz"] == 960
+    meta = json.loads((tmp_path / "meta.json").read_text())
+    assert meta["imgsz"] == 960 and meta["dataset_version"] == dataset_version
     export = json.loads((tmp_path / "evaluation" / "export-config.json").read_text())
-    assert export["imgsz"] == 960
+    assert export["imgsz"] == 960 and export["datasetVersion"] == dataset_version
     assert export["weights_sha256"] == hashlib.sha256(b"weights").hexdigest()
+    metrics = json.loads((tmp_path / "metrics.json").read_text())
+    assert metrics == {"dataset_version": dataset_version, "label_map_version": 1, "map_50": 0.5}
+
+
+MANIFESTS = AI_ROOT / "data" / "manifests"
+
+
+@pytest.mark.parametrize("version", ["v1.1", "v1.1-syn"])
+def test_yolov8_manifest_matches_git_copy(version):
+    check = load_main_notebook("v8")["check_manifest"]
+    check(MANIFESTS / f"{version}.csv", MANIFESTS, version)
+    other = "v1.1" if version == "v1.1-syn" else "v1.1-syn"
+    with pytest.raises(AssertionError, match="lệch"):
+        check(MANIFESTS / f"{other}.csv", MANIFESTS, version)
+
+
+def read_manifest(path):
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return reader.fieldnames, list(reader)
+
+
+def write_manifest(path, fields, rows):
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fields, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def tampered_manifests(tmp_path, change):
+    """Bản sao hai manifest trong Git sau khi `change(syn, base)` sửa dòng.
+
+    Gói trên Drive được coi là trùng bản sao v1.1-syn, nên chỉ còn các phép kiểm nội dung.
+    """
+    manifests = tmp_path / "manifests"
+    manifests.mkdir(parents=True)
+    fields, synthetic = read_manifest(MANIFESTS / "v1.1-syn.csv")
+    base_fields, base = read_manifest(MANIFESTS / "v1.1.csv")
+    change(synthetic, base)
+    write_manifest(manifests / "v1.1-syn.csv", fields, synthetic)
+    write_manifest(manifests / "v1.1.csv", base_fields, base)
+    return manifests
+
+
+def change_val_sha(rows, base):
+    next(row for row in rows if row["split"] == "val")["sha256"] = "0" * 64
+
+
+def drop_test_row(rows, base):
+    rows.remove(next(row for row in rows if row["split"] == "test"))
+
+
+def move_synthetic_to_val(rows, base):
+    next(row for row in rows if row["source"] == "synthetic")["split"] = "val"
+
+
+def move_synthetic_to_both_field(rows, base):
+    """Ảnh tổng hợp nằm ở field của cả hai manifest: val/test/field vẫn trùng nhau."""
+    row = next(row for row in rows if row["source"] == "synthetic")
+    row["split"] = "field"
+    train = sum(row["split"] == "train" for row in base)
+    base.insert(train, dict(row))
+
+
+def drop_synthetic(rows, base):
+    rows[:] = [row for row in rows if row["source"] != "synthetic"]
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (change_val_sha, "trùng hệt"),
+        (drop_test_row, "trùng hệt"),
+        (move_synthetic_to_val, "trùng hệt"),
+        (move_synthetic_to_both_field, "phải thuộc train"),
+        (drop_synthetic, "phải thuộc train"),
+    ],
+)
+def test_yolov8_synthetic_manifest_keeps_held_out_splits(tmp_path, change, message):
+    check = load_main_notebook("v8")["check_manifest"]
+    manifests = tampered_manifests(tmp_path / "copy", lambda rows, base: None)
+    check(manifests / "v1.1-syn.csv", manifests, "v1.1-syn")
+
+    manifests = tampered_manifests(tmp_path / "changed", change)
+    with pytest.raises(AssertionError, match=message):
+        check(manifests / "v1.1-syn.csv", manifests, "v1.1-syn")
 
 
 @pytest.mark.parametrize("size", ["n", "s"])
