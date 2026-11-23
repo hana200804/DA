@@ -62,7 +62,10 @@ function iconSource(url?: string | null) {
 
 export function SignaCatalog({ token, canManage, notify }: Props) {
   const categories = useLoad(() => catalogApi.catalogCategories(), [token]);
-  const result = useLoad(() => catalogApi.catalogTypes(), [token]);
+  const result = useLoad(
+    () => catalogApi.catalogTypes(canManage ? token : undefined),
+    [token, canManage],
+  );
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');

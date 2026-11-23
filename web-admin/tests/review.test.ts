@@ -204,57 +204,48 @@ test('từ chối và gỡ đều yêu cầu lý do', async () => {
   );
 });
 
-test('sửa biển đang rà soát đọc phiên bản mới trước khi giữ biển', async () => {
+test('FR-31 sửa và giữ biển đang rà soát bằng một POST /keep', async () => {
+  const location = { lat: 21.03, lng: 105.81 };
   await mockFetch(
-    [
-      new Response(null, { status: 204 }),
-      Response.json({ ...underReview, version: 8 }),
-      new Response(null, { status: 204 }),
-    ],
+    [new Response(null, { status: 204 }), new Response(null, { status: 204 })],
     async (calls) => {
       await api.decide('token', underReview, {
         action: 'edit',
         signTypeCode: 'P.127_50',
+        location,
       });
-      assert.deepEqual(
-        calls.map(({ path, method, body }) => ({ path, method, body })),
-        [
-          {
-            path: '/api/v1/admin/signs/sign-1',
-            method: 'PATCH',
-            body: { version: 7, signTypeCode: 'P.127_50' },
-          },
-          {
-            path: '/api/v1/admin/signs/sign-1',
-            method: 'GET',
-            body: undefined,
-          },
-          {
-            path: '/api/v1/admin/signs/sign-1/keep',
-            method: 'POST',
-            body: { version: 8 },
-          },
-        ],
-      );
+      await api.decide('token', underReview, { action: 'keep' });
+      assert.deepEqual(calls, [
+        {
+          path: '/api/v1/admin/signs/sign-1/keep',
+          method: 'POST',
+          auth: 'Bearer token',
+          body: { version: 7, signTypeCode: 'P.127_50', location },
+        },
+        {
+          path: '/api/v1/admin/signs/sign-1/keep',
+          method: 'POST',
+          auth: 'Bearer token',
+          body: { version: 7 },
+        },
+      ]);
     },
   );
 });
 
-test('thay đổi đồng thời sau PATCH chặn bước giữ biển', async () => {
+test('FR-31 trả lỗi xung đột từ /keep và không gửi thêm yêu cầu ghi', async () => {
   await mockFetch(
-    [
-      new Response(null, { status: 204 }),
-      Response.json({ ...underReview, version: 9 }),
-    ],
+    [Response.json({ code: 'SIGN_ALREADY_PROCESSED' }, { status: 409 })],
     async (calls) => {
       await assert.rejects(
         api.decide('token', underReview, {
           action: 'edit',
           signTypeCode: 'P.127_50',
         }),
-        { code: 'SIGN_ALREADY_PROCESSED' },
+        { status: 409, code: 'SIGN_ALREADY_PROCESSED' },
       );
-      assert.equal(calls.length, 2);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].path, '/api/v1/admin/signs/sign-1/keep');
     },
   );
 });
@@ -820,6 +811,38 @@ const typeInput = {
   speedKmh: 60,
   active: true,
 };
+
+test('FR-35 danh mục quản trị trả cả loại đã ngừng dùng, tra cứu vẫn công khai', async () => {
+  const active = { code: 'P.127_60', recognizable: true, ...typeInput };
+  const inactive = { ...active, code: 'P.127_50', active: false };
+  await mockFetch(
+    [
+      Response.json({ items: [active, inactive] }),
+      Response.json({ items: [active] }),
+    ],
+    async (calls) => {
+      assert.deepEqual(await api.catalogTypes('admin-token'), [
+        active,
+        inactive,
+      ]);
+      assert.deepEqual(await api.catalogTypes(), [active]);
+      assert.deepEqual(calls, [
+        {
+          path: '/api/v1/admin/sign-types',
+          method: 'GET',
+          auth: 'Bearer admin-token',
+          body: undefined,
+        },
+        {
+          path: '/api/v1/sign-types',
+          method: 'GET',
+          auth: null,
+          body: undefined,
+        },
+      ]);
+    },
+  );
+});
 
 test('FR-35 dùng POST và PATCH cho nhóm biển, chuẩn hóa mã nhóm', async () => {
   await mockFetch(

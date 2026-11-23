@@ -259,11 +259,6 @@ function ReviewDialog({
         refreshQueue();
       } else {
         setMessage(errorMessage(error));
-        // A PATCH may have succeeded before a later confirmation failed.
-        if (decision.action === 'edit') {
-          detail.refresh();
-          refreshQueue();
-        }
       }
     } finally {
       setBusy(false);
