@@ -77,10 +77,17 @@
 
 **Tạo:** `.github/workflows/backend.yml`, `backend/README.md`.
 
-- [ ] Workflow chạy khi PR đụng `backend/**`, `infra/**`, workflow này: JDK 21 Temurin, `./gradlew spotlessCheck test integrationTest jacocoTestReport`, tải báo cáo test khi fail; job `gitleaks`.
-- [ ] README: yêu cầu, cách chạy `test`/`integrationTest`, `docker compose -f infra/compose.yaml up -d`, biến môi trường, phiên bản đã chọn.
-- [ ] `./gradlew spotlessApply test` sạch; markdownlint sạch; commit; push; CI xanh.
+- [x] Workflow chạy khi PR đụng `backend/**`, `infra/**`, workflow này: JDK 21 Temurin, `./gradlew spotlessCheck test integrationTest jacocoTestReport`, tải báo cáo test khi fail; job `gitleaks` (8.30.1, kiểm SHA-256, chỉ quét commit của PR hoặc lần push vì lịch sử cũ có một fixture MD5 trong `web-admin` bị báo nhầm). `actionlint` sạch.
+- [x] README: yêu cầu, cách chạy `test`/`integrationTest`, `docker compose -f infra/compose.yaml up -d`, biến môi trường, phiên bản đã chọn.
+- [ ] `./gradlew spotlessApply test` sạch; markdownlint sạch; commit; push; CI xanh. Đã xong tới commit; chưa push vì chưa được phép thao tác GitHub.
 
 ## Tiến độ
 
 Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
+
+**2026-11-23.** NV1–NV6 đã commit trên `backend/0-scaffold`, chưa push.
+
+- Trên máy: `./gradlew spotlessCheck test compileTestJava` thành công, 20/20 unit test đạt (kiến trúc 5, lỗi chung và `X-Request-Id` 9, cấu hình 2, lưu ảnh 4). `markdownlint`, `actionlint` sạch; gitleaks không thấy bí mật trong các commit của nhánh.
+- Chỉ verify được trên CI (máy không có Docker): `SchemaIT`, `ApplicationIT`, `MinioObjectStorageIT`, healthcheck và `docker compose config` của `infra/compose.yaml`, chế độ `migrate` chạy thật với MySQL.
+- Việc còn lại: push, mở PR, sửa nếu CI đỏ, đánh dấu bước cuối của nhiệm vụ 6.
+- Rủi ro: MinIO dùng ảnh cộng đồng `pgsty/minio` vì `minio/minio` không còn công khai; nên chốt với nhóm. Proxy trước MinIO phải giữ header `Host` để URL ký hợp lệ. Plan gốc ghi `V3` cấp `DELETE` mọi bảng nghiệp vụ, mã thực tế chỉ cấp `DELETE` trên `sign_code_weights`; lát sau cần `DELETE` ở đâu thì thêm migration.
