@@ -208,7 +208,9 @@ class ClusteringEngineTest {
     assertThat(sign.version()).isEqualTo(1);
     assertThat(sign.members()).extracting(MemberSubmission::id).containsExactly("m1", "m2", "s1");
     assertThat(sign.location()).isEqualTo(north(2));
-    assertThat(outcome.events()).isEmpty();
+    assertThat(outcome.events())
+        .extracting(SignEvent::type)
+        .containsExactly(SignEventType.LOCATION_RECOMPUTED);
   }
 
   @Test
@@ -281,9 +283,10 @@ class ClusteringEngineTest {
     assertThat(outcome.sign().signTypeCode()).isEqualTo(OTHER_CODE);
     assertThat(outcome.sign().location()).isEqualTo(north(4));
     assertThat(outcome.events())
-        .singleElement()
+        .extracting(SignEvent::type)
+        .containsExactly(SignEventType.LEADING_CODE_CHANGED, SignEventType.LOCATION_RECOMPUTED);
+    assertThat(outcome.events().getFirst())
         .satisfies(e -> {
-          assertThat(e.type()).isEqualTo(SignEventType.LEADING_CODE_CHANGED);
           assertThat(e.before()).containsExactlyEntriesOf(java.util.Map.of("signTypeCode", CODE));
           assertThat(e.after())
               .containsExactlyEntriesOf(java.util.Map.of("signTypeCode", OTHER_CODE));
@@ -344,9 +347,10 @@ class ClusteringEngineTest {
             new MemberUpdate("s2", SubmissionStatus.ACCEPTED, null));
     assertThat(sign.members()).allMatch(m -> m.status() == SubmissionStatus.ACCEPTED);
     assertThat(third.events())
-        .singleElement()
+        .extracting(SignEvent::type)
+        .containsExactly(SignEventType.LOCATION_RECOMPUTED, SignEventType.AUTO_APPROVED);
+    assertThat(third.events().getLast())
         .satisfies(e -> {
-          assertThat(e.type()).isEqualTo(SignEventType.AUTO_APPROVED);
           assertThat(e.actorType()).isEqualTo("SYSTEM");
           assertThat(e.before()).containsEntry("status", "PENDING");
           assertThat(e.after())
@@ -366,7 +370,57 @@ class ClusteringEngineTest {
     assertThat(sign.status()).isEqualTo(SignStatus.PENDING);
     assertThat(sign.suggestion()).isEqualTo(Suggestion.APPROVE);
     assertThat(sign.confidence()).isEqualByComparingTo("0.8701");
-    assertThat(world.outcomes.getLast().events()).isEmpty();
+    assertThat(world.outcomes.getLast().events())
+        .extracting(SignEvent::type)
+        .doesNotContain(SignEventType.AUTO_APPROVED);
+  }
+
+  @Test
+  @DisplayName("FR-23: vị trí trung vị đổi → LOCATION_RECOMPUTED, SYSTEM, before/after {lat, lng}")
+  void locationRecomputed() {
+    world.submit(sub("s1", "u1").build());
+    ClusteringOutcome outcome = world.submit(sub("s2", "u2").at(north(8)).at(hours(1)).build());
+
+    GeoPoint mid = outcome.sign().location();
+    assertThat(mid).isNotEqualTo(ORIGIN);
+    assertThat(outcome.events())
+        .singleElement()
+        .satisfies(e -> {
+          assertThat(e.type()).isEqualTo(SignEventType.LOCATION_RECOMPUTED);
+          assertThat(e.actorType()).isEqualTo("SYSTEM");
+          assertThat(e.before())
+              .containsExactlyEntriesOf(java.util.Map.of("lat", ORIGIN.lat(), "lng", ORIGIN.lng()));
+          assertThat(e.before().keySet()).containsExactly("lat", "lng");
+          assertThat(e.after())
+              .containsExactlyEntriesOf(java.util.Map.of("lat", mid.lat(), "lng", mid.lng()));
+          assertThat(e.reason()).isNull();
+        });
+  }
+
+  @Test
+  @DisplayName("Vị trí lệch dưới 6 chữ số thập phân → giữ vị trí cũ, không sinh lịch sử")
+  void subMicroDegreeMoveIgnored() {
+    world.submit(sub("s1", "u1").build());
+    // Trung điểm lệch khoảng 2e-7° so với vị trí cũ.
+    ClusteringOutcome outcome = world.submit(sub("s2", "u2").at(north(0.05)).at(hours(1)).build());
+
+    assertThat(outcome.sign().location()).isEqualTo(ORIGIN);
+    assertThat(outcome.events()).isEmpty();
+    assertThat(ClusteringEngine.sameLocation(ORIGIN, new GeoPoint(21.0285004, 105.8048))).isTrue();
+    assertThat(ClusteringEngine.sameLocation(ORIGIN, new GeoPoint(21.028501, 105.8048))).isFalse();
+    assertThat(ClusteringEngine.sameLocation(ORIGIN, new GeoPoint(21.0285, 105.804801))).isFalse();
+  }
+
+  @Test
+  @DisplayName("Biển tạo mới chỉ có CREATED; vị trí chốt thì không có LOCATION_RECOMPUTED")
+  void noLocationEventWhenCreatedOrLocked() {
+    assertThat(world.submit(sub("s1", "u1").build()).events())
+        .extracting(SignEvent::type)
+        .containsExactly(SignEventType.CREATED);
+
+    World locked = new World(engine());
+    locked.with(approvedFromTwo().toBuilder().locationLocked(true).location(north(1)).build());
+    assertThat(locked.submit(sub("s9", "u9").at(north(15)).build()).events()).isEmpty();
   }
 
   @Test

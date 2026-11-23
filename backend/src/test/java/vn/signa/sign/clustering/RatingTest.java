@@ -143,6 +143,24 @@ class RatingTest {
   }
 
   @Test
+  @DisplayName("Đánh giá không tính lại vị trí")
+  void ratingKeepsLocation() {
+    SignState sign =
+        approvedFromTwo().toBuilder()
+            .location(Fixtures.north(3))
+            .members(
+                java.util.List.of(
+                    Fixtures.member("m1", "u1", CODE, "0.9", ORIGIN, T0),
+                    Fixtures.member("m2", "u2", CODE, "0.9", ORIGIN, T0)))
+            .build();
+
+    RatingOutcome outcome = deny(sign, 1);
+
+    assertThat(outcome.sign().location()).isEqualTo(Fixtures.north(3));
+    assertThat(outcome.events()).isEmpty();
+  }
+
+  @Test
   @DisplayName("Không đánh giá biển chưa công bố")
   void pendingCannotBeRated() {
     SignState pending = pendingSign("p", CODE, ORIGIN, 90).build();

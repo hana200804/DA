@@ -42,7 +42,7 @@ Các luật dưới đây là lựa chọn của lát này, cần cả nhóm xem
 | Trung vị có trọng số | Không nói cách xử lý điểm giữa | Sắp tăng dần, lấy giá trị đầu tiên có trọng số cộng dồn vượt nửa tổng; nếu cộng dồn đúng bằng nửa tổng thì lấy trung bình giá trị đó và giá trị kế tiếp. Tổng trọng số bằng 0 thì giữ vị trí cũ |
 | Hướng của biển | Không nói cách cập nhật | Lấy hướng của đề xuất tạo biển, sau đó không đổi (kiểm duyệt viên sửa ở lát 6) |
 | `M` khi tự duyệt | "kiểm duyệt viên đã duyệt hoặc tạo biển" | Tự duyệt không đặt `M`, vì không có bằng chứng mới từ người |
-| Lịch sử khi đổi vị trí | FR-23 nói mọi thay đổi vị trí ghi lịch sử; bảng hành động `docs/06 §8` không có hành động cho việc này | Không ghi dòng riêng khi vị trí tự tính lại. Chỉ sinh `CREATED`, `LEADING_CODE_CHANGED`, `AUTO_APPROVED`, `MARKED_UNDER_REVIEW`. Cần nhóm chốt |
+| Lịch sử khi đổi vị trí | FR-23, NFR-11: mọi thay đổi vị trí ghi lịch sử | Người điều phối chốt: khi vị trí trung vị khác vị trí cũ sau khi làm tròn 6 chữ số thập phân, sinh `LOCATION_RECOMPUTED` (`actor_type = SYSTEM`, trước và sau là `{lat, lng}`); lệch nhỏ hơn thì giữ vị trí cũ. Nếu cùng lúc đổi mã dẫn đầu thì ghi hai sự kiện riêng, `LEADING_CODE_CHANGED` trước. Biển mới chỉ có `CREATED`; đánh giá không tính lại vị trí. Đã thêm hành động vào bảng `docs/06 §8` |
 | Ngưỡng hoà gần nhất | "gần nhất" | Khoảng cách bằng nhau thì chọn `id` nhỏ hơn theo thứ tự từ điển |
 | Rà soát lại khi có xác nhận | FR-22 chỉ nói đánh giá | Luật rà soát áp dụng mỗi khi điểm của biển `APPROVED` được tính lại, kể cả khi có đề xuất xác nhận |
 | Đánh giá | Một đánh giá mỗi người, ghi đè | Hàm nhận giá trị cũ, thời điểm cũ và giá trị mới. `deny_since_review` chỉ trừ khi đánh giá "không đúng" cũ có thời điểm không trước `reviewedAt`. Chỉ áp dụng cho biển `APPROVED` và `UNDER_REVIEW` |
@@ -79,6 +79,7 @@ Các luật dưới đây là lựa chọn của lát này, cần cả nhóm xem
 - [x] Ca biên: 350° và 10° lệch 20°; thiếu hướng một phía; từ chối ngày 30 và ngày 31; hoà trọng số; đề xuất lặp sau 12 giờ; biên 20 m và 45°.
 - [x] Test lặp ngẫu nhiên có seed: điểm luôn trong [0; 1], trọng số không âm.
 - [x] `ClusteringPurityTest`: gói không phụ thuộc Spring, JDBC, I/O.
+- [x] `LOCATION_RECOMPUTED` khi vị trí trung vị đổi (so sau khi làm tròn 6 chữ số), kèm test.
 - [x] `jacocoTestCoverageVerification` ≥ 90% dòng cho `vn.signa.sign.clustering`, khối mới ở cuối `build.gradle.kts`.
 - [x] `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` thành công; markdownlint sạch; commit.
 
@@ -89,7 +90,7 @@ Cần merge lát 1 (đăng nhập, `submission:create`) và lát 2 (`SignCatalog
 ### Nhiệm vụ 5 · Repository JDBC
 
 - [ ] `SignRepository`, `SignCodeWeightRepository`, `SubmissionRepository` trong `sign.internal`, dùng `JdbcClient` và SQL viết tay, chỉ trên `signs`, `sign_code_weights`, `submissions`.
-- [ ] Lọc thô ứng viên bằng `MBRContains` quanh điểm, `category_code` cùng nhóm, `status <> 'REMOVED'`; lọc chính xác do `Assignment` làm. Nửa cạnh theo kinh độ nên là `20 m / (111 320 × cos(lat))` thay vì ±0,0002° cố định: ±0,0002° kinh độ chỉ còn 20 m khi vĩ độ dưới khoảng 25,8°.
+- [ ] Lọc thô ứng viên bằng `MBRContains` quanh điểm, `category_code` cùng nhóm, `status <> 'REMOVED'`; lọc chính xác do `Assignment` làm. Nửa cạnh theo vĩ độ ±0,0002°; theo kinh độ tính `Δlng = 20 / (111 320 · cos(lat))` độ thay vì ±0,0002° cố định, vì ±0,0002° kinh độ chỉ phủ đủ 20 m khi vĩ độ dưới khoảng 25,8°.
 - [ ] Đọc ứng viên bằng `SELECT … FOR UPDATE` trong giao dịch của worker để không ghi đè quyết định duyệt đồng thời; ghi biển bằng `WHERE id = ? AND version = ?`.
 - [ ] Nạp đề xuất thành viên của ứng viên (cột `user_id`, `sign_type_code`, `weight`, `location`, `received_at`, `status`).
 
@@ -109,15 +110,20 @@ Cần merge lát 1 (đăng nhập, `submission:create`) và lát 2 (`SignCatalog
 - [ ] Metric: độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED`, tuổi đề xuất chờ lâu nhất.
 - [ ] IT-B01, IT-B02, IT-B03, IT-B12, IT-B14 (chạy trên CI).
 
+### Ghi chú cho lát 6
+
+- Khi kiểm duyệt viên duyệt (hoặc giữ biển `UNDER_REVIEW`): đặt `moderator_boost = 2` (`M`), `reviewed_at` là thời điểm quyết định, `deny_since_review = 0`, tính lại điểm bằng `Scoring.score`, rồi cập nhật đề xuất thành viên bằng `ClusteringEngine.memberUpdates`.
+- Biển được duyệt với mã không dẫn đầu vẫn giữ `W_c` của mã khác trong `β`, nên điểm có thể dưới 0,5 và bị rà soát lại ở lần đánh giá hoặc xác nhận kế tiếp. Cần nhóm xem lại nếu điều này gây phiền khi thử nghiệm.
+
 ## Tiến độ
 
 Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
 
 **2026-11-23.** Phần 1 xong trên `backend/5-submissions-clustering`, chưa push. Phần 2 chưa bắt đầu, chờ lát 1 và lát 2.
 
-- Trên máy: `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` thành công. 52 unit test của gói `clustering` đạt (`ClusteringEngineTest` 32, `ComponentsTest` 10, `RatingTest` 8, `RandomizedInvariantsTest` 1 với 300 lượt × 40 bước, seed 20261123, `ClusteringPurityTest` 1). Độ phủ dòng của gói 98,9% (517/523), nhánh 94% (238/253). Đã thử nâng ngưỡng lên 99,9% để chắc luật JaCoCo chặn được.
+- Trên máy: `./gradlew spotlessApply test compileTestJava jacocoTestCoverageVerification` thành công, 76 unit test đạt. 56 test của gói `clustering` (`ClusteringEngineTest` 35, `ComponentsTest` 10, `RatingTest` 9, `RandomizedInvariantsTest` 1 với 300 lượt × 40 bước, seed 20261123, `ClusteringPurityTest` 1). Độ phủ dòng của gói 98,9% (530/536), nhánh 94% (250/265). Đã thử nâng ngưỡng lên 99,9% để chắc luật JaCoCo chặn được.
 - Ánh xạ ca kiểm thử: UT-B01 → UT-B10 và UT-B12 nằm trong `ClusteringEngineTest` (UT-B08 trong `RatingTest`), tên hiển thị bắt đầu bằng mã ca. Các ví dụ số trong `docs/04 §6`: một người 0,7368; biển đã duyệt nhận 2 "không đúng" 0,6324.
 - Nhiệm vụ 1–3 gộp một commit vì test dùng chung fixture; nhiệm vụ 4 (JaCoCo, kế hoạch) một commit.
 - `jacocoTestCoverageVerification` chưa nằm trong `check` và workflow CI. Thêm vào `backend.yml` là việc của người điều phối, vì file này dùng chung.
-- Cần nhóm chốt: các luật trong mục "Luật đã chốt khi tài liệu chưa nói rõ", nhất là lịch sử khi vị trí tự tính lại (FR-23), `M` khi tự duyệt, hướng của biển, thứ tự bước 4 và bước 5 so với FR-20.
-- Rủi ro cho lát 6: biển được duyệt với mã không dẫn đầu vẫn giữ `W_c` của mã khác trong `β`, nên điểm có thể dưới 0,5 ngay khi duyệt và bị rà soát lại ở lần đánh giá hoặc xác nhận kế tiếp. Lát 6 cần đặt `M = 2`, `reviewedAt`, `deny_since_review = 0` khi duyệt hoặc giữ, rồi gọi `ClusteringEngine.memberUpdates`.
+- Người điều phối đã đồng ý các luật trong mục "Luật đã chốt khi tài liệu chưa nói rõ" (R = 6 370 986 m, biên bao gồm, bước 4 trước bước 5, luật hoà, so trên điểm đã làm tròn) và yêu cầu thêm `LOCATION_RECOMPUTED`. Còn chờ cả nhóm review: `M` khi tự duyệt, hướng của biển.
+- Rủi ro cho lát 6: xem mục "Ghi chú cho lát 6".

@@ -4,6 +4,8 @@ package vn.signa.sign.clustering;
 public enum SignEventType {
   CREATED,
   LEADING_CODE_CHANGED,
+  /** Vị trí trung vị đổi khi có đề xuất mới (FR-23, NFR-11). */
+  LOCATION_RECOMPUTED,
   AUTO_APPROVED,
   MARKED_UNDER_REVIEW
 }

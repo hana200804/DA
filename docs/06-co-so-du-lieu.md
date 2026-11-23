@@ -321,7 +321,7 @@ Chỉ mục: `(entity_type, entity_id, created_at)`, `(actor_id, created_at)`, `
 
 | `entity_type` | `action` |
 | --- | --- |
-| `SIGN` | `CREATED`, `LEADING_CODE_CHANGED`, `APPROVED`, `AUTO_APPROVED`, `REJECTED`, `EDITED`, `MARKED_UNDER_REVIEW`, `KEPT`, `REMOVED` |
+| `SIGN` | `CREATED`, `LEADING_CODE_CHANGED`, `LOCATION_RECOMPUTED`, `APPROVED`, `AUTO_APPROVED`, `REJECTED`, `EDITED`, `MARKED_UNDER_REVIEW`, `KEPT`, `REMOVED` |
 | `REPORT` | `ACCEPTED`, `DISMISSED` |
 | `SIGN_TYPE`, `SIGN_CATEGORY` | `CREATED`, `UPDATED`, `DEACTIVATED` |
 | `USER` | `ROLE_CHANGED`, `LOCKED`, `UNLOCKED` |

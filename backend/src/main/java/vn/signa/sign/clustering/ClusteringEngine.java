@@ -62,7 +62,7 @@ public final class ClusteringEngine {
 
     BigDecimal weight = Weights.of(submission, base.members(), config);
     SignState withSubmission = addSubmission(base, submission, weight);
-    SignState sign = recompute(withSubmission, created ? 0 : base.version() + 1);
+    SignState sign = recompute(withSubmission, created ? 0 : base.version() + 1, true);
 
     List<SignEvent> events = new ArrayList<>();
     if (created) {
@@ -73,6 +73,14 @@ public final class ClusteringEngine {
               SignEventType.LEADING_CODE_CHANGED,
               Map.of("signTypeCode", base.signTypeCode()),
               Map.of("signTypeCode", sign.signTypeCode()),
+              null));
+    }
+    if (!created && !sign.location().equals(base.location())) {
+      events.add(
+          new SignEvent(
+              SignEventType.LOCATION_RECOMPUTED,
+              latLng(base.location()),
+              latLng(sign.location()),
               null));
     }
 
@@ -153,7 +161,7 @@ public final class ClusteringEngine {
             .denyCount(deny)
             .denySinceReview(denySinceReview)
             .build();
-    SignState updated = recompute(rated, sign.version() + 1);
+    SignState updated = recompute(rated, sign.version() + 1, false);
     List<SignEvent> events = new ArrayList<>();
     Optional<SignEvent> review = reviewEvent(updated);
     if (review.isPresent()) {
@@ -233,15 +241,22 @@ public final class ClusteringEngine {
         .build();
   }
 
-  /** Tính lại mã dẫn đầu, vị trí, điểm và gợi ý. */
-  private SignState recompute(SignState sign, int version) {
+  /**
+   * Tính lại mã dẫn đầu, điểm, gợi ý và (nếu {@code withLocation}) vị trí. Vị trí chỉ đổi khi khác
+   * vị trí cũ sau khi làm tròn {@value #LOCATION_SCALE} chữ số, để mọi thay đổi vị trí đã lưu đều
+   * có sự kiện {@code LOCATION_RECOMPUTED} (FR-23).
+   */
+  private SignState recompute(SignState sign, int version, boolean withLocation) {
     String leading = Scoring.leadingCode(sign);
+    GeoPoint location = sign.location();
+    if (withLocation) {
+      GeoPoint median = Location.of(sign, leading);
+      if (!sameLocation(median, location)) {
+        location = median;
+      }
+    }
     SignState coded =
-        sign.toBuilder()
-            .signTypeCode(leading)
-            .location(Location.of(sign, leading))
-            .version(version)
-            .build();
+        sign.toBuilder().signTypeCode(leading).location(location).version(version).build();
     BigDecimal score = Scoring.score(coded, leading);
     return coded.toBuilder()
         .confidence(score)
@@ -279,6 +294,25 @@ public final class ClusteringEngine {
             .map(m -> byId.containsKey(m.id()) ? m.withStatus(byId.get(m.id())) : m)
             .toList();
     return sign.toBuilder().members(members).build();
+  }
+
+  /** Số chữ số thập phân của độ khi so sánh vị trí. */
+  static final int LOCATION_SCALE = 6;
+
+  static boolean sameLocation(GeoPoint a, GeoPoint b) {
+    return round(a.lat()).compareTo(round(b.lat())) == 0
+        && round(a.lng()).compareTo(round(b.lng())) == 0;
+  }
+
+  private static BigDecimal round(double degrees) {
+    return BigDecimal.valueOf(degrees).setScale(LOCATION_SCALE, java.math.RoundingMode.HALF_UP);
+  }
+
+  private static Map<String, Object> latLng(GeoPoint point) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("lat", point.lat());
+    m.put("lng", point.lng());
+    return m;
   }
 
   private static Map<String, Object> snapshot(SignState sign) {
