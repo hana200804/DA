@@ -122,15 +122,15 @@ Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã q
 
 ### Nhiệm vụ 6 · Test tích hợp
 
-**Tạo:** `src/test/.../identity/AuthIT.java`, sửa `support/Containers.java`.
+**Tạo:** `src/test/.../identity/AuthIT.java`, `BootstrapAdminIT.java` (context riêng qua `@TestPropertySource`, để không sửa `support/Containers.java` dùng chung). Vai trò `MODERATOR` và trạng thái `LOCKED` trong IT đặt bằng `UPDATE users` với `signa_app`, vì lát này chưa có API quản trị người dùng.
 
-- [ ] IT-B10: phiên cũ sau khi đổi mật khẩu trả `401`, phiên hiện tại vẫn dùng được.
-- [ ] Đăng ký, đăng nhập, `/me`, đăng xuất; token sai, thiếu, đã thu hồi trả `401`.
-- [ ] Tài khoản `LOCKED` không đăng nhập được; `WEB` với `USER` trả `403`; quản trị viên đầu tiên đăng nhập `WEB` được.
-- [ ] Sai 11 lần trả `429` kèm `Retry-After`.
-- [ ] Mật khẩu và token không xuất hiện trong log (`OutputCaptureExtension`).
-- [ ] Redis không có khoá chứa token thô.
-- [ ] Chỉ compile trên máy, chạy trên CI. Commit.
+- [x] IT-B10: phiên cũ sau khi đổi mật khẩu trả `401`, phiên hiện tại vẫn dùng được.
+- [x] Đăng ký, đăng nhập, `/me`, đăng xuất; token sai, thiếu, đã thu hồi trả `401`.
+- [x] Tài khoản `LOCKED` không đăng nhập được; `WEB` với `USER` trả `403`; `MODERATOR` đăng nhập `WEB` được; quản trị viên đầu tiên được tạo kèm lịch sử `SYSTEM`.
+- [x] Sai 11 lần trả `429` kèm `Retry-After`.
+- [x] Mật khẩu và token không xuất hiện trong log (`OutputCaptureExtension`).
+- [x] Redis không có khoá chứa token thô.
+- [x] Chỉ compile trên máy, chạy trên CI. Commit.
 
 ### Nhiệm vụ 7 · Dockerfile, Compose, tài liệu
 
