@@ -66,11 +66,11 @@ public record SignTypeView(
 
 **Tạo:** `catalog/internal/LabelMap.java`, `LabelsYamlParser.java`, `LabelMapValidator.java`, `LabelsFileException.java`, `src/test/.../catalog/internal/LabelsYamlParserTest.java`, `LabelMapValidatorTest.java`.
 
-- [ ] Parser đọc cây node của SnakeYAML (`Yaml.compose` với `SafeConstructor`, không dựng đối tượng tuỳ ý) để giữ số dòng của từng mục.
-- [ ] Đổi khoá nhóm sang chữ hoa (`prohibitory` → `PROHIBITORY`); `sort_order` là thứ tự nhóm trong file, bắt đầu từ 1.
-- [ ] Validator gom mọi lỗi rồi ném một `LabelsFileException`: trùng `id`, trùng `code`, `category` không có trong `categories`, thiếu `name`, `id` ngoài `0..32767`, `speed_kmh` không dương, mã nhóm sai mẫu `^[A-Z][A-Z0-9_]{0,19}$`. Mỗi lỗi ghi `dòng N`.
-- [ ] Unit test dùng file thật `../ai/data/labels.yaml`: phiên bản 1, 46 lớp, 5 nhóm, 4 biển tốc độ có `speed_kmh`. Test lỗi bằng YAML viết trong test.
-- [ ] Commit.
+- [x] Parser đọc cây node của SnakeYAML (`Yaml.compose` với `SafeConstructor`, không dựng đối tượng tuỳ ý) để giữ số dòng của từng mục.
+- [x] Đổi khoá nhóm sang chữ hoa (`prohibitory` → `PROHIBITORY`); `sort_order` là thứ tự nhóm trong file, bắt đầu từ 1.
+- [x] Validator gom mọi lỗi rồi ném một `LabelsFileException`: trùng `id`, trùng `code`, `category` không có trong `categories`, thiếu `name`, `id` ngoài `0..32767`, `speed_kmh` không dương, mã nhóm sai mẫu `^[A-Z][A-Z0-9_]{0,19}$`. Mỗi lỗi ghi `dòng N`.
+- [x] Unit test dùng file thật `../ai/data/labels.yaml`: phiên bản 1, 46 lớp, 5 nhóm, 4 biển tốc độ có `speed_kmh`. Test lỗi bằng YAML viết trong test.
+- [x] Commit.
 
 ### Nhiệm vụ 3 · Nạp nhãn
 
