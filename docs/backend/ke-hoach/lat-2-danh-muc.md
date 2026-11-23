@@ -86,15 +86,15 @@ public record SignTypeView(
 
 ### Nhiệm vụ 4 · `SignCatalog` và API công khai
 
-**Tạo:** `catalog/api/SignCatalog.java`, `SignTypeView.java`, `catalog/internal/JdbcSignCatalog.java`, `CatalogQueryService.java`, `SignTypesCache.java`, `ETags.java`, các record phản hồi, `catalog/web/CatalogController.java`, `src/test/.../catalog/internal/ETagsTest.java`, `CatalogQueryServiceTest.java`, `src/test/.../catalog/web/CatalogControllerTest.java`, `src/test/.../catalog/CatalogApiIT.java`.
+**Tạo:** `catalog/api/SignCatalog.java`, `SignTypeView.java`, `catalog/internal/JdbcSignCatalog.java`, `CatalogQueryService.java`, `ETags.java`, `CatalogResponses.java`, `catalog/web/CatalogController.java`, `src/test/.../catalog/internal/ETagsTest.java`, `CatalogQueryServiceTest.java`, `JdbcSignCatalogTest.java`, `src/test/.../catalog/web/CatalogControllerTest.java`, `src/test/.../catalog/CatalogApiIT.java`.
 
-- [ ] `GET /api/v1/sign-categories` → `{ items: [{ code, name, description, sortOrder }] }`, sắp theo `sortOrder`.
-- [ ] `GET /api/v1/sign-types` → `{ labelMapVersion, items: [{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable }] }`, chỉ loại `active`, sắp theo `code`. `labelMapVersion` là phiên bản lớn nhất trong các loại đang dùng. Body JSON được cache ở Redis `cache:sign-types` (TTL 24 giờ để tự lành nếu xoá cache lỗi). ETag mạnh là 128 bit đầu của SHA-256 của body. `If-None-Match` khớp → `304` (Spring tự xử lý khi `ResponseEntity` có ETag). `Cache-Control: no-cache` để client luôn hỏi lại.
-- [ ] `GET /api/v1/sign-types/{code}` → một loại, `404 NOT_FOUND` nếu không có hoặc đã ngừng dùng.
-- [ ] `iconUrl` là `/icons/{icon_key}` hoặc `null`; `recognizable = label_id != null`.
-- [ ] Redis lỗi thì ghi log cảnh báo và đọc MySQL.
-- [ ] Unit test ETag; `@WebMvcTest` cho controller; `CatalogApiIT`: `304` khi `If-None-Match` khớp, loại ngừng dùng không xuất hiện và trả `404`, `SignCatalog` trả đúng. IT chỉ chạy trên CI.
-- [ ] Commit.
+- [x] `GET /api/v1/sign-categories` → `{ items: [{ code, name, description, sortOrder }] }`, sắp theo `sortOrder`.
+- [x] `GET /api/v1/sign-types` → `{ labelMapVersion, items: [{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable }] }`, chỉ loại `active`, sắp theo `code`. `labelMapVersion` là phiên bản lớn nhất trong các loại đang dùng. Body JSON được cache ở Redis `cache:sign-types` (TTL 24 giờ để tự lành nếu xoá cache lỗi). ETag mạnh là 128 bit đầu của SHA-256 của body. `If-None-Match` khớp → `304` (Spring tự xử lý khi `ResponseEntity` có ETag). `Cache-Control: no-cache` để client luôn hỏi lại.
+- [x] `GET /api/v1/sign-types/{code}` → một loại, `404 NOT_FOUND` nếu không có hoặc đã ngừng dùng.
+- [x] `iconUrl` là `/icons/{icon_key}` hoặc `null`; `recognizable = label_id != null`.
+- [x] Redis lỗi thì ghi log cảnh báo và đọc MySQL.
+- [x] Unit test ETag; `@WebMvcTest` cho controller; `CatalogApiIT`: `304` khi `If-None-Match` khớp, loại ngừng dùng không xuất hiện và trả `404`, `SignCatalog` trả đúng. IT chỉ chạy trên CI.
+- [x] Commit.
 
 ### Nhiệm vụ 5 · Dữ liệu biển mẫu
 
@@ -122,6 +122,7 @@ Chưa làm. Cần `SecurityConfig`, quyền `catalog:manage` và `audit.api.Audi
 - [ ] `PUT /api/v1/admin/sign-types/{code}/icon`: multipart part `icon`, PNG/JPEG/WebP ≤ 1 MB, kiểm tra magic byte, lưu `sign-icons/{code}.{ext}`, cập nhật `icon_key`, xoá ảnh cũ nếu khác khoá.
 - [ ] Mỗi thay đổi ghi lịch sử `actor_type = USER` và xoá `cache:sign-types` sau commit.
 - [ ] Thêm dòng vào `PermissionMatrixTest`; IT cho `403` khi thiếu `catalog:manage`.
+- [ ] Spring Security của lát 1 mặc định thêm `Cache-Control: no-store`, làm hỏng ETag. Phần 1 đã đặt `Cache-Control: no-cache` tường minh cho `GET /sign-types` (Security không ghi đè header đã có). Sau khi merge, thêm test kiểm `GET /sign-types`, `/sign-categories`, `/sign-types/{code}` có `no-cache` chứ không phải `no-store`.
 - [ ] Web trang danh mục chạy với API thật.
 
 ## Tiến độ
