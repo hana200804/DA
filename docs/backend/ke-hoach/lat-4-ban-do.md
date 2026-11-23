@@ -32,40 +32,40 @@
 
 **Tạo:** `sign/internal/map/BoundingBox.java`, `MapQuery.java`, `MapQueryParser.java`, `GridCell.java`; test `MapQueryParserTest`, `GridCellTest`, `BoundingBoxTest`.
 
-- [ ] `bbox=minLng,minLat,maxLng,maxLat`: đủ 4 số hữu hạn, `lng ∈ [-180, 180]`, `lat ∈ [-90, 90]`, `minLng < maxLng`, `minLat < maxLat`; `minLng > maxLng` báo riêng là vắt qua kinh tuyến 180°.
-- [ ] `zoom` số nguyên 0–22, mặc định 14 khi vắng.
-- [ ] `categories`, `signTypeCodes`: danh sách phân cách dấu phẩy, bỏ khoảng trắng và mục rỗng, bỏ trùng, tối đa 50 mục, mỗi mã không quá độ dài cột (20 và 30 ký tự).
-- [ ] Gom mọi lỗi vào một `ApiException(VALIDATION_ERROR)` với `details[].field` là tên tham số.
-- [ ] `GridCell.sizeDeg(zoom) = 360 / 2^zoom / 8`.
-- [ ] WKT của `bbox` viết số dạng thập phân thường (không `1.0E-4`), cạnh đông–tây chia nhỏ để không cạnh nào vượt 90° kinh độ.
+- [x] `bbox=minLng,minLat,maxLng,maxLat`: đủ 4 số hữu hạn, `lng ∈ [-180, 180]`, `lat ∈ [-90, 90]`, `minLng < maxLng`, `minLat < maxLat`; `minLng > maxLng` báo riêng là vắt qua kinh tuyến 180°.
+- [x] `zoom` số nguyên 0–22, mặc định 14 khi vắng.
+- [x] `categories`, `signTypeCodes`: danh sách phân cách dấu phẩy, bỏ khoảng trắng và mục rỗng, bỏ trùng, tối đa 50 mục, mỗi mã không quá độ dài cột (20 và 30 ký tự).
+- [x] Gom mọi lỗi vào một `ApiException(VALIDATION_ERROR)` với `details[].field` là tên tham số.
+- [x] `GridCell.sizeDeg(zoom) = 360 / 2^zoom / 8`, nới ra khi `bbox` quá rộng so với `zoom` để có tối đa 128 × 128 ô (rà soát bảo mật: giới hạn kích thước kết quả).
+- [x] WKT của `bbox` viết số dạng thập phân thường (không `1.0E-4`), cạnh đông–tây chia nhỏ để không cạnh nào vượt 90° kinh độ.
 
 ### Nhiệm vụ 3 · Truy vấn và dịch vụ
 
 **Tạo:** `sign/internal/map/MapSignRepository.java`, `MapService.java`, các record kết quả.
 
-- [ ] Truy vấn biển trong vùng theo `docs/06 §9`: `MBRContains(ST_GeomFromText(:polygon, 4326, 'axis-order=long-lat'), location)`, `status IN ('APPROVED','UNDER_REVIEW')`, lọc nhóm và mã khi có, `LIMIT 501`, đọc toạ độ bằng `ST_Latitude`, `ST_Longitude`.
-- [ ] Tối đa 500 dòng → `{ mode: "SIGNS", items: [{ id, signTypeCode, categoryCode, location, headingDeg, status, confidence }] }`.
-- [ ] Được 501 dòng → truy vấn gom `GROUP BY FLOOR(lng / cell), FLOOR(lat / cell)` với cùng điều kiện, `location` là trung bình toạ độ → `{ mode: "CLUSTERS", items: [{ location, count }] }`.
-- [ ] Chi tiết: `id`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `status`, `confidence`, `confirmCount`, `denyCount`, `updatedAt`, `coverCropUrl` (`presignedGet(SIGN_CROPS, key, 10 phút)` hoặc `null`). Không có hoặc chưa công bố → `404`.
+- [x] Truy vấn biển trong vùng theo `docs/06 §9`: `MBRContains(ST_GeomFromText(:polygon, 4326, 'axis-order=long-lat'), location)`, `status IN ('APPROVED','UNDER_REVIEW')`, lọc nhóm và mã khi có, `LIMIT 501`, đọc toạ độ bằng `ST_Latitude`, `ST_Longitude`.
+- [x] Tối đa 500 dòng → `{ mode: "SIGNS", items: [{ id, signTypeCode, categoryCode, location, headingDeg, status, confidence }] }`.
+- [x] Được 501 dòng → truy vấn gom `GROUP BY FLOOR(lng / cell), FLOOR(lat / cell)` với cùng điều kiện, `location` là trung bình toạ độ → `{ mode: "CLUSTERS", items: [{ location, count }] }`.
+- [x] Chi tiết: `id`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `status`, `confidence`, `confirmCount`, `denyCount`, `updatedAt`, `coverCropUrl` (`presignedGet(SIGN_CROPS, key, 10 phút)` hoặc `null`). Không có hoặc chưa công bố → `404`.
 
 ### Nhiệm vụ 4 · Controller
 
 **Tạo:** `sign/web/SignMapController.java`; test `SignMapControllerTest` (`@WebMvcTest`).
 
-- [ ] `GET /api/v1/signs`, `GET /api/v1/signs/{id}`.
-- [ ] Test: tham số hợp lệ chuyển đúng tới dịch vụ, mặc định `zoom = 14`; `bbox` sai → `400` có `details`; JSON hai chế độ đúng khuôn `docs/07 §6`; chi tiết không có → `404`.
+- [x] `GET /api/v1/signs`, `GET /api/v1/signs/{id}`.
+- [x] Test: tham số hợp lệ chuyển đúng tới dịch vụ, mặc định `zoom = 14`; `bbox` sai → `400` có `details`; JSON hai chế độ đúng khuôn `docs/07 §6`; chi tiết không có → `404`.
 
 ### Nhiệm vụ 5 · Test tích hợp
 
 **Tạo:** `src/test/java/vn/signa/sign/MapIT.java`, `MapPerformanceIT.java`. Dữ liệu chèn bằng SQL trong test, mã nhóm, mã loại và vùng riêng cho từng ca để không lẫn với dữ liệu của test khác.
 
-- [ ] IT-B06: biển trong và ngoài `bbox`, chỉ biển trong được trả; lọc theo nhóm, theo mã, cả hai.
-- [ ] IT-B07: 600 biển khớp bộ lọc → `mode = CLUSTERS`, tổng `count` = 600.
-- [ ] Biển `PENDING`, `REJECTED`, `REMOVED` không xuất hiện; chi tiết của chúng trả `404`.
-- [ ] Thứ tự trục: lat 21.0285, lng 105.8048 trả đúng.
-- [ ] Chi tiết có `coverCropUrl` ký cho `sign-crops` khi có ảnh, `null` khi không.
-- [ ] NFR-03: 500 biển, gọi 50 lần, in p95 ra log, không assert cứng.
-- [ ] `./gradlew spotlessCheck test compileTestJava` thành công; markdownlint sạch; commit.
+- [x] IT-B06: biển trong và ngoài `bbox`, chỉ biển trong được trả; lọc theo nhóm, theo mã, cả hai.
+- [x] IT-B07: 600 biển khớp bộ lọc → `mode = CLUSTERS`, tổng `count` = 600.
+- [x] Biển `PENDING`, `REJECTED`, `REMOVED` không xuất hiện; chi tiết của chúng trả `404`.
+- [x] Thứ tự trục: lat 21.0285, lng 105.8048 trả đúng.
+- [x] Chi tiết có `coverCropUrl` ký cho `sign-crops` khi có ảnh, `null` khi không.
+- [x] NFR-03: 500 biển, gọi 50 lần, in p95 ra log, không assert cứng.
+- [x] `./gradlew spotlessCheck test compileTestJava` thành công; markdownlint sạch; commit.
 
 ## Phần 2 · Sau khi merge lát 1, 2
 
@@ -77,6 +77,9 @@ Chỉ ghi lại, chưa làm trong đợt này.
 
 ## Tiến độ
 
-Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
+**2026-11-23.** Phần 1 đã commit trên `backend/4-map`, chưa push.
 
-**2026-11-23.** Đã viết kế hoạch.
+- Trên máy: `./gradlew spotlessCheck test compileTestJava` thành công, 71/71 unit test đạt (20 của lát 0, 51 mới: tham số 29, ô lưới 8, đa giác 3, dịch vụ 5, controller 6).
+- Chỉ chạy trên CI (máy không có Docker): `MapIT` (IT-B06, IT-B07, trạng thái ẩn, thứ tự trục, vùng gần cả thế giới, chi tiết và URL ký) và `MapPerformanceIT` (p95 NFR-03, chưa có số, ghi vào đây sau lần chạy CI đầu tiên).
+- Quyết định: tham số nhận dạng chuỗi và kiểm tra trong `MapQueryParser` để mọi lỗi có `details`; mã lọc bỏ trùng, giới hạn theo độ dài cột; WKT dùng số thập phân thường và chia cạnh đông–tây ≤ 90° để `bbox` rộng không bị MySQL nối vòng theo đường trắc địa; cạnh ô nới ra khi vượt 128 ô mỗi trục; ảnh đại diện ký lỗi thì trả `500`, không nuốt lỗi.
+- Rủi ro: `worldWideBboxStillMatches` dựa trên cách MySQL tính MBR của đa giác địa lý, chưa kiểm chứng được trên máy; nếu đỏ trên CI cần xử lý vùng rộng riêng. Cạnh trắc địa hơi phồng về phía cực nên vùng rộng có thể lấy thừa biển sát mép. Truy vấn gom vẫn quét mọi biển trong vùng (kết quả có giới hạn, chi phí quét thì không). Web phải kẹp `bounds` về [-180, 180] ở zoom thấp, nếu không sẽ nhận `400`.
