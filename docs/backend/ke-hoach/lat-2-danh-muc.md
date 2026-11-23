@@ -74,15 +74,15 @@ public record SignTypeView(
 
 ### Nhiệm vụ 3 · Nạp nhãn
 
-**Tạo:** `src/main/resources/db/migration/V20__sign_types_label_name.sql`, `catalog/internal/CatalogProperties.java`, `CatalogRepository.java`, `LabelImporter.java`, `LabelImportRunner.java`, `CatalogAuditPort.java`, `LoggingCatalogAuditPort.java`, `src/test/.../catalog/LabelImportIT.java`.
+**Tạo:** `src/main/resources/db/migration/V20__sign_types_label_name.sql`, `catalog/internal/CatalogProperties.java`, `CatalogRepository.java`, `LabelImporter.java`, `LabelImportRunner.java`, `CatalogAuditPort.java`, `LoggingCatalogAuditPort.java`, `SignTypesCache.java`, `src/test/.../catalog/internal/LabelImporterTest.java`, `src/test/.../catalog/LabelImportIT.java`.
 
-- [ ] `V20`: thêm cột `sign_types.label_name` (tên lấy từ file ở lần nạp gần nhất). Cột này cho biết quản trị viên đã sửa `name` hay chưa.
-- [ ] `LabelImporter.importFrom(Path)` chạy trong một giao dịch. Nhóm chưa có thì thêm; nhóm đã có giữ nguyên. Loại chưa có thì thêm. Loại đã có thì cập nhật `category_code`, `speed_kmh`, `label_id`, `label_map_version`, `label_name`, và `name` khi `name = label_name`. Không đụng `description`, `icon_key`, `active`. Chỉ `UPDATE` khi có trường đổi.
-- [ ] Ghi lịch sử qua `CatalogAuditPort`: `CREATED` cho nhóm, loại mới; `UPDATED` với các trường đổi cho loại được cập nhật. `actor_type = SYSTEM`.
-- [ ] Xoá `cache:sign-types` sau khi giao dịch commit.
-- [ ] `LabelImportRunner` chạy khi `signa.catalog.import-on-startup=true` hoặc có tham số `--import-labels`, không chạy ở profile `migrate`. File lỗi thì ném lỗi, ứng dụng dừng khởi động.
-- [ ] `LabelImportIT`: nạp hai lần cho cùng kết quả; giữ `description`, `icon_key`, `name` đã sửa; đổi `name` khi đang bằng tên cũ từ file. Chỉ compile trên máy, chạy trên CI.
-- [ ] Commit.
+- [x] `V20`: thêm cột `sign_types.label_name` (tên lấy từ file ở lần nạp gần nhất). Cột này cho biết quản trị viên đã sửa `name` hay chưa.
+- [x] `LabelImporter.importFrom(Path)` chạy trong một giao dịch. Nhóm chưa có thì thêm; nhóm đã có giữ nguyên. Loại chưa có thì thêm. Loại đã có thì cập nhật `category_code`, `speed_kmh`, `label_id`, `label_map_version`, `label_name`, và `name` khi `name = label_name`. Không đụng `description`, `icon_key`, `active`. Chỉ `UPDATE` khi có trường đổi.
+- [x] Ghi lịch sử qua `CatalogAuditPort`: `CREATED` cho nhóm, loại mới; `UPDATED` với các trường đổi cho loại được cập nhật. `actor_type = SYSTEM`.
+- [x] Xoá `cache:sign-types` sau khi giao dịch commit.
+- [x] `LabelImportRunner` chạy khi `signa.catalog.import-on-startup=true` hoặc có tham số `--import-labels`, không chạy ở profile `migrate`. File lỗi thì ném lỗi, ứng dụng dừng khởi động.
+- [x] `LabelImporterTest` (kho trong bộ nhớ, chạy trên máy) và `LabelImportIT`: nạp hai lần cho cùng kết quả; giữ `description`, `icon_key`, `name` đã sửa; đổi `name` khi đang bằng tên cũ từ file. Chỉ compile trên máy, chạy trên CI.
+- [x] Commit.
 
 ### Nhiệm vụ 4 · `SignCatalog` và API công khai
 

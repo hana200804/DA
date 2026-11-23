@@ -59,3 +59,7 @@ signa:
   recognition:
     url: ${SIGNA_RECOGNITION_URL:http://localhost:8000}
   labels-path: ${SIGNA_LABELS_PATH:../ai/data/labels.yaml}
+  catalog:
+    # Lát 2. Nạp ai/data/labels.yaml (signa.labels-path) khi khởi động; cũng bật bằng --import-labels.
+    import-on-startup: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:false}
+    sign-types-cache-ttl: 24h
