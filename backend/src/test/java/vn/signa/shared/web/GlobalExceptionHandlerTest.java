@@ -1,6 +1,5 @@
 package vn.signa.shared.web;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -16,7 +15,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -90,22 +88,10 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.message").value("labelMapVersion không hỗ trợ"));
   }
 
-  @Test
-  void accessDeniedForSignedInUserIs403() throws Exception {
-    mvc.perform(get("/fake/denied").with(user("u-1")))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.code").value("FORBIDDEN"))
-        .andExpect(jsonPath("$.requestId").exists());
-  }
-
-  @Test
-  void accessDeniedForGuestIs401() throws Exception {
-    mvc.perform(get("/fake/denied"))
-        .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
-  }
-
-  /** Mở mọi đường dẫn: test này chỉ kiểm tra ánh xạ lỗi, không kiểm tra phân quyền. */
+  /**
+   * Từ lát 1 có Spring Security. Mở mọi đường dẫn: test này chỉ kiểm tra ánh xạ lỗi, phân quyền
+   * kiểm ở {@code identity}.
+   */
   @TestConfiguration
   static class OpenSecurity {
     @Bean
@@ -118,10 +104,6 @@ class GlobalExceptionHandlerTest {
 
   @RestController
   static class FakeController {
-    @GetMapping("/fake/denied")
-    void denied() {
-      throw new AccessDeniedException("thiếu quyền");
-    }
 
     record Body(@NotBlank String name) {}
 

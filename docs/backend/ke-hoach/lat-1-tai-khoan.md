@@ -46,7 +46,7 @@
 
 ### Nhiệm vụ 2 · Phiên, filter và Spring Security
 
-**Tạo:** `identity/api/SessionRevoker.java`, `identity/api/AuthenticatedUser.java`, `identity/internal/SessionTokens.java`, `Session.java`, `SessionStore.java`, `RedisSessionStore.java`, `SessionService.java`, `Client.java`, `RolePermissions.java`, `IdentityStartup.java`, `identity/web/SecurityConfig.java`, `SessionAuthenticationFilter.java`, `SessionAuthentication.java`, `SecurityErrorWriter.java`; sửa `shared/web/GlobalExceptionHandler.java`, `build.gradle.kts`.
+**Tạo:** `identity/api/SessionRevoker.java`, `identity/api/AuthenticatedUser.java`, `identity/internal/SessionTokens.java`, `Session.java`, `SessionStore.java`, `RedisSessionStore.java`, `SessionService.java`, `Client.java`, `RolePermissions.java`, `IdentityStartup.java`, `identity/web/SecurityConfig.java`, `SessionAuthenticationFilter.java`, `SessionAuthentication.java`, `SecurityErrorWriter.java`, `AccessDeniedAdvice.java`; sửa `build.gradle.kts` (thêm ở cuối khối `dependencies`, kèm `// lát 1`), `SignaApplication.java` (loại `UserDetailsServiceAutoConfiguration`).
 
 - [x] Thêm `spring-boot-starter-security` và gói test tương ứng; tắt `UserDetailsService` sinh mật khẩu mặc định.
 - [x] `SessionTokens`: 32 byte từ `SecureRandom`, base64url không padding (43 ký tự); `hash(token)` là SHA-256 hex; token sai định dạng bị loại trước khi tra Redis.
@@ -54,23 +54,23 @@
 - [x] `SessionService` cài `SessionRevoker.revokeAll(userId)`, thêm `revoke(sessionId)` và `revokeOthers(userId, keepSessionId)`.
 - [x] `RolePermissions` nạp `role_permissions` vào bộ nhớ khi khởi động (`IdentityStartup`, `@Profile("!migrate")`).
 - [x] `SecurityConfig`: stateless, tắt CSRF, form login, HTTP Basic; `@EnableMethodSecurity`; filter đọc `Authorization: Bearer`, đặt principal `AuthenticatedUser` cùng quyền; `userId` vào MDC. Công khai: `POST /auth/register`, `POST /auth/login`, `/actuator/health/**`, `/api/v1/openapi.json`, Swagger UI; đặt sẵn `GET /sign-types/**`, `GET /sign-categories/**`, `GET /signs/**`, `GET /recognition/**`, `POST /recognition/detect`. Còn lại cần đăng nhập.
-- [x] Entry point và access denied handler ghi `ErrorResponse` (kèm `WWW-Authenticate: Bearer` cho `401`); `GlobalExceptionHandler` ánh xạ `AccessDeniedException` của `@PreAuthorize` sang `403`, hoặc `401` nếu chưa đăng nhập.
-- [x] Unit test: `SessionTokensTest`, `SessionServiceTest` (kho phiên giả trong bộ nhớ), `GlobalExceptionHandlerTest` thêm ca `403`.
+- [x] Entry point và access denied handler ghi `ErrorResponse` (kèm `WWW-Authenticate: Bearer` cho `401`); `identity.web.AccessDeniedAdvice` (chạy trước handler chung, không sửa `shared/`) ánh xạ `AccessDeniedException` của `@PreAuthorize` sang `403`, hoặc `401` nếu chưa đăng nhập.
+- [x] Unit test: `SessionTokensTest`, `SessionServiceTest` (kho phiên giả trong bộ nhớ), `GlobalExceptionHandlerTest` thêm cấu hình Security mở mọi đường dẫn để test ánh xạ lỗi như cũ.
 - [x] Commit.
 
 ### Nhiệm vụ 3 · API tài khoản
 
 **Tạo:** `identity/internal/UserRepository.java`, `UserRecord.java`, `AccountService.java`, `LoginRateLimiter.java`, `AttemptCounter.java`, `RedisAttemptCounter.java`, `PasswordPolicy.java`, `PasswordConfig.java`, `identity/web/AuthController.java`, `MeController.java`, các DTO request và response.
 
-- [ ] `POST /api/v1/auth/register`: email trim và lowercase, `@Email`, ≤ 255; mật khẩu 8–72 ký tự và ≤ 72 byte UTF-8; `displayName` trim, 1–100. Vai trò `USER`. Trùng email `409 CONFLICT`. Trả `201` với hồ sơ như `/me`.
-- [ ] `POST /api/v1/auth/login` `{ email, password, client }` trả `{ token, expiresAt, user: { id, displayName, role, permissions } }`; thứ tự kiểm tra: giới hạn → mật khẩu (`401` chung) → `LOCKED` (`403`) → `WEB` cần `review:decide` (`403`) → tạo phiên, cập nhật `last_login_at`, xoá bộ đếm sai.
-- [ ] `LoginRateLimiter`: cửa sổ cố định `INCR` cùng `EXPIRE` 15 phút; đủ 10 lần sai thì `429` với `Retry-After` là TTL còn lại.
-- [ ] `POST /api/v1/auth/logout` thu hồi phiên hiện tại, trả `204`.
-- [ ] `GET /api/v1/me` trả thẳng `{ id, email, displayName, role, permissions }`; `PATCH /api/v1/me` `{ displayName }` trả hồ sơ mới.
-- [ ] `PUT /api/v1/me/password` `{ currentPassword, newPassword }`: sai mật khẩu cũ `422 BUSINESS_RULE`; xong thì thu hồi các phiên khác, trả `204`.
-- [ ] BCrypt cost 12.
-- [ ] Unit test: `PasswordPolicyTest`, validator của request, `LoginRateLimiterTest` (bộ đếm giả theo `Clock`), `AccountServiceTest`; `@WebMvcTest` cho `AuthController`, `MeController` với filter thật và dịch vụ giả.
-- [ ] Commit.
+- [x] `POST /api/v1/auth/register`: email trim và lowercase, `@Email`, ≤ 255; mật khẩu 8–72 ký tự và ≤ 72 byte UTF-8; `displayName` trim, 1–100. Vai trò `USER`. Trùng email `409 CONFLICT`. Trả `201` với hồ sơ như `/me`.
+- [x] `POST /api/v1/auth/login` `{ email, password, client }` trả `{ token, expiresAt, user: { id, displayName, role, permissions } }`; thứ tự kiểm tra: giới hạn → mật khẩu (`401` chung) → `LOCKED` (`403`) → `WEB` cần `review:decide` (`403`) → tạo phiên, cập nhật `last_login_at`, xoá bộ đếm sai.
+- [x] `LoginRateLimiter`: cửa sổ cố định `INCR` cùng `EXPIRE` 15 phút; đủ 10 lần sai thì `429` với `Retry-After` là TTL còn lại.
+- [x] `POST /api/v1/auth/logout` thu hồi phiên hiện tại, trả `204`.
+- [x] `GET /api/v1/me` trả thẳng `{ id, email, displayName, role, permissions }`; `PATCH /api/v1/me` `{ displayName }` trả hồ sơ mới.
+- [x] `PUT /api/v1/me/password` `{ currentPassword, newPassword }`: sai mật khẩu cũ `422 BUSINESS_RULE`; xong thì thu hồi các phiên khác, trả `204`.
+- [x] BCrypt cost 12.
+- [x] Unit test: `PasswordPolicyTest`, validator của request, `LoginRateLimiterTest` (bộ đếm giả theo `Clock`), `AccountServiceTest`; `@WebMvcTest` cho `AuthController`, `MeController` với filter thật và dịch vụ giả.
+- [x] Commit.
 
 ### Nhiệm vụ 4 · Quản trị viên đầu tiên
 

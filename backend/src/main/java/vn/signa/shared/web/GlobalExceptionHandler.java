@@ -8,12 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.AuthenticationTrustResolver;
-import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -34,7 +28,6 @@ import vn.signa.shared.error.FieldIssue;
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-  private static final AuthenticationTrustResolver TRUST = new AuthenticationTrustResolverImpl();
 
   @ExceptionHandler(ApiException.class)
   ResponseEntity<ErrorResponse> api(ApiException e, HttpServletRequest request) {
@@ -43,24 +36,6 @@ public class GlobalExceptionHandler {
       builder.header(HttpHeaders.RETRY_AFTER, String.valueOf(e.retryAfterSeconds()));
     }
     return builder.body(body(e.code(), e.getMessage(), e.details(), request));
-  }
-
-  /**
-   * {@code @PreAuthorize} từ chối bên trong controller nên lỗi tới đây trước bộ lọc của Spring
-   * Security. Khách nhận {@code 401}, người đã đăng nhập mà thiếu quyền nhận {@code 403}.
-   */
-  @ExceptionHandler(AccessDeniedException.class)
-  ResponseEntity<ErrorResponse> denied(AccessDeniedException e, HttpServletRequest request) {
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    boolean anonymous = auth == null || !auth.isAuthenticated() || TRUST.isAnonymous(auth);
-    ErrorCode code = anonymous ? ErrorCode.UNAUTHENTICATED : ErrorCode.FORBIDDEN;
-    return respond(code, null, List.of(), request);
-  }
-
-  @ExceptionHandler(AuthenticationException.class)
-  ResponseEntity<ErrorResponse> unauthenticated(
-      AuthenticationException e, HttpServletRequest request) {
-    return respond(ErrorCode.UNAUTHENTICATED, null, List.of(), request);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
