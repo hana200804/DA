@@ -11,7 +11,7 @@
 - Hợp đồng với dịch vụ lấy từ mã thật `ai/service/app.py`, `ai/service/images.py`: multipart `image` cùng `model` tuỳ chọn; ảnh tối đa 10 000 000 byte và 25 triệu pixel; hàng chờ đầy hoặc hết hạn chờ slot trả `503` kèm `Retry-After: 1`; `/v1/models` trả `defaultModel` và `models[]` (`modelName`, `modelVersion`, `labelMapVersion`, `defaultConf`, `modelCard`).
 - Ảnh chỉ nằm trong bộ nhớ (NFR-09): không ghi MinIO, không ghi đĩa, không log nội dung ảnh. `ImageIO` đọc ghi qua `MemoryCacheImageInputStream`, `MemoryCacheImageOutputStream` để không dùng file cache.
 - Đợt song song chưa có Spring Security: endpoint đều công khai; người dùng đăng nhập lấy qua interface `CallerIdentity` (hiện luôn rỗng).
-- Chỉ thêm dòng ở cuối `dependencies` kèm `// lát 3`. Không sửa `shared/`, không sửa `application.yml`: cấu hình riêng nằm ở `RecognitionProperties` (`signa.recognition`) với giá trị mặc định trong mã, `signa.recognition.url` có sẵn từ lát 0.
+- Chỉ thêm dòng ở cuối `dependencies` kèm `// lát 3`. Không sửa `shared/`. `application.yml` chỉ thêm `spring.servlet.multipart.file-size-threshold` (người điều phối cho phép); cấu hình riêng nằm ở `RecognitionProperties` (`signa.recognition`) với giá trị mặc định trong mã, `signa.recognition.url` có sẵn từ lát 0.
 
 ## Điểm cần soi khi review
 
@@ -89,7 +89,7 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 
 **2026-11-23.** Phần 1 (NV1–NV5) đã commit trên `backend/3-recognition`, chưa push.
 
-- Trên máy: `./gradlew spotlessCheck test compileTestJava` thành công, 61/61 unit test đạt, trong đó 41 test mới của lát 3 (`ImageFormatTest` 4, `ImageProcessorTest` 8, `RecognitionClientTest` 12, `RateLimitTest` 7, `RecognitionControllerTest` 10). `markdownlint` sạch.
+- Trên máy: `./gradlew spotlessCheck test compileTestJava` thành công, 62/62 unit test đạt, trong đó 42 test mới của lát 3 (`ImageFormatTest` 4, `ImageProcessorTest` 8, `RecognitionClientTest` 12, `RateLimitTest` 7, `RecognitionControllerTest` 10, `UploadConfigTest` 1). `markdownlint` sạch.
 - Đã thử tay (test tạm, không commit) `RecognitionClient` thật với WireMock: dịch vụ chậm 6 giây thì lỗi sau 5011 ms; địa chỉ không phản hồi thì lỗi sau 1002 ms; ảnh 2560×1920 tới dịch vụ là JPEG 1280×960.
 - Chỉ verify được trên CI (máy không có Docker): `RecognitionIT` gồm IT-B08, IT-B09, IT-B13, `429` ở lần thứ 31, `415`, truyền `X-Request-Id` khi gọi `/v1/models`; Lua script giới hạn tần suất chạy trên Redis thật.
 - Quyết định:
@@ -99,10 +99,11 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
   - Lỗi `5xx` nào của dịch vụ cũng thành `503`; `400`, `413`, `415` giữ nguyên ý nghĩa.
   - Box trả số thực, không làm tròn.
   - Redis lỗi thì cho qua (fail-open).
-  - Cấu hình riêng nằm ở `RecognitionProperties` với giá trị mặc định trong mã, không sửa `application.yml`.
+  - Cấu hình riêng nằm ở `RecognitionProperties` với giá trị mặc định trong mã. `application.yml` chỉ thêm `file-size-threshold` theo cho phép của người điều phối.
 - Nối ở phần 2: `AnonymousCallerIdentity` (luôn khách) thay bằng principal của lát 1; `NoSignInfoLookup` (`name`, `description`, `iconUrl` luôn `null`) thay bằng `catalog.api.SignCatalog` của lát 2.
-- Rủi ro, cần người điều phối quyết vì nằm ở file dùng chung:
-  - `spring.servlet.multipart.file-size-threshold` mặc định 0 nên Tomcat ghi file multipart tạm ra đĩa trong lúc xử lý request. Nên đặt `11MB` trong `application.yml` để ảnh nhận diện chỉ nằm trong bộ nhớ (NFR-09).
-  - `forward-headers-strategy: framework` lấy IP từ giá trị đầu của `X-Forwarded-For`, nên khách tự đặt header này để vượt giới hạn 30 lần mỗi phút. nginx (lát 10) phải ghi đè `X-Forwarded-For $remote_addr`, và cổng backend không được mở ra ngoài.
-  - Backend giải mã và mã hoá lại ảnh lớn nên bỏ thẻ EXIF Orientation. Ứng dụng đã chuẩn hoá hướng theo docs/07 §5 thì không sao. Ảnh nhỏ gửi nguyên còn thẻ thì dịch vụ xoay, box tính theo ảnh đã xoay trong khi `image` là kích thước chưa xoay.
-  - JPEG CMYK lớn hơn 1280 px có thể không giải mã được bằng ImageIO chuẩn và trả `415`; khi cần thì thêm `imageio-jpeg` của TwelveMonkeys.
+- Đã xử lý theo cho phép của người điều phối: thêm `spring.servlet.multipart.file-size-threshold: 11MB` vào `application.yml`. Ngưỡng không nhỏ hơn `max-file-size` và `max-request-size`, nên Tomcat giữ ảnh nhận diện trong bộ nhớ, không ghi file tạm (NFR-09). `UploadConfigTest` chứng minh cấu hình này.
+- Rủi ro người điều phối đã chấp nhận:
+  - Redis lỗi thì cho qua (fail-open).
+  - Ảnh thu nhỏ bị bỏ thẻ EXIF Orientation. Ứng dụng chuẩn hoá hướng ảnh trước khi tải lên theo docs/07 §5, nên box và `image` cùng một hệ toạ độ.
+  - JPEG CMYK lớn hơn 1280 px có thể trả `415`; khi cần thì thêm `imageio-jpeg` của TwelveMonkeys.
+- Rủi ro còn mở cho lát 10: `forward-headers-strategy: framework` lấy IP từ giá trị đầu của `X-Forwarded-For`, nên khách tự đặt header này để vượt giới hạn 30 lần mỗi phút. nginx phải ghi đè `X-Forwarded-For $remote_addr`, và cổng backend không được mở ra ngoài.
