@@ -38,11 +38,11 @@
 
 **Tạo:** `audit/api/AuditRecorder.java` (`record(AuditEntry)`), `audit/api/AuditEntry.java` (`entityType`, `entityId`, `action`, `actorType`, `actorId`, `before`, `after`, `reason`), `audit/api/AuditEntityType.java`, `audit/api/ActorType.java`, `audit/internal/JdbcAuditRecorder.java`, `src/test/.../audit/AuditEntryTest.java`, `src/test/.../audit/AuditRecorderIT.java`.
 
-- [ ] `AuditEntry` kiểm tra bất biến khi tạo: `SYSTEM` thì `actorId` rỗng, `USER` thì bắt buộc; `action` ≤ 40 ký tự; `reason` ≤ 1000 ký tự.
-- [ ] `JdbcAuditRecorder`: `@Transactional(propagation = MANDATORY)`, `INSERT INTO audit_logs` bằng `JdbcClient`; `before`, `after` ghi JSON bằng `JsonMapper` của Jackson 3; `requestId` lấy từ MDC; `created_at` từ `Clock`.
-- [ ] Unit test bất biến của `AuditEntry` và chuyển JSON.
-- [ ] `AuditRecorderIT`: ghi trong giao dịch thì có dòng đúng `request_id`; gọi ngoài giao dịch thì `IllegalTransactionStateException`. Chỉ compile trên máy.
-- [ ] Commit.
+- [x] `AuditEntry` kiểm tra bất biến khi tạo: `SYSTEM` thì `actorId` rỗng, `USER` thì bắt buộc; `action` ≤ 40 ký tự; `reason` ≤ 1000 ký tự.
+- [x] `JdbcAuditRecorder`: `@Transactional(propagation = MANDATORY)`, `INSERT INTO audit_logs` bằng `JdbcClient`; `before`, `after` ghi JSON bằng `JsonMapper` của Jackson 3; `requestId` lấy từ MDC; `created_at` từ `Clock`.
+- [x] Unit test bất biến của `AuditEntry` và chuyển JSON.
+- [x] `AuditRecorderIT`: ghi trong giao dịch thì có dòng đúng `request_id`; gọi ngoài giao dịch thì `IllegalTransactionStateException`. Chỉ compile trên máy.
+- [x] Commit.
 
 ### Nhiệm vụ 2 · Phiên, filter và Spring Security
 
