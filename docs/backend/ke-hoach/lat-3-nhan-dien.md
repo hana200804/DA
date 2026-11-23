@@ -38,11 +38,11 @@
 
 **Tạo:** `recognition/internal/RecognitionProperties.java`, `RecognitionClient.java`, `ModelList.java`, `ServiceDetection.java`; test `RecognitionClientTest` (`MockRestServiceServer`, không cần Docker).
 
-- [ ] `RestClient` gọi `signa.recognition.url`, timeout kết nối 1 giây, đọc 5 giây; truyền `X-Request-Id` lấy từ MDC.
-- [ ] `503`, lỗi `5xx` khác, timeout, lỗi kết nối, body hỏng → `ApiException(RECOGNITION_UNAVAILABLE)` kèm `Retry-After: 1`. `400`, `413`, `415` của dịch vụ → `VALIDATION_ERROR`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`.
-- [ ] `models()` cache trong bộ nhớ 60 giây theo `Clock`; lỗi không được cache.
-- [ ] Unit test: header `X-Request-Id`, trường multipart, ánh xạ từng mã lỗi, timeout giả, cache trúng và hết hạn.
-- [ ] Commit.
+- [x] `RestClient` gọi `signa.recognition.url`, timeout kết nối 1 giây, đọc 5 giây; truyền `X-Request-Id` lấy từ MDC.
+- [x] `503`, lỗi `5xx` khác, timeout, lỗi kết nối, body hỏng → `ApiException(RECOGNITION_UNAVAILABLE)` kèm `Retry-After: 1`. `400`, `413`, `415` của dịch vụ → `VALIDATION_ERROR`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`.
+- [x] `models()` cache trong bộ nhớ 60 giây theo `Clock`; lỗi không được cache.
+- [x] Unit test: header `X-Request-Id`, trường multipart, ánh xạ từng mã lỗi, timeout giả, cache trúng và hết hạn.
+- [x] Commit.
 
 ### Nhiệm vụ 3 · Giới hạn tần suất
 
