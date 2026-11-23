@@ -21,6 +21,7 @@ from signa_ai.labels import DEFAULT_PATH, LabelMap, load_label_map
 RATIOS = {"train": 0.70, "val": 0.15, "test": 0.15}
 SPLITS = (*RATIOS, "field")
 MANIFEST_FIELDS = ("path", "sha256", "split", "source", "sequence", "tags", "label_map_version")
+SYNTHETIC_BOXES_TAG = "synthetic_boxes="
 EDGE_TOLERANCE = 1e-6
 
 
@@ -73,6 +74,20 @@ class Sample:
     tags: str
     split: str
     boxes: tuple[Box, ...]
+    pasted_boxes: int | None = None
+
+
+def pasted_box_count(tags: str, source: str, box_count: int) -> int | None:
+    counts = [
+        tag.removeprefix(SYNTHETIC_BOXES_TAG)
+        for tag in tags.split(";")
+        if tag.startswith(SYNTHETIC_BOXES_TAG)
+    ]
+    if not counts:
+        return None
+    if len(counts) != 1 or source != "synthetic" or not 1 <= int(counts[0]) <= box_count:
+        raise ValueError("synthetic_boxes phải là số box được dán ở cuối nhãn ảnh tổng hợp")
+    return int(counts[0])
 
 
 def relative_path(value: str) -> PurePosixPath:
@@ -140,6 +155,7 @@ def read_samples(root: Path, intake: Path, label_map: LabelMap) -> list[Sample]:
                     image.load()
                     width, height = image.size
                 boxes = read_yolo(root / label, label_map)
+                tags = row.get("tags", "").strip()
                 samples.append(
                     Sample(
                         path,
@@ -148,9 +164,10 @@ def read_samples(root: Path, intake: Path, label_map: LabelMap) -> list[Sample]:
                         height,
                         source,
                         sequence,
-                        row.get("tags", "").strip(),
+                        tags,
                         split,
                         boxes,
+                        pasted_box_count(tags, source, len(boxes)),
                     )
                 )
                 paths.add(path)
@@ -281,8 +298,14 @@ def write_bundle(
                     root, staging, split, group, categories, manifest, label_map
                 )
         write_json(staging / "stats.json", stats)
+        real_train = Counter(
+            label_map.by_id(box.class_id).code
+            for sample in samples
+            if sample.source != "synthetic" and assigned[sample.sequence] == "train"
+            for box in sample.boxes
+        )
         for code, count in stats["train"]["synthetic_by_class"].items():
-            if 10 * count > 3 * stats["train"]["by_class"][code]:
+            if 10 * count > 3 * (real_train[code] + count):
                 raise ValueError(f"{code}: box tổng hợp vượt 30% số box trong train")
         config = {split: f"images/{split}" for split in RATIOS if stats[split]["images"]}
         config = {"path": str(output), **config, "names": label_map.names}
@@ -342,14 +365,15 @@ def write_split(
         )
         sources[sample.source] += 1
         tags.update(tag for tag in set(sample.tags.split(";")) if tag)
-        for box in sample.boxes:
+        pasted_start = 0 if sample.pasted_boxes is None else len(sample.boxes) - sample.pasted_boxes
+        for index, box in enumerate(sample.boxes):
             bbox = box.coco(sample.width, sample.height)
             area = bbox[2] * bbox[3]
             sign = label_map.by_id(box.class_id)
             classes[sign.code] += 1
             groups[sign.category] += 1
             sizes["small" if area < 32**2 else "large" if area > 96**2 else "medium"] += 1
-            if sample.source == "synthetic":
+            if sample.source == "synthetic" and index >= pasted_start:
                 synthetic_classes[sign.code] += 1
             annotations.append(
                 {
