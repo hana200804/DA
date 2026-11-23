@@ -167,7 +167,7 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
   - Lỗi Redis khi tra phiên trả `500 INTERNAL_ERROR` cùng định dạng chung.
   - `migrate` thuộc cả profile `app`, vì Compose không khởi động phụ thuộc ở profile chưa bật. `docker compose up -d` vẫn chỉ dựng hạ tầng như lát 0.
 - Theo quy tắc làm song song: không sửa `shared/`. Ánh xạ `AccessDeniedException` nằm ở `identity.web.AccessDeniedAdvice`. `GlobalExceptionHandlerTest` thêm một `SecurityFilterChain` mở mọi đường dẫn, vì có Spring Security thì test cũ nhận `401`. `SignaApplication` loại `UserDetailsServiceAutoConfiguration` để không ghi mật khẩu sinh ngẫu nhiên ra log. Phụ thuộc thêm ở cuối khối `dependencies` kèm `// lát 1`, cấu hình ở khối `signa.identity`. Không thêm migration.
-- Việc còn lại: push, mở PR, chạy CI cho các `*IT`. `docs/06 §10` đã sửa theo code (việc bổ sung). Sơ đồ `docs/03 §6.6` vẫn ghi `session:{token}`, chưa được phép sửa.
+- Việc còn lại: push, mở PR, chạy CI cho các `*IT`. `docs/06 §10` đã sửa theo code (việc bổ sung). Sơ đồ `docs/03 §6.6` đã sửa thành `session:{sha256(token)}` (việc bổ sung).
 - Rủi ro:
   - Đã xử lý (việc bổ sung): `server.forward-headers-strategy` chuyển từ `framework` sang `native`. Tomcat chỉ tin `X-Forwarded-For` từ proxy khớp `SIGNA_TRUSTED_PROXIES` (mặc định là dải IP riêng). Còn lại: nginx lát 10 phải ghi đè `X-Forwarded-For $remote_addr`.
   - Web quản trị coi phiên hết hạn theo `expiresAt` lúc đăng nhập (8 giờ), dù server gia hạn khi dùng.
