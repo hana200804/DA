@@ -28,18 +28,7 @@ public final class Containers {
 
   static final int REDIS_PORT = 6379;
 
-  /** Chạy cùng script tạo tài khoản với Compose (docs/backend/thiet-ke-trien-khai.md §5.3). */
-  public static final MySQLContainer MYSQL =
-      new MySQLContainer(DockerImageName.parse("mysql:8.4.13"))
-          .withDatabaseName("signa")
-          .withPassword("root-it-secret")
-          .withUrlParam("connectionTimeZone", "UTC")
-          .withUrlParam("forceConnectionTimeZoneToSession", "true")
-          .withEnv("SIGNA_MIGRATOR_PASSWORD", MIGRATOR_PASSWORD)
-          .withEnv("SIGNA_APP_PASSWORD", APP_PASSWORD)
-          .withCopyFileToContainer(
-              MountableFile.forHostPath(usersScript(), 0755),
-              "/docker-entrypoint-initdb.d/01-users.sh");
+  public static final MySQLContainer MYSQL = newMysql();
 
   public static final GenericContainer<?> REDIS =
       new GenericContainer<>(DockerImageName.parse("redis:7.4.12-alpine"))
@@ -59,7 +48,12 @@ public final class Containers {
    * dùng tài khoản test của container.
    */
   public static void register(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
+    register(registry, MYSQL);
+  }
+
+  /** Trỏ MySQL vào một container riêng, vẫn dùng chung Redis và MinIO. */
+  public static void register(DynamicPropertyRegistry registry, MySQLContainer mysql) {
+    registry.add("spring.datasource.url", mysql::getJdbcUrl);
     registry.add("spring.datasource.username", () -> APP_USER);
     registry.add("spring.datasource.password", () -> APP_PASSWORD);
     registry.add("spring.flyway.enabled", () -> "true");
@@ -71,6 +65,20 @@ public final class Containers {
     registry.add("signa.minio.public-endpoint", MINIO::getS3URL);
     registry.add("signa.minio.access-key", MINIO::getUserName);
     registry.add("signa.minio.secret-key", MINIO::getPassword);
+  }
+
+  /** Chạy cùng script tạo tài khoản với Compose (docs/backend/thiet-ke-trien-khai.md §5.3). */
+  public static MySQLContainer newMysql() {
+    return new MySQLContainer(DockerImageName.parse("mysql:8.4.13"))
+        .withDatabaseName("signa")
+        .withPassword("root-it-secret")
+        .withUrlParam("connectionTimeZone", "UTC")
+        .withUrlParam("forceConnectionTimeZoneToSession", "true")
+        .withEnv("SIGNA_MIGRATOR_PASSWORD", MIGRATOR_PASSWORD)
+        .withEnv("SIGNA_APP_PASSWORD", APP_PASSWORD)
+        .withCopyFileToContainer(
+            MountableFile.forHostPath(usersScript(), 0755),
+            "/docker-entrypoint-initdb.d/01-users.sh");
   }
 
   /** Gradle chạy test trong thư mục {@code backend/}. */
