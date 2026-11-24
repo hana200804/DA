@@ -4,7 +4,7 @@
 
 **Mục tiêu:** đề xuất của người dùng được gom thành biển, có trọng số, điểm tin cậy Beta, gợi ý cho kiểm duyệt viên, vị trí trung vị và chuyển trạng thái đúng [Thiết kế AI §6](../../04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy).
 
-**Yêu cầu:** FR-04, FR-11, FR-20, FR-21; cung cấp hàm thuần cho FR-22 (lát 7), FR-25 (lát 9) và cập nhật đề xuất thành viên khi duyệt (lát 6).
+**Yêu cầu** gồm FR-04, FR-11, FR-20, FR-21 và cờ tự duyệt FR-25. Lõi cung cấp hàm thuần cho FR-22 (lát 7) và cập nhật đề xuất thành viên khi duyệt (lát 6).
 
 **Nguồn chuẩn:** `docs/04 §6`, ADR-0004, ADR-0007, `docs/06 §6`, `docs/08 §2.2`, `docs/backend/thiet-ke-trien-khai.md §5.3`.
 
@@ -89,28 +89,28 @@ Lát 1 cung cấp đăng nhập, `submission:create` và `AuditRecorder`. Lát 2
 
 ### Nhiệm vụ 5 · Repository JDBC
 
-- [ ] `SignRepository`, `SignCodeWeightRepository`, `SubmissionRepository` trong `sign.internal`, dùng `JdbcClient` và SQL viết tay, chỉ trên `signs`, `sign_code_weights`, `submissions`.
-- [ ] Lọc thô ứng viên bằng `MBRContains` quanh điểm, `category_code` cùng nhóm, `status <> 'REMOVED'`; lọc chính xác bằng `ST_Distance_Sphere ≤ 20` với cùng bán kính Trái Đất của lõi. Dùng `Δlat = 20 / 111 320`, `Δlng = 20 / (111 320 · cos(lat))`, mở biên vừa đủ tránh bỏ sót do sai số và xử lý kinh tuyến đổi ngày, hai cực. Giữ biển `REJECTED` trong 30 ngày tính từ lúc nhận đề xuất.
-- [ ] Đọc ứng viên bằng `SELECT … FOR UPDATE` trong giao dịch của worker để không ghi đè quyết định duyệt đồng thời; ghi biển bằng `WHERE id = ? AND version = ?`.
-- [ ] Nạp đề xuất thành viên của ứng viên (cột `user_id`, `sign_type_code`, `weight`, `location`, `received_at`, `status`).
+- [x] `SignRepository`, `SignCodeWeightRepository`, `SubmissionRepository` trong `sign.internal`, dùng `JdbcClient` và SQL viết tay, chỉ trên `signs`, `sign_code_weights`, `submissions`.
+- [x] Lọc thô ứng viên bằng `MBRContains` quanh điểm, `category_code` cùng nhóm, `status <> 'REMOVED'`; lọc chính xác bằng `ST_Distance_Sphere ≤ 20` với cùng bán kính Trái Đất của lõi. Dùng `Δlat = 20 / 111 320`, `Δlng = 20 / (111 320 · cos(lat))`, mở biên vừa đủ tránh bỏ sót do sai số và xử lý kinh tuyến đổi ngày, hai cực. Giữ biển `REJECTED` trong 30 ngày tính từ lúc nhận đề xuất.
+- [x] Đọc ứng viên bằng `SELECT … FOR UPDATE` trong giao dịch của worker để không ghi đè quyết định duyệt đồng thời; ghi biển bằng `WHERE id = ? AND version = ?`.
+- [x] Nạp đề xuất thành viên của ứng viên (cột `user_id`, `sign_type_code`, `weight`, `location`, `received_at`, `status`).
 
 ### Nhiệm vụ 6 · API đề xuất
 
-- [ ] Multipart `metadata` + `crop` (≤ 200 KB, JPEG), kiểm chi tiết trường và `labelMapVersion` qua `SignCatalog`, ghi `sign-crops/{newId}.jpg`, `INSERT` `RECEIVED`.
-- [ ] Trùng `UNIQUE(user_id, client_id)`: đọc bản ghi thắng, xoá ảnh vừa ghi, trả `200` cùng ID (IT-B01, IT-B14).
-- [ ] Commit xong mới `XADD stream:submissions`; Redis lỗi vẫn trả `201`.
-- [ ] `GET /me/submissions` phân trang riêng theo người đăng nhập, thứ tự nhận mới nhất trước.
-- [ ] Bổ sung quyền URL, dòng `PermissionMatrixTest` và hợp đồng hai endpoint trong `docs/07`.
+- [x] Multipart `metadata` + `crop` (≤ 200 KB, JPEG), kiểm chi tiết trường và `labelMapVersion` qua `SignCatalog`, ghi `sign-crops/{newId}.jpg`, `INSERT` `RECEIVED`.
+- [x] Trùng `UNIQUE(user_id, client_id)`: đọc bản ghi thắng, xoá ảnh vừa ghi, trả `200` cùng ID (IT-B01, IT-B14).
+- [x] Commit xong mới `XADD stream:submissions`; Redis lỗi vẫn trả `201`.
+- [x] `GET /me/submissions` phân trang riêng theo người đăng nhập, thứ tự nhận mới nhất trước.
+- [x] Bổ sung quyền URL, dòng `PermissionMatrixTest` và hợp đồng hai endpoint trong `docs/07`.
 
 ### Nhiệm vụ 7 · Worker và vận hành
 
-- [ ] Consumer group `clustering`, `XREADGROUP`; mỗi mục khoá đề xuất `FOR UPDATE`, bỏ qua nếu khác `RECEIVED`, gọi `ClusteringEngine.process`, ghi biển, trọng số, đề xuất, lịch sử (`audit.api`, `actor_type = SYSTEM`) trong một giao dịch, rồi `XACK`, `XDEL`. Bật bằng `signa.clustering.worker.enabled`; cấu hình tên consumer.
-- [ ] Tạo nhóm với `MKSTREAM`; khởi động lấy lại mục pending; quét mỗi phút đề xuất `RECEIVED` cũ hơn 1 phút; thử lại với backoff tăng dần.
-- [ ] Dùng ngưỡng đã chốt của `ClusteringConfig`; đọc cờ FR-25 từ `signa.clustering.auto-approve`, mặc định tắt.
-- [ ] Job dọn ảnh `sign-crops`: biển `REJECTED` sau 90 ngày; ảnh không có bản ghi MySQL cũ hơn 1 giờ. Job chạy mỗi ngày, bật bằng cấu hình, và dùng `ObjectStorage.list` để đọc khoá cùng thời điểm sửa cuối.
-- [ ] Metric: độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED`, tuổi đề xuất chờ lâu nhất, cùng timer xử lý. Thêm registry Prometheus.
-- [ ] Kiểm thử đơn vị cho metadata, khung lọc và tham số cập nhật biển.
-- [ ] IT-B01, IT-B02, IT-B03, IT-B12, IT-B14, cách ly danh sách theo người gọi và phiên bản nhãn lạ (chạy trên CI).
+- [x] Consumer group `clustering`, `XREADGROUP`; mỗi mục khoá đề xuất `FOR UPDATE`, bỏ qua nếu khác `RECEIVED`, gọi `ClusteringEngine.process`, ghi biển, trọng số, đề xuất, lịch sử (`audit.api`, `actor_type = SYSTEM`) trong một giao dịch, rồi `XACK`, `XDEL`. Bật bằng `signa.clustering.worker.enabled`; cấu hình tên consumer.
+- [x] Tạo nhóm với `MKSTREAM`; khởi động lấy lại mục pending; quét mỗi phút đề xuất `RECEIVED` cũ hơn 1 phút; thử lại với backoff tăng dần.
+- [x] Dùng ngưỡng đã chốt của `ClusteringConfig`; đọc cờ FR-25 từ `signa.clustering.auto-approve`, mặc định tắt.
+- [x] Job dọn ảnh `sign-crops`: biển `REJECTED` sau 90 ngày; ảnh không có bản ghi MySQL cũ hơn 1 giờ. Job chạy mỗi ngày, bật bằng cấu hình, và dùng `ObjectStorage.list` để đọc khoá cùng thời điểm sửa cuối.
+- [x] Metric: độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED`, tuổi đề xuất chờ lâu nhất, cùng timer xử lý. Thêm registry Prometheus.
+- [x] Kiểm thử đơn vị cho metadata, khung lọc và tham số cập nhật biển.
+- [x] Viết và biên dịch IT-B01, IT-B02, IT-B03, IT-B12, IT-B14, cách ly danh sách theo người gọi và phiên bản nhãn lạ. Các ca tích hợp chạy trên CI.
 
 ### Ghi chú cho lát 6
 
@@ -130,4 +130,12 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 - Người điều phối đã đồng ý các luật trong mục "Luật đã chốt khi tài liệu chưa nói rõ" (R = 6 370 986 m, biên bao gồm, bước 4 trước bước 5, luật hoà, so trên điểm đã làm tròn) và yêu cầu thêm `LOCATION_RECOMPUTED`. Còn chờ cả nhóm review: `M` khi tự duyệt, hướng của biển.
 - Rủi ro cho lát 6: xem mục "Ghi chú cho lát 6".
 
-**2026-11-24.** Đã ghép lát 1 và lát 2. Kiểm tra Gradle sau merge thành công. Bắt đầu triển khai phần 2 theo kế hoạch trên.
+**2026-11-24.** Đã ghép lát 1 và lát 2, hoàn tất phần 2 trên `backend/5-submissions-clustering`.
+
+- `./gradlew spotlessApply test compileTestJava jacocoTestCoverageVerification` thành công sau merge. Sau triển khai, `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` trả exit 0 với 320 unit test đạt. Đã sửa ca kiểm lịch sử vị trí phụ thuộc vào thứ tự ngẫu nhiên của `Map.of`.
+- Markdown dự án qua markdownlint. Glob đầy đủ trong worktree còn bắt MD041 ở kế hoạch Orca cục bộ từ phần 1 trong `.inbox/`, nên kiểm tra tài liệu dự án với glob loại thư mục này.
+- Đã biên dịch tám ca IT mới. Bảy ca thuộc `SubmissionIT` gồm IT-B01, IT-B02, IT-B03, IT-B12, IT-B14, riêng tư và phân trang lịch sử cá nhân, phiên bản nhãn lạ. Một ca thuộc `MinioObjectStorageIT` kiểm prefix và thời điểm sửa cuối. CI chạy các ca với MySQL, Redis và MinIO qua Testcontainers vì máy hiện tại không có Docker.
+- Đề xuất trùng trả bản ghi cũ sau khi kiểm cú pháp và ảnh. Kiểm danh mục hiện hành chỉ áp dụng cho đề xuất mới để retry vẫn trả được bản ghi sau lần đổi danh mục. Hai yêu cầu đụng khoá duy nhất dùng hai khoá ảnh riêng. Redis được gọi sau commit MySQL. Worker phục hồi pending bằng `XPENDING` và `XCLAIM`, rồi chạy `XACK` và `XDEL` trong cùng lệnh Redis sau giao dịch.
+- Worker và tự duyệt mặc định tắt. Dùng `SIGNA_CLUSTERING_WORKER_ENABLED`, `SIGNA_CLUSTERING_WORKER_CONSUMER` và `SIGNA_CLUSTERING_AUTO_APPROVE` để cấu hình. Chỉ bật một worker trong mỗi môi trường theo ADR-0007. Lỗi liên tục ở mục pending sẽ giữ thứ tự xử lý và tạm dừng hàng đợi trong khi thử lại.
+- Bổ sung `ObjectStorage.list` trong `shared.storage` vì job cần đối chiếu khoá ảnh và thời điểm sửa cuối với MySQL. MinIO liệt kê theo trang, job đối chiếu mỗi lô 250 ảnh. Job chạy lúc 03:00 UTC và tắt được bằng `SIGNA_CLUSTERING_CROP_CLEANUP_ENABLED=false`. Endpoint Prometheus được mở qua Actuator và dùng chính sách xác thực hiện có.
+- Hai migration `V50` và `V51` thêm chỉ mục để quét đề xuất chờ và tìm khoá ảnh. Khung lọc mở biên vừa đủ cho bán kính 20 m và tách qua kinh tuyến đổi ngày. Lõi phần 1 vẫn tính trung vị kinh độ tuyến tính, có thể cho vị trí sai khi hai đề xuất nằm hai phía ±180°.
