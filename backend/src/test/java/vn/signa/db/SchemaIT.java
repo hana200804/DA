@@ -3,7 +3,9 @@ package vn.signa.db;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -11,8 +13,12 @@ import java.util.TreeSet;
 import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationState;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import vn.signa.support.IntegrationTest;
@@ -30,10 +36,18 @@ class SchemaIT extends IntegrationTest {
   @Autowired JdbcTemplate jdbc;
 
   @Test
-  void migrationsApplied() {
+  void migrationsApplied() throws IOException {
     var info = flyway.info();
     assertThat(info.pending()).isEmpty();
-    assertThat(info.current().getVersion().getVersion()).isEqualTo("3");
+    var migrations =
+        new PathMatchingResourcePatternResolver().getResources("classpath*:db/migration/*.sql");
+    assertThat(migrations).isNotEmpty();
+    assertThat(info.applied())
+        .filteredOn(migration ->
+            migration.getState() == MigrationState.SUCCESS
+                || migration.getState() == MigrationState.OUT_OF_ORDER)
+        .extracting(MigrationInfo::getScript)
+        .containsAll(Arrays.stream(migrations).map(Resource::getFilename).toList());
   }
 
   @Test
