@@ -34,7 +34,8 @@ import vn.signa.support.IntegrationTest;
 class CredentialVersionIT extends IntegrationTest {
 
   private static final String ME = "/api/v1/me";
-  private static final String NEW_PASSWORD = "mat-khau-moi-it-12345";
+  private static final String NEW_PASSWORD =
+      "mat-khau-moi-it-12345"; // gitleaks:allow mật khẩu giả của IT
 
   @LocalServerPort int port;
   @Autowired JsonMapper json;
