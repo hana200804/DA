@@ -2,6 +2,7 @@ package vn.signa.identity.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -51,6 +52,8 @@ import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
+import vn.signa.sign.clustering.SubmissionStatus;
+import vn.signa.sign.internal.SubmissionService;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -195,6 +198,21 @@ class PermissionMatrixTest {
               new MockMultipartFile(
                   "icon", "T.1.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
               MANAGE_CATALOG),
+          // Lát 5 · đề xuất (docs/07 §6)
+          new Endpoint(
+              HttpMethod.POST,
+              "/api/v1/submissions",
+              """
+              {"clientId":"abcdb1d7-3813-44d1-a641-e474c16010fe","signTypeCode":"P.102",
+               "confidence":0.9,"location":{"lat":21.04,"lng":105.8},"source":"CAMERA",
+               "model":{"name":"yolov8n","version":"1.0","labelMapVersion":1},
+               "capturedAt":"2026-11-24T00:00:00Z"}
+              """,
+              new MockMultipartFile(
+                  "crop", "crop.jpg", "image/jpeg", HexFormat.of().parseHex("ffd8ff")),
+              Access.permission("submission:create"),
+              true),
+          Endpoint.of(HttpMethod.GET, "/api/v1/me/submissions", null, Access.AUTHENTICATED),
           // Quy tắc công khai đặt sẵn cho lát 3–4. Lát có controller đổi dòng sang Endpoint.of.
           Endpoint.reserved(HttpMethod.GET, "/api/v1/signs", Access.PUBLIC),
           Endpoint.reserved(HttpMethod.GET, "/api/v1/recognition/models", Access.PUBLIC),
@@ -236,6 +254,7 @@ class PermissionMatrixTest {
   @MockitoBean CatalogQueryService catalog;
   @MockitoBean CatalogAdminService catalogAdmin;
   @MockitoBean SessionService sessions;
+  @MockitoBean SubmissionService submissions;
   @MockitoBean RolePermissions rolePermissions;
 
   @BeforeEach
@@ -250,6 +269,12 @@ class PermissionMatrixTest {
         .thenReturn(new LoginResult("tok", Instant.parse("2026-12-01T00:00:00Z"), profile));
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
+    when(submissions.submit(anyString(), any(), any()))
+        .thenReturn(
+            new SubmissionService.Result(
+                new SubmissionService.Receipt("submission-1", SubmissionStatus.RECEIVED), true));
+    when(submissions.list(anyString(), anyInt(), anyInt()))
+        .thenReturn(new SubmissionService.Page(List.of(), 0, 20, 0));
     when(catalog.categories()).thenReturn(new SignCategoryList(List.of()));
     when(catalogAdmin.types(false)).thenReturn(new AdminSignTypeList(List.of()));
     when(catalog.signTypes())
@@ -272,7 +297,17 @@ class PermissionMatrixTest {
         endpoint.file() == null
             ? request(endpoint.method(), endpoint.path())
             : multipart(endpoint.method(), endpoint.path()).file(endpoint.file());
-    if (endpoint.body() != null) {
+    if (endpoint.file() != null && endpoint.body() != null) {
+      request =
+          multipart(endpoint.method(), endpoint.path())
+              .file(endpoint.file())
+              .file(
+                  new MockMultipartFile(
+                      "metadata",
+                      "",
+                      MediaType.APPLICATION_JSON_VALUE,
+                      endpoint.body().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    } else if (endpoint.body() != null) {
       request.contentType(MediaType.APPLICATION_JSON).content(endpoint.body());
     }
     if (!role.equals(GUEST)) {

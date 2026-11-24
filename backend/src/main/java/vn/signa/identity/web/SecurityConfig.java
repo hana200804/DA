@@ -68,6 +68,8 @@ class SecurityConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, API + "/recognition/detect")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, API + "/submissions")
+                .hasAuthority("submission:create")
                 .anyRequest()
                 .authenticated());
     return http.build();
