@@ -115,6 +115,33 @@ class RatingServiceTest {
   }
 
   @Test
+  void scoreUsesOnlyOppositionStrictlyAfterReview() {
+    when(repository.lockPublished(SIGN))
+        .thenReturn(Optional.of(sign.toBuilder().denyCount(6).denySinceReview(8).build()));
+    when(repository.codeWeights(SIGN))
+        .thenReturn(
+            Map.of(
+                "P.102", new CodeWeight(new BigDecimal("4"), 4),
+                "P.103a", new CodeWeight(new BigDecimal("9"), 9)));
+    when(repository.weightsSinceReview(SIGN, REVIEWED))
+        .thenReturn(Map.of("P.103a", new BigDecimal("1.25")));
+    when(repository.countDeniesSinceReview(SIGN, REVIEWED)).thenReturn(1);
+    when(repository.previous(SIGN, "u1"))
+        .thenReturn(Optional.of(new PreviousRating(DENY, REVIEWED)));
+
+    service.rate(SIGN, "u1", CONFIRM);
+
+    ArgumentCaptor<SignState> updates = ArgumentCaptor.forClass(SignState.class);
+    verify(repository).updateSign(updates.capture(), eq(NOW));
+    SignState updated = updates.getValue();
+    assertThat(updated.denyCount()).isEqualTo(5);
+    assertThat(updated.denySinceReview()).isEqualTo(1);
+    assertThat(updated.confidence()).isEqualByComparingTo("0.7317");
+    assertThat(updated.status()).isEqualTo(SignStatus.APPROVED);
+    verifyNoInteractions(audit);
+  }
+
+  @Test
   void rejectsTheSubmitter() {
     when(repository.lockPublished(SIGN)).thenReturn(Optional.of(sign));
     when(repository.hasSubmission(SIGN, "u1")).thenReturn(true);

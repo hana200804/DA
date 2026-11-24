@@ -1,5 +1,6 @@
 package vn.signa.sign.internal.feedback;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -91,12 +92,30 @@ class RatingRepository {
             """
             SELECT COUNT(*) FROM sign_ratings
             WHERE sign_id = :sign AND value = 'DENY'
-              AND (:reviewedAt IS NULL OR updated_at >= :reviewedAt)
+              AND (:reviewedAt IS NULL OR updated_at > :reviewedAt)
             """)
         .param("sign", signId)
         .param("reviewedAt", FeedbackSql.utc(reviewedAt))
         .query(Integer.class)
         .single();
+  }
+
+  Map<String, BigDecimal> weightsSinceReview(String signId, Instant reviewedAt) {
+    if (reviewedAt == null) return Map.of();
+    return jdbc.sql(
+            """
+            SELECT sign_type_code, SUM(weight) AS weight
+            FROM submissions
+            WHERE sign_id = :sign AND weight IS NOT NULL AND received_at > :reviewedAt
+            GROUP BY sign_type_code
+            """)
+        .param("sign", signId)
+        .param("reviewedAt", FeedbackSql.utc(reviewedAt))
+        .query(rs -> {
+          Map<String, BigDecimal> weights = new HashMap<>();
+          while (rs.next()) weights.put(rs.getString("sign_type_code"), rs.getBigDecimal("weight"));
+          return weights;
+        });
   }
 
   void upsert(String signId, String userId, RatingValue value, Instant now) {

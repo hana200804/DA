@@ -43,6 +43,7 @@ public class RatingService {
     var current =
         sign.toBuilder()
             .codeWeights(ratings.codeWeights(signId))
+            .weightsSinceReview(ratings.weightsSinceReview(signId, sign.reviewedAt()))
             .denySinceReview(ratings.countDeniesSinceReview(signId, sign.reviewedAt()))
             .build();
     ratings.upsert(signId, userId, value, now);
