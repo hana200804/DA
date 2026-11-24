@@ -39,6 +39,23 @@ public record AuditEntry(
 
 Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã quyền>')")`; lấy người dùng bằng `@AuthenticationPrincipal vn.signa.identity.api.AuthenticatedUser user` (`userId()`, `role()`, `permissions()`, `has(...)`). Thu hồi phiên: `vn.signa.identity.api.SessionRevoker.revokeAll(userId)`.
 
+Quyền theo tiền tố `/api/v1/admin/**` trong `SecurityConfig.apiSecurity` (thêm ở lát 8, việc bổ sung). `@PreAuthorize` chỉ chạy sau khi Spring đọc và kiểm tham số, thân request, nên người thiếu quyền gửi dữ liệu sai nhận `400` thay vì `403`. Quy tắc theo URL chặn trước bước đó; `@PreAuthorize` trên controller vẫn giữ làm lớp thứ hai. Mỗi lát **thêm dòng** `requestMatchers(…).hasAuthority(…)` cho tiền tố của mình, đặt trước dòng mặc định `/api/v1/admin/**`, không sửa dòng có sẵn:
+
+| Tiền tố | Method | Quyền | Lát | Trạng thái |
+| --- | --- | --- | --- | --- |
+| `/api/v1/admin/review-queue/**` | mọi method | `review:decide` | 6 | Đã có |
+| `GET /api/v1/admin/signs/*`; `POST /api/v1/admin/signs/*/approve`, `/reject`, `/keep` | `GET`, `POST` | `review:decide` | 6 | Đã có |
+| `POST /api/v1/admin/signs`, `/api/v1/admin/signs/*/remove`; `PATCH /api/v1/admin/signs/*` | `POST`, `PATCH` | `sign:edit` | 6 | Đã có |
+| `/api/v1/admin/reports/**` | mọi method | `report:resolve` | 7 | Đã có |
+| `/api/v1/admin/users/**` | mọi method | `user:manage` | 8 | Đã có |
+| `/api/v1/admin/audit-logs/**` | mọi method | `audit:read` | 8 | Đã có |
+| `/api/v1/admin/sign-types/**`, `/api/v1/admin/sign-categories/**` | mọi method | `catalog:manage` | 2 (thêm khi ghép ở lát 8) | Đã có |
+| `/api/v1/admin/stats/**` | mọi method | `stats:read` | 9 | Đã có |
+| `/api/v1/admin/recognition/**` | mọi method | `recognition:compare` | 9 | Đã có |
+| `/api/v1/admin/**` còn lại | mọi method | `review:decide` (tối thiểu) | 8 (khi ghép lát 2–7) | Đã có |
+
+Dòng mặc định nằm **sau** mọi dòng `/admin` cụ thể và trước `anyRequest()`, vì quy tắc nào khớp trước thì được dùng. Mọi quyền quản trị chỉ thuộc `MODERATOR`, `ADMIN`, và cả hai đều có `review:decide`, nên dòng này không chặn người đủ quyền trên CSDL thật. Lát mới thêm dòng của mình phía trên dòng mặc định. Nếu không thêm, endpoint vẫn chạy nhưng `@WebMvcTest` có vai trò giả thiếu `review:decide` sẽ nhận `403`. Trường hợp này đã gặp ở danh mục: `CatalogAdminControllerTest` chỉ cấp `catalog:manage`, nên phải thêm dòng `catalog:manage` riêng. Ở `signs`, dòng `review:decide` cho `approve`, `reject`, `keep` đặt trước dòng `sign:edit`.
+
 Thêm dòng vào `PermissionMatrixTest` (UT-B11) ở phần 2 của mỗi lát:
 
 1. Mỗi endpoint mới là một dòng `Endpoint.of(method, path, body, access)` trong `ENDPOINTS`. `access` là `Access.PUBLIC`, `Access.AUTHENTICATED` hoặc `Access.permission("<mã quyền>")`, khớp cột **Quyền** ở `docs/07`. `body` là thân request hợp lệ (hoặc `null`), để vai trò đủ quyền đi tới controller.
