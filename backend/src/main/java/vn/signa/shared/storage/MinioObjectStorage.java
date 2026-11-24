@@ -3,6 +3,7 @@ package vn.signa.shared.storage;
 import io.minio.BucketExistsArgs;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.Http;
+import io.minio.ListObjectsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -12,6 +13,7 @@ import io.minio.StatObjectArgs;
 import io.minio.errors.ErrorResponseException;
 import io.minio.errors.MinioException;
 import java.time.Duration;
+import java.util.Iterator;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import vn.signa.shared.config.SignaProperties;
@@ -110,6 +112,35 @@ public class MinioObjectStorage implements ObjectStorage {
     } catch (MinioException e) {
       throw failure("kiểm tra", bucket, key, e);
     }
+  }
+
+  @Override
+  public Iterable<StoredObject> list(Bucket bucket, String prefix) {
+    var args =
+        ListObjectsArgs.builder()
+            .bucket(bucket.bucketName())
+            .prefix(prefix)
+            .recursive(true)
+            .build();
+    return () -> {
+      var entries = client.listObjects(args).iterator();
+      return new Iterator<>() {
+        @Override
+        public boolean hasNext() {
+          return entries.hasNext();
+        }
+
+        @Override
+        public StoredObject next() {
+          try {
+            var item = entries.next().get();
+            return new StoredObject(item.objectName(), item.lastModified().toInstant());
+          } catch (MinioException e) {
+            throw failure("liệt kê", bucket, prefix, e);
+          }
+        }
+      };
+    };
   }
 
   @Override

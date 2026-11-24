@@ -135,7 +135,7 @@ infra/
 | Danh mục nhãn | Lệnh `import-labels` đọc `SIGNA_LABELS_PATH`, upsert `sign_categories` và `sign_types`, đổi khoá nhóm sang chữ hoa (`prohibitory` → `PROHIBITORY`), xoá `cache:sign-types`. ETag là hash nội dung |
 | Quản trị viên đầu tiên | **(đề xuất)** Chưa có `ADMIN` thì khởi động tạo một tài khoản từ `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD`, ghi lịch sử với `actor_type = SYSTEM`. Thiếu biến thì bỏ qua. Không có mật khẩu mặc định |
 | Dọn ảnh | Job định kỳ: xoá ảnh `sign-crops` của biển `REJECTED` sau 90 ngày, ảnh `report-photos` 90 ngày sau khi báo cáo được xử lý (`docs/06 §11`). Xoá ảnh trong `sign-crops` không có bản ghi MySQL và cũ hơn 1 giờ (ADR-0006) |
-| Metric | Độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED` và tuổi đề xuất chờ lâu nhất (ADR-0007); thời gian gọi dịch vụ nhận diện theo mô hình |
+| Metric | Độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED`, tuổi đề xuất chờ lâu nhất và thời gian xử lý gom cụm (ADR-0007); thời gian gọi dịch vụ nhận diện theo mô hình |
 | Thời gian | Inject `Clock` để test luật 12 giờ, 30 ngày và 90 ngày |
 
 ## 6. Các bước triển khai
@@ -151,11 +151,11 @@ Mỗi lát xong khi các ca kiểm thử liệt kê đạt trên CI, OpenAPI kh�
 | 2 · Danh mục | `import-labels`, `GET /sign-categories`, `/sign-types` có ETag, quản trị danh mục và ảnh minh hoạ. `R__demo_data.sql` với biển mẫu cho profile `demo` | FR-08, FR-35 | `304` với `If-None-Match`; không xoá loại đang dùng; web trang danh mục chạy với API thật | Vừa |
 | 3 · Nhận diện | `GET /recognition/models`, `POST /recognition/detect`, giới hạn tần suất, thu nhỏ ảnh, quy đổi box | FR-02, FR-24 | IT-B08, IT-B09, IT-B13 trên WireMock | Nhỏ |
 | 4 · Bản đồ | `GET /signs` (bbox, lọc, gom ô), `GET /signs/{id}` với URL ký ảnh đại diện | FR-05 → FR-07 | IT-B06, IT-B07 trên dữ liệu mẫu; `404` với biển chưa công bố | Nhỏ |
-| 5 · Đề xuất và gom cụm | `POST /submissions`, `sign-crops`, stream, worker, trọng số, điểm, gợi ý, vị trí, job dọn ảnh, metric hàng đợi | FR-04, FR-20, FR-21 | UT-B01 → UT-B07, UT-B12; IT-B01 → IT-B03, IT-B12, IT-B14 | Lớn nhất |
+| 5 · Đề xuất và gom cụm | `POST /submissions`, `GET /me/submissions`, `sign-crops`, worker, trọng số, điểm, gợi ý, vị trí, tự duyệt (mặc định tắt), dọn ảnh, metric | FR-04, FR-11, FR-20, FR-21, FR-25 | UT-B01 → UT-B07, UT-B09, UT-B10, UT-B12; IT-B01 → IT-B03, IT-B12, IT-B14 | Lớn nhất |
 | 6 · Phê duyệt và sửa biển | Hàng đợi, chi tiết, duyệt, từ chối, giữ (kèm sửa); thêm, sửa, gỡ trực tiếp | FR-23, FR-31, FR-33 | IT-B04, IT-B05; web duyệt được một biển | Lớn |
 | 7 · Đánh giá và báo cáo | Đánh giá, báo cáo kèm ảnh, rà soát lại, xử lý báo cáo, `GET /me/reports` | FR-09, FR-10, FR-22, FR-32 | UT-B08, IT-B11; người gửi tự đánh giá thì `422` | Vừa |
 | 8 · Lịch sử và người dùng | `GET /admin/audit-logs`, quản lý người dùng | FR-34, FR-36 | Ma trận UT-B11 đầy đủ; khoá tài khoản thì mất phiên | Nhỏ |
-| 9 · P1 | `GET /me/submissions`, OTP (Mailpit khi dev), tự duyệt (mặc định tắt), so sánh 3 mô hình, thống kê, interface tìm địa điểm | FR-11, FR-13, FR-25, FR-37, FR-38 | UT-B09, UT-B10; test API từng mục | Vừa |
+| 9 · P1 | OTP (Mailpit khi dev), so sánh 3 mô hình, thống kê, interface tìm địa điểm | FR-13, FR-37, FR-38 | Test API từng mục | Vừa |
 | 10 · Hoàn thiện | Compose đầy đủ gồm nginx và dịch vụ nhận diện, k6, script mô phỏng `docs/08 §6`, checklist bảo mật | NFR-03, NFR-04 | Checklist `docs/08 §7`; k6 `docs/08 §8` | Vừa |
 
 Lát 0–6 là P0 cốt lõi và phải xong trước tuần 11 để kịp luồng đầu–cuối. Nếu chậm, lát 9 cắt theo thứ tự ở §3. Lát 10 làm song song với thử nghiệm thực địa.

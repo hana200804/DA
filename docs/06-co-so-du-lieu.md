@@ -177,7 +177,7 @@ Backend kiểm tra **quyền**, không kiểm tra tên vai trò, nên đổi ph�
 
 ## 5. Danh mục biển
 
-Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35.
+Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35. Lệnh nhập không ghi đè `description`, `icon_key`, `active`, không sửa nhóm đã có, và chỉ đổi `name` khi quản trị viên chưa sửa.
 
 ### sign_categories
 
@@ -200,6 +200,7 @@ Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng l�
 | `icon_key` | VARCHAR(255) | NULL | Khoá ảnh minh hoạ trong bucket `sign-icons` |
 | `label_id` | SMALLINT | NULL | `id` lớp trong danh mục nhãn; `NULL` nếu chỉ nhập tay |
 | `label_map_version` | INT | NULL | Phiên bản danh mục nhãn có lớp này |
+| `label_name` | VARCHAR(200) | NULL | Tên lấy từ danh mục nhãn ở lần nạp gần nhất. Lệnh nạp chỉ đổi `name` khi `name` còn bằng giá trị này, tức quản trị viên chưa sửa |
 | `active` | BOOLEAN | NOT NULL, mặc định TRUE | Ngừng dùng thay vì xoá |
 | `created_at`, `updated_at` | DATETIME(3) | NOT NULL | |
 
@@ -266,7 +267,7 @@ Chỉ mục: `SPATIAL(location)`; `(status, suggestion, confidence)` cho hàng �
 | `status` | ENUM('RECEIVED','GROUPED','ACCEPTED','REJECTED') | NOT NULL | |
 | `reject_reason` | VARCHAR(500) | NULL | |
 
-Chỉ mục: `(sign_id, user_id, received_at)` cho luật chống lặp 12 giờ; `(user_id, received_at)` cho FR-11; `(status)`.
+Chỉ mục: `(sign_id, user_id, received_at)` cho luật chống lặp 12 giờ; `(user_id, received_at)` cho FR-11; `(status, received_at)` cho quét lại đề xuất chờ; `(crop_key)` cho đối chiếu ảnh trong MinIO.
 
 ## 7. Đánh giá và báo cáo
 
@@ -321,7 +322,7 @@ Chỉ mục: `(entity_type, entity_id, created_at)`, `(actor_id, created_at)`, `
 
 | `entity_type` | `action` |
 | --- | --- |
-| `SIGN` | `CREATED`, `LEADING_CODE_CHANGED`, `APPROVED`, `AUTO_APPROVED`, `REJECTED`, `EDITED`, `MARKED_UNDER_REVIEW`, `KEPT`, `REMOVED` |
+| `SIGN` | `CREATED`, `LEADING_CODE_CHANGED`, `LOCATION_RECOMPUTED`, `APPROVED`, `AUTO_APPROVED`, `REJECTED`, `EDITED`, `MARKED_UNDER_REVIEW`, `KEPT`, `REMOVED` |
 | `REPORT` | `ACCEPTED`, `DISMISSED` |
 | `SIGN_TYPE`, `SIGN_CATEGORY` | `CREATED`, `UPDATED`, `DEACTIVATED` |
 | `USER` | `ROLE_CHANGED`, `LOCKED`, `UNLOCKED` |
@@ -349,7 +350,7 @@ LIMIT 501;
 
 Truy vấn áp dụng các bộ lọc nhóm và mã biển khi có tham số. Nếu tìm được 501 dòng, backend chạy truy vấn gom theo ô lưới với cùng bộ lọc trên toàn vùng. Số đếm mỗi ô lấy từ toàn bộ kết quả, kể cả các biển nằm ngoài 501 dòng đầu.
 
-**Biển gần một đề xuất** (gom cụm, bán kính 20 m): lọc thô bằng `MBRContains` với hình chữ nhật ±0,0002° quanh điểm (dùng chỉ mục), rồi lọc chính xác `ST_Distance_Sphere(location, :p) <= 20`.
+**Biển gần một đề xuất** (gom cụm, bán kính 20 m): lọc thô bằng `MBRContains` với nửa cạnh `Δlat = 20 / 111 320` và `Δlng = 20 / (111 320 · cos(lat))` độ, mở biên nhỏ theo hình cầu. Qua kinh tuyến đổi ngày thì tách khung và xét cả biên. Nếu vòng tròn chạm cực, chỉ lọc thô theo vĩ độ. Lọc chính xác bằng `ST_Distance_Sphere(location, :p, 6370986) <= 20` để cùng bán kính Trái Đất với lõi gom cụm.
 
 ## 10. Redis
 

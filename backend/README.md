@@ -96,9 +96,24 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_MINIO_ACCESS_KEY`, `SIGNA_MINIO_SECRET_KEY` | (trống, bắt buộc) | Thiếu thì ứng dụng không khởi động |
 | `SIGNA_RECOGNITION_URL` | `http://localhost:8000` | Dịch vụ nhận diện FastAPI |
 | `SIGNA_LABELS_PATH` | `../ai/data/labels.yaml` | Danh mục nhãn cho `import-labels` (lát 2) |
+| `SIGNA_CATALOG_IMPORT_ON_STARTUP` | `false` | Nạp danh mục nhãn mỗi lần khởi động |
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
 | `SIGNA_TRUSTED_PROXIES` | dải IP riêng | Biểu thức chính quy các proxy được tin `X-Forwarded-For`, ví dụ `172\.18\.0\.5` |
 | `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |
+
+## Danh mục nhãn và dữ liệu mẫu
+
+Nạp `ai/data/labels.yaml` vào `sign_categories`, `sign_types` bằng tham số `--import-labels` hoặc `SIGNA_CATALOG_IMPORT_ON_STARTUP=true`. Ứng dụng nạp xong rồi chạy tiếp; file sai (trùng `id`, trùng `code`, nhóm không tồn tại) thì dừng khởi động và báo số dòng. Nạp lại không ghi đè mô tả, ảnh minh hoạ, trạng thái dùng, cũng không ghi đè tên quản trị viên đã sửa.
+
+```sh
+./gradlew bootRun --args='--spring.profiles.active=local --import-labels'
+```
+
+Profile `demo` thêm 30 biển mẫu quanh Hà Nội (`db/demo/R__demo_data.sql`) khi migrate, cùng các loại biển chúng dùng:
+
+```sh
+./gradlew bootRun --args='--spring.profiles.active=migrate,demo'
+```
 
 ## Lưu ảnh
 

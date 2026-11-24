@@ -176,7 +176,7 @@ sequenceDiagram
     R->>W: XREADGROUP (một consumer)
     W->>DB: khóa đề xuất và kiểm tra còn RECEIVED
     W->>DB: gom cụm, cập nhật điểm và lịch sử rồi commit
-    W->>R: XACK
+    W->>R: XACK và XDEL
 ```
 
 Môi trường demo chạy một bản sao backend với một worker gom cụm. MySQL giữ trạng thái đề xuất. Nếu lỗi ghi Redis sau khi MySQL đã commit, API vẫn trả `201`. Worker quét lại các đề xuất `RECEIVED` khi khởi động và định kỳ. Mỗi lần xử lý chỉ cập nhật khi đề xuất còn `RECEIVED`, nên mục được giao lại không cộng điểm lần nữa. Chi tiết phục hồi nằm trong [ADR-0007](adr/0007-gom-cum-tuan-tu-qua-redis-stream.md). Quy tắc chọn biển nằm trong [Thiết kế AI §6](04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy).
@@ -199,7 +199,7 @@ sequenceDiagram
         BE-->>Web: 409 SIGN_ALREADY_PROCESSED
     else
         BE->>DB: cập nhật trạng thái đề xuất thành viên, INSERT audit_logs (cùng giao dịch)
-        BE-->>Web: 200
+        BE-->>Web: 204 No Content
     end
 ```
 

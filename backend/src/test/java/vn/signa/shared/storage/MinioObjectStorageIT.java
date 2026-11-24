@@ -9,6 +9,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +69,21 @@ class MinioObjectStorageIT extends IntegrationTest {
     storage.delete(Bucket.REPORT_PHOTOS, key);
     assertThat(storage.exists(Bucket.REPORT_PHOTOS, key)).isFalse();
     storage.delete(Bucket.REPORT_PHOTOS, key);
+  }
+
+  @Test
+  void listReturnsKeysWithLastModifiedAndHonorsPrefix() {
+    String prefix = UUID.randomUUID() + "/";
+    String key = prefix + newKey();
+    Instant beforePut = Instant.now().minusSeconds(5);
+    storage.put(Bucket.SIGN_CROPS, key, new byte[] {7}, "image/jpeg");
+
+    assertThat(storage.list(Bucket.SIGN_CROPS, prefix))
+        .singleElement()
+        .satisfies(object -> {
+          assertThat(object.key()).isEqualTo(key);
+          assertThat(object.lastModified()).isBetween(beforePut, Instant.now().plusSeconds(5));
+        });
   }
 
   @Test

@@ -69,10 +69,35 @@ class SecurityConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, API + "/recognition/detect")
                 .permitAll()
-                // Quyền theo tiền tố /admin, chặn trước khi Spring đọc và kiểm dữ liệu, nên người
-                // thiếu quyền nhận 403 chứ không phải 400. @PreAuthorize trên controller vẫn giữ
-                // làm
-                // lớp thứ hai. Bảng tiền tố → quyền: docs/backend/ke-hoach/lat-1-tai-khoan.md.
+                .requestMatchers(HttpMethod.POST, API + "/submissions")
+                .hasAuthority("submission:create")
+                // Lát 6 · phê duyệt và sửa biển (docs/07 §8)
+                .requestMatchers(API + "/admin/review-queue/**")
+                .hasAuthority("review:decide")
+                .requestMatchers(HttpMethod.GET, API + "/admin/signs/*")
+                .hasAuthority("review:decide")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    API + "/admin/signs/*/approve",
+                    API + "/admin/signs/*/reject",
+                    API + "/admin/signs/*/keep")
+                .hasAuthority("review:decide")
+                .requestMatchers(
+                    HttpMethod.POST, API + "/admin/signs", API + "/admin/signs/*/remove")
+                .hasAuthority("sign:edit")
+                .requestMatchers(HttpMethod.PATCH, API + "/admin/signs/*")
+                .hasAuthority("sign:edit")
+                .requestMatchers(API + "/admin/reports/**")
+                .hasAuthority("report:resolve")
+                .requestMatchers(HttpMethod.PUT, API + "/signs/*/rating")
+                .hasAuthority("sign:rate")
+                .requestMatchers(HttpMethod.POST, API + "/signs/*/reports")
+                .hasAuthority("report:create")
+                .requestMatchers(API + "/me/reports")
+                .authenticated()
+                // Lát 8 · quyền theo tiền tố /admin, chặn trước khi Spring đọc và kiểm dữ liệu, nên
+                // người thiếu quyền nhận 403 chứ không phải 400; @PreAuthorize giữ làm lớp thứ hai.
+                // Bảng tiền tố → quyền: docs/backend/ke-hoach/lat-1-tai-khoan.md.
                 .requestMatchers(API + "/admin/users/**")
                 .hasAuthority("user:manage")
                 .requestMatchers(API + "/admin/audit-logs/**")
