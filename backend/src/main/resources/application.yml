@@ -28,7 +28,14 @@ spring:
 server:
   port: ${SIGNA_PORT:8080}
   shutdown: graceful
-  forward-headers-strategy: framework
+  # RemoteIpValve của Tomcat chỉ đọc X-Forwarded-For khi request đến từ proxy nội bộ, nên client
+  # bên ngoài không giả được IP (giới hạn đăng nhập theo IP, docs/06 §10). Mặc định tin các dải IP
+  # riêng 10/8, 172.16/12, 192.168/16, 127/8 và ::1; SIGNA_TRUSTED_PROXIES là biểu thức chính quy.
+  # nginx phải đặt X-Forwarded-For $remote_addr, không nối thêm vào chuỗi client gửi.
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: '${SIGNA_TRUSTED_PROXIES:10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[01])\.\d+\.\d+|127\.\d+\.\d+\.\d+|0:0:0:0:0:0:0:1|::1}'
 
 springdoc:
   api-docs:
@@ -61,3 +68,13 @@ signa:
   recognition:
     url: ${SIGNA_RECOGNITION_URL:http://localhost:8000}
   labels-path: ${SIGNA_LABELS_PATH:../ai/data/labels.yaml}
+  # Lát 1 · identity (IdentityProperties). Quản trị viên đầu tiên: chỉ tạo khi chưa có ADMIN và có
+  # đủ hai biến; không có mật khẩu mặc định.
+  identity:
+    bootstrap-admin:
+      email: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:}
+      password: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:}
+  catalog:
+    # Lát 2. Nạp ai/data/labels.yaml (signa.labels-path) khi khởi động; cũng bật bằng --import-labels.
+    import-on-startup: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:false}
+    sign-types-cache-ttl: 24h

@@ -32,6 +32,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import vn.signa.identity.web.WithApiSecurity;
 import vn.signa.recognition.internal.Box;
 import vn.signa.recognition.internal.CallerIdentity;
 import vn.signa.recognition.internal.ImageProcessor;
@@ -50,6 +51,7 @@ import vn.signa.shared.web.GlobalExceptionHandler;
 import vn.signa.shared.web.RequestIdFilter;
 
 @WebMvcTest(controllers = RecognitionController.class)
+@WithApiSecurity
 @Import({
   RecognitionService.class,
   ImageProcessor.class,

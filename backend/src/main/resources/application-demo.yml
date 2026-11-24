@@ -1,0 +1,5 @@
+# Dữ liệu mẫu (lát 2): thêm R__demo_data.sql vào Flyway. Dùng cùng profile migrate:
+#   ./gradlew bootRun --args='--spring.profiles.active=migrate,demo'
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/demo

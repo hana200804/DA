@@ -42,6 +42,8 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-minio")
     testImplementation("com.tngtech.archunit:archunit-junit5:$archunitVersion")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    implementation("org.springframework.boot:spring-boot-starter-security") // lát 1
+    testImplementation("org.springframework.boot:spring-boot-starter-security-test") // lát 1
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.3") // lát 3
     testImplementation("org.wiremock:wiremock-standalone:3.13.2") // lát 3
 }
