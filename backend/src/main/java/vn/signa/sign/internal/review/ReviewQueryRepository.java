@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
 import vn.signa.sign.clustering.Geo;
 import vn.signa.sign.clustering.GeoPoint;
+import vn.signa.sign.internal.map.BoundingBoxSql;
 import vn.signa.sign.internal.review.ReviewQueries.QueueQuery;
 
 /** Đọc hàng đợi và chi tiết biển cho kiểm duyệt viên. */
@@ -207,10 +208,7 @@ class ReviewQueryRepository {
     StringBuilder sql = new StringBuilder(" WHERE status IN (:statuses)");
     if (query.suggestion() != null) sql.append(" AND suggestion = :suggestion");
     if (!query.categories().isEmpty()) sql.append(" AND category_code IN (:categories)");
-    if (query.bbox() != null) {
-      sql.append(
-          " AND MBRContains(ST_GeomFromText(:polygon, 4326, 'axis-order=long-lat'), location)");
-    }
+    if (query.bbox() != null) sql.append(" AND ").append(BoundingBoxSql.predicate(query.bbox()));
     return sql.toString();
   }
 
@@ -220,7 +218,7 @@ class ReviewQueryRepository {
             .param("statuses", query.statuses().stream().map(Enum::name).sorted().toList());
     if (query.suggestion() != null) spec = spec.param("suggestion", query.suggestion().name());
     if (!query.categories().isEmpty()) spec = spec.param("categories", query.categories());
-    if (query.bbox() != null) spec = spec.param("polygon", query.bbox().toWkt());
+    if (query.bbox() != null) BoundingBoxSql.bind(spec, query.bbox());
     return spec;
   }
 

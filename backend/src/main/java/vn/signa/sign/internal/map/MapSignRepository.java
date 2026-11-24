@@ -129,17 +129,18 @@ public class MapSignRepository {
 
   private static String where(MapQuery query) {
     StringBuilder sql =
-        new StringBuilder(
-            " WHERE MBRContains(ST_GeomFromText(:polygon, 4326, 'axis-order=long-lat'), location)"
-                + " AND "
-                + PUBLISHED);
+        new StringBuilder(" WHERE ")
+            .append(PUBLISHED)
+            .append(" AND ")
+            .append(BoundingBoxSql.predicate(query.bbox()));
     if (!query.categories().isEmpty()) sql.append(" AND category_code IN (:categories)");
     if (!query.signTypeCodes().isEmpty()) sql.append(" AND sign_type_code IN (:signTypeCodes)");
     return sql.toString();
   }
 
   private JdbcClient.StatementSpec bind(String sql, MapQuery query) {
-    JdbcClient.StatementSpec spec = jdbc.sql(sql).param("polygon", query.bbox().toWkt());
+    JdbcClient.StatementSpec spec = jdbc.sql(sql);
+    BoundingBoxSql.bind(spec, query.bbox());
     if (!query.categories().isEmpty()) spec = spec.param("categories", query.categories());
     if (!query.signTypeCodes().isEmpty()) {
       spec = spec.param("signTypeCodes", query.signTypeCodes());

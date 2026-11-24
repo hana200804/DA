@@ -153,7 +153,7 @@ class MapIT extends IntegrationTest {
     assertThat(detail.get("location").get("lng").asDouble()).isEqualTo(105.8048);
   }
 
-  /** Zoom thấp: vùng gần cả thế giới vẫn chứa biển ở Hà Nội (đa giác được chia cạnh ≤ 90°). */
+  /** Zoom thấp: vùng toàn bộ kinh độ vẫn chứa biển ở Hà Nội. */
   @Test
   void worldWideBboxStillMatches() throws Exception {
     String cat = data.category("WW");
@@ -164,6 +164,21 @@ class MapIT extends IntegrationTest {
 
     assertThat(body.get("mode").asString()).isEqualTo("SIGNS");
     assertThat(ids(body)).containsExactly(id);
+  }
+
+  @Test
+  void westEdgeIncludesDatelineWithoutIncludingOtherEasternLongitudes() throws Exception {
+    String cat = data.category("WE");
+    String type = data.type("WE", cat);
+    String west = data.sign(type, cat, 12, -179.5, "APPROVED");
+    String edge = data.sign(type, cat, 12, 180, "APPROVED");
+    data.sign(type, cat, 12, 179.5, "APPROVED");
+    data.sign(type, cat, 12, -170, "APPROVED");
+    data.sign(type, cat, 30, -179.5, "APPROVED");
+
+    JsonNode body = ok("/api/v1/signs?bbox=-180,11,-179,13&signTypeCodes=" + q(type));
+
+    assertThat(ids(body)).containsExactlyInAnyOrder(west, edge);
   }
 
   @Test
