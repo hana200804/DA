@@ -18,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import vn.signa.identity.web.WithApiSecurity;
 import vn.signa.shared.web.GlobalExceptionHandler;
 import vn.signa.shared.web.RequestIdFilter;
 import vn.signa.sign.internal.map.BoundingBox;
@@ -31,6 +32,7 @@ import vn.signa.sign.internal.map.SignDetail;
 
 @WebMvcTest(controllers = SignMapController.class)
 @Import({GlobalExceptionHandler.class, RequestIdFilter.class})
+@WithApiSecurity
 class SignMapControllerTest {
 
   @Autowired MockMvc mvc;
