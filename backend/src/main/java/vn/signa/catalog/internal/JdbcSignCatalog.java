@@ -1,0 +1,58 @@
+package vn.signa.catalog.internal;
+
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import org.springframework.stereotype.Service;
+import vn.signa.catalog.api.SignCatalog;
+import vn.signa.catalog.api.SignTypeView;
+import vn.signa.catalog.internal.CatalogRepository.TypeRow;
+
+@Service
+class JdbcSignCatalog implements SignCatalog {
+
+  private final CatalogRepository repository;
+
+  JdbcSignCatalog(CatalogRepository repository) {
+    this.repository = repository;
+  }
+
+  @Override
+  public Optional<SignTypeView> findType(String code) {
+    if (code == null) return Optional.empty();
+    return repository.type(code).map(JdbcSignCatalog::view);
+  }
+
+  @Override
+  public Optional<String> categoryOf(String code) {
+    return findType(code).map(SignTypeView::categoryCode);
+  }
+
+  @Override
+  public boolean isActiveRecognizable(String code, int labelMapVersion) {
+    return findType(code)
+        .filter(SignTypeView::active)
+        .filter(SignTypeView::recognizable)
+        .filter(t -> Objects.equals(t.labelMapVersion(), labelMapVersion))
+        .isPresent();
+  }
+
+  @Override
+  public Set<Integer> supportedLabelMapVersions() {
+    return Collections.unmodifiableSet(repository.recognizableVersions());
+  }
+
+  static SignTypeView view(TypeRow row) {
+    return new SignTypeView(
+        row.code(),
+        row.categoryCode(),
+        row.name(),
+        row.description(),
+        row.speedKmh(),
+        row.iconKey(),
+        row.labelId(),
+        row.labelMapVersion(),
+        row.active());
+  }
+}
