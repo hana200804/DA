@@ -17,6 +17,7 @@ import static vn.signa.sign.clustering.Fixtures.sub;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -242,6 +243,8 @@ class ClusteringEngineTest {
         approvedSign("approved", CODE, ORIGIN, 90)
             .moderatorBoost(BigDecimal.ZERO)
             .codeWeight(OTHER_CODE, new CodeWeight(new BigDecimal("5"), 5))
+            // Các đề xuất mã khác đến sau lần duyệt nên vẫn tính vào β.
+            .weightsSinceReview(Map.of(OTHER_CODE, new BigDecimal("5")))
             .distinctSubmitters(5)
             .build();
     world.with(weak);
