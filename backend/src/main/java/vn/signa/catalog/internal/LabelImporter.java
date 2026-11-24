@@ -16,7 +16,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import vn.signa.catalog.internal.CatalogAuditPort.Entity;
+import vn.signa.audit.api.AuditEntityType;
+import vn.signa.audit.api.AuditEntry;
+import vn.signa.audit.api.AuditRecorder;
 import vn.signa.catalog.internal.CatalogRepository.CategoryRow;
 import vn.signa.catalog.internal.CatalogRepository.TypeRow;
 
@@ -48,14 +50,14 @@ public class LabelImporter {
   private static final Logger log = LoggerFactory.getLogger(LabelImporter.class);
 
   private final CatalogRepository repository;
-  private final CatalogAuditPort audit;
+  private final AuditRecorder audit;
   private final SignTypesCache cache;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   LabelImporter(
       CatalogRepository repository,
-      CatalogAuditPort audit,
+      AuditRecorder audit,
       SignTypesCache cache,
       TransactionTemplate tx,
       Clock clock) {
@@ -97,8 +99,9 @@ public class LabelImporter {
       if (categoryCodes.contains(c.code())) continue;
       CategoryRow row = new CategoryRow(c.code(), c.name(), null, c.sortOrder());
       repository.insertCategory(row);
-      audit.recordSystem(
-          Entity.SIGN_CATEGORY, c.code(), CatalogAuditPort.CREATED, null, fields(row));
+      audit.record(
+          AuditEntry.bySystem(
+              AuditEntityType.SIGN_CATEGORY, c.code(), "CREATED", null, fields(row), null));
       categoriesCreated++;
     }
 
@@ -125,7 +128,9 @@ public class LabelImporter {
                 c.name(),
                 true);
         repository.insertType(row, now);
-        audit.recordSystem(Entity.SIGN_TYPE, c.code(), CatalogAuditPort.CREATED, null, fields(row));
+        audit.record(
+            AuditEntry.bySystem(
+                AuditEntityType.SIGN_TYPE, c.code(), "CREATED", null, fields(row), null));
         created++;
         continue;
       }
@@ -155,7 +160,9 @@ public class LabelImporter {
       before.keySet().removeAll(same);
       after.keySet().removeAll(same);
       repository.updateLabelFields(row, now);
-      audit.recordSystem(Entity.SIGN_TYPE, row.code(), CatalogAuditPort.UPDATED, before, after);
+      audit.record(
+          AuditEntry.bySystem(
+              AuditEntityType.SIGN_TYPE, row.code(), "UPDATED", before, after, null));
       updated++;
     }
 

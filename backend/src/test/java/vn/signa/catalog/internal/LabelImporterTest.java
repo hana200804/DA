@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +29,9 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
+import vn.signa.audit.api.ActorType;
+import vn.signa.audit.api.AuditEntityType;
+import vn.signa.audit.api.AuditEntry;
 import vn.signa.catalog.internal.CatalogRepository.CategoryRow;
 import vn.signa.catalog.internal.CatalogRepository.TypeRow;
 
@@ -37,21 +41,18 @@ import vn.signa.catalog.internal.CatalogRepository.TypeRow;
 class LabelImporterTest {
 
   private final FakeRepository repository = new FakeRepository();
-  private final List<String> audit = new ArrayList<>();
+  private final List<AuditEntry> audit = new ArrayList<>();
   private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
   private LabelImporter importer;
 
   @BeforeEach
   void setUp() {
-    CatalogAuditPort port =
-        (entity, code, action, before, after) ->
-            audit.add(action + " " + entity + " " + code + " " + before + " -> " + after);
     SignTypesCache cache =
         new SignTypesCache(redis, new CatalogProperties(false, Duration.ofHours(1)));
     importer =
         new LabelImporter(
             repository,
-            port,
+            audit::add,
             cache,
             new TransactionTemplate(new NoOpTransactionManager()),
             Clock.fixed(Instant.parse("2026-11-23T00:00:00Z"), ZoneOffset.UTC));
@@ -77,7 +78,15 @@ class LabelImporterTest {
                 1,
                 "Tốc độ tối đa cho phép 50 km/h",
                 true));
-    assertThat(audit).hasSize(51).allMatch(line -> line.startsWith("CREATED "));
+    assertThat(audit)
+        .hasSize(51)
+        .allSatisfy(entry -> {
+          assertThat(entry.action()).isEqualTo("CREATED");
+          assertThat(entry.actorType()).isEqualTo(ActorType.SYSTEM);
+          assertThat(entry.actorId()).isNull();
+          assertThat(entry.before()).isNull();
+          assertThat(entry.after()).isNotEmpty();
+        });
     Map<String, TypeRow> snapshot = new TreeMap<>(repository.types);
 
     audit.clear();
@@ -133,10 +142,30 @@ class LabelImporterTest {
         .isEqualTo(new TypeRow("A.2", "OTHER", "B mới", "Mô tả 2", 30, null, 6, 2, "B mới", true));
     assertThat(repository.types.get("M.1").labelId()).isNull();
     assertThat(audit)
-        .contains(
-            "UPDATED SIGN_TYPE A.2 {name=B cũ, speedKmh=null, labelId=1, labelMapVersion=1,"
-                + " labelName=B cũ} -> {name=B mới, speedKmh=30, labelId=6, labelMapVersion=2,"
-                + " labelName=B mới}");
+        .filteredOn(entry -> entry.entityId().equals("A.2"))
+        .singleElement()
+        .satisfies(entry -> {
+          assertThat(entry.entityType()).isEqualTo(AuditEntityType.SIGN_TYPE);
+          assertThat(entry.action()).isEqualTo("UPDATED");
+          Map<String, Object> before =
+              new HashMap<>(
+                  Map.of("name", "B cũ", "labelId", 1, "labelMapVersion", 1, "labelName", "B cũ"));
+          before.put("speedKmh", null);
+          assertThat(entry.before()).isEqualTo(before);
+          assertThat(entry.after())
+              .isEqualTo(
+                  Map.of(
+                      "name",
+                      "B mới",
+                      "speedKmh",
+                      30,
+                      "labelId",
+                      6,
+                      "labelMapVersion",
+                      2,
+                      "labelName",
+                      "B mới"));
+        });
   }
 
   @Test
