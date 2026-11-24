@@ -8,13 +8,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.audit.api.AuditEntityType;
 import vn.signa.audit.api.AuditEntry;
 import vn.signa.audit.api.AuditRecorder;
@@ -38,6 +45,7 @@ import vn.signa.sign.internal.review.ReviewService;
 @Service
 public class ReportService {
 
+  private static final Logger log = LoggerFactory.getLogger(ReportService.class);
   public static final int MAX_PHOTO_BYTES = 5 * 1024 * 1024;
   static final Duration PHOTO_RETENTION = Duration.ofDays(90);
   private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(10);
@@ -49,6 +57,7 @@ public class ReportService {
   private final ReviewService reviews;
   private final AuditRecorder audit;
   private final Clock clock;
+  private final TransactionTemplate createTx;
 
   ReportService(
       ReportRepository reports,
@@ -57,7 +66,8 @@ public class ReportService {
       SignCatalog catalog,
       ReviewService reviews,
       AuditRecorder audit,
-      Clock clock) {
+      Clock clock,
+      PlatformTransactionManager transactionManager) {
     this.reports = reports;
     this.storage = storage;
     this.users = users;
@@ -65,22 +75,44 @@ public class ReportService {
     this.reviews = reviews;
     this.audit = audit;
     this.clock = clock;
+    this.createTx = new TransactionTemplate(transactionManager);
+    this.createTx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
   }
 
-  @Transactional(isolation = Isolation.READ_COMMITTED)
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public Receipt create(String signId, String userId, ReportMetadata metadata, byte[] photo) {
     ImageFormat format = photo == null ? null : validatePhoto(photo);
-    if (!reports.lockPublishedSign(signId)) throw ApiException.notFound();
+    if (!reports.isPublished(signId)) throw ApiException.notFound();
+    if (reports.hasPending(signId, userId)) throw duplicateReport();
 
     String id = UUID.randomUUID().toString();
     String photoKey = format == null ? null : id + "." + format.extension();
-    if (format != null) storePhoto(photoKey, photo, format.mediaType().toString());
+    var discardPhoto = new AtomicBoolean(true);
     try {
-      reports.insert(id, signId, userId, metadata, photoKey, now());
+      if (format != null)
+        storage.put(Bucket.REPORT_PHOTOS, photoKey, photo, format.mediaType().toString());
+      return createTx.execute(tx -> {
+        TransactionSynchronizationManager.registerSynchronization(
+            new TransactionSynchronization() {
+              @Override
+              public void afterCompletion(int status) {
+                // Job dọn mồ côi đối chiếu MySQL nếu chưa xác định được kết quả commit.
+                discardPhoto.set(status == STATUS_ROLLED_BACK);
+              }
+            });
+        if (!reports.lockPublishedSign(signId)) throw ApiException.notFound();
+        reports.insert(id, signId, userId, metadata, photoKey, now());
+        return new Receipt(id, Status.PENDING);
+      });
     } catch (DuplicateKeyException e) {
-      throw new ApiException(ErrorCode.CONFLICT, "Bạn đã có báo cáo đang chờ cho biển này");
+      throw duplicateReport();
+    } finally {
+      if (photoKey != null && discardPhoto.get()) deleteUncommittedPhoto(photoKey);
     }
-    return new Receipt(id, Status.PENDING);
+  }
+
+  private static ApiException duplicateReport() {
+    return new ApiException(ErrorCode.CONFLICT, "Bạn đã có báo cáo đang chờ cho biển này");
   }
 
   static ImageFormat validatePhoto(byte[] photo) {
@@ -88,15 +120,12 @@ public class ReportService {
     return ImageValidation.validate(photo, 4096, 8_000_000L);
   }
 
-  private void storePhoto(String key, byte[] photo, String contentType) {
-    TransactionSynchronizationManager.registerSynchronization(
-        new TransactionSynchronization() {
-          @Override
-          public void afterCompletion(int status) {
-            if (status == STATUS_ROLLED_BACK) storage.delete(Bucket.REPORT_PHOTOS, key);
-          }
-        });
-    storage.put(Bucket.REPORT_PHOTOS, key, photo, contentType);
+  private void deleteUncommittedPhoto(String key) {
+    try {
+      storage.delete(Bucket.REPORT_PHOTOS, key);
+    } catch (RuntimeException e) {
+      log.warn("Không xoá được ảnh báo cáo {}", key, e);
+    }
   }
 
   @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)

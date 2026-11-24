@@ -18,6 +18,8 @@ import vn.signa.sign.internal.map.MapResult.LatLng;
 @Repository
 class ReportRepository {
 
+  private static final String PUBLISHED_SIGN =
+      "SELECT id FROM signs WHERE id = :sign AND status IN ('APPROVED', 'UNDER_REVIEW')";
   private static final String REPORT_COLUMNS =
       """
       SELECT id, sign_id, user_id, reason, description, photo_key, status, resolution,
@@ -35,17 +37,29 @@ class ReportRepository {
     this.jdbc = jdbc;
   }
 
+  boolean isPublished(String signId) {
+    return publishedSign(PUBLISHED_SIGN, signId);
+  }
+
   boolean lockPublishedSign(String signId) {
+    return publishedSign(PUBLISHED_SIGN + " FOR SHARE", signId);
+  }
+
+  private boolean publishedSign(String sql, String signId) {
+    return jdbc.sql(sql).param("sign", signId).query(String.class).optional().isPresent();
+  }
+
+  boolean hasPending(String signId, String userId) {
     return jdbc.sql(
             """
-            SELECT id FROM signs
-            WHERE id = :sign AND status IN ('APPROVED', 'UNDER_REVIEW')
-            FOR SHARE
+            SELECT EXISTS (
+              SELECT 1 FROM sign_reports WHERE sign_id = :sign AND user_id = :user AND pending_flag = 1
+            )
             """)
         .param("sign", signId)
-        .query(String.class)
-        .optional()
-        .isPresent();
+        .param("user", userId)
+        .query(Boolean.class)
+        .single();
   }
 
   void insert(

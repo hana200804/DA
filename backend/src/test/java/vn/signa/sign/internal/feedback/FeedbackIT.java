@@ -3,6 +3,11 @@ package vn.signa.sign.internal.feedback;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static vn.signa.shared.storage.Bucket.REPORT_PHOTOS;
 
 import java.net.URI;
@@ -18,9 +23,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
-import vn.signa.shared.storage.ObjectStorage;
+import vn.signa.shared.storage.MinioObjectStorage;
 import vn.signa.support.IntegrationTest;
 
 /** Kiểm tra hợp đồng HTTP, MySQL, Redis và MinIO bằng Testcontainers trên CI. */
@@ -38,10 +45,10 @@ class FeedbackIT extends IntegrationTest {
   @LocalServerPort int port;
   @Autowired JsonMapper json;
   @Autowired JdbcTemplate jdbc;
-  @Autowired ObjectStorage storage;
+  @MockitoSpyBean MinioObjectStorage storage;
 
   @Test
-  void itB11DuplicatePendingReturnsConflictAndRollsBackTheNewPhoto() throws Exception {
+  void itB11DuplicatePendingReturnsConflictWithoutUploadingAgain() throws Exception {
     var user = signIn("Người báo cáo", "USER");
     String path = signPath(sign("APPROVED")) + "/reports";
     String id = body(upload(path, user, "NOT_EXIST"), 201).get("id").asString();
@@ -50,6 +57,25 @@ class FeedbackIT extends IntegrationTest {
     assertThat(body(upload(path, user, "WRONG_TYPE"), 409).get("code").asString())
         .isEqualTo("CONFLICT");
     assertThat(photoKeys()).isEqualTo(before).contains(id + ".png");
+    verify(storage).put(eq(REPORT_PHOTOS), anyString(), any(byte[].class), eq("image/png"));
+  }
+
+  @Test
+  void reportChecksPublicationAgainAfterUploadingOutsideTheTransaction() throws Exception {
+    var user = signIn("Người báo cáo", "USER");
+    var sign = sign("APPROVED");
+    Set<String> before = photoKeys();
+    doAnswer(call -> {
+      assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+      jdbc.update("UPDATE signs SET status = 'REMOVED' WHERE id = ?", sign.id());
+      return call.callRealMethod();
+    }).when(storage).put(eq(REPORT_PHOTOS), anyString(), any(byte[].class), eq("image/png"));
+
+    body(upload(signPath(sign) + "/reports", user, "NOT_EXIST"), 404);
+
+    assertThat(photoKeys()).isEqualTo(before);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM sign_reports WHERE sign_id = ?", Integer.class, sign.id())).isZero();
   }
 
   @Test
