@@ -73,12 +73,12 @@ Thứ tự khoá không tạo chu trình: worker khoá đề xuất mới (chưa
 
 ### Nhiệm vụ 3 · Controller và phân quyền
 
-**Tạo:** `sign/web/admin/ReviewQueueController`, `AdminSignController`.
+**Tạo:** `sign/web/admin/ReviewQueueController`, `AdminSignController`; sửa `identity/web/SecurityConfig` (chỉ thêm dòng), `PermissionMatrixTest`.
 
-- [ ] Tám endpoint theo `docs/07 §8`, `@PreAuthorize` đúng quyền. `POST /admin/signs` trả `201 { id, version }`, còn lại trả `204`.
-- [ ] Thêm quy tắc URL vào `SecurityConfig` và dòng vào `PermissionMatrixTest`.
-- [ ] `@WebMvcTest` cho hai controller: đọc request, lỗi `400`, mã trả về.
-- [ ] Commit.
+- [x] Tám endpoint theo `docs/07 §8`, `@PreAuthorize` đúng quyền. `POST /admin/signs` trả `201 { id, version }`, còn lại trả `204`.
+- [x] Thêm quy tắc URL vào `SecurityConfig` và dòng vào `PermissionMatrixTest`.
+- [x] `@WebMvcTest` cho hai controller: đọc request, lỗi `400`, mã trả về.
+- [x] Commit.
 
 ### Nhiệm vụ 4 · Test tích hợp
 
