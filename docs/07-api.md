@@ -372,6 +372,7 @@ Các thao tác ghi khác trả `204`.
       "headingDeg": 92,
       "location": { "lat": 21.02851, "lng": 105.80479 },
       "receivedAt": "2026-01-15T08:30:13.002Z",
+      "status": "GROUPED",
       "cropUrl": "https://…(URL ký 10 phút)"
     }
   ],
@@ -382,6 +383,32 @@ Các thao tác ghi khác trả `204`.
 ```
 
 `flags` của biển có thể chứa `DIFFERS_FROM_APPROVED`; khi đó `relatedSignId` trỏ tới biển đã duyệt mà biển này khác mã. `nearbySigns` gồm các biển `APPROVED` và `UNDER_REVIEW` trong bán kính 50 m.
+
+`GET /admin/review-queue` nhận `status` (`PENDING` hoặc `UNDER_REVIEW`, bỏ trống thì lấy cả hai), `suggestion`, `categories` (danh sách mã nhóm cách nhau bởi dấu phẩy), `bbox` (như `GET /signs`), `page` tính từ 0 và `size` mặc định 20, tối đa 100. Thứ tự là "Nên duyệt" trước, rồi `confidence` giảm dần, rồi `createdAt` tăng dần, cuối cùng theo `id`.
+
+`GET /admin/signs/{id}` trả biển ở mọi trạng thái, `404` nếu không có. `submissions` sắp theo `receivedAt` tăng dần, mỗi đề xuất có thêm `status`. `codeWeights` gồm cả mã có trọng số 0. `nearbySigns` không gồm chính biển đang xem, biển gần nhất đứng trước.
+
+Trạng thái áp dụng của từng thao tác:
+
+| Thao tác | Trạng thái biển | Kết quả |
+| --- | --- | --- |
+| `approve` | `PENDING` | `APPROVED`, `M = 2`, `suggestion = null`. Lịch sử `APPROVED` |
+| `reject` | `PENDING` | `REJECTED`. Mọi đề xuất thành viên `REJECTED` với lý do của kiểm duyệt viên, cắt còn 500 ký tự. Lịch sử `REJECTED` |
+| `keep` | `UNDER_REVIEW` | `APPROVED`, `M = 2`, `deny_since_review = 0`. Lịch sử `EDITED` nếu có sửa, rồi `KEPT` |
+| `remove` | `APPROVED`, `UNDER_REVIEW` | `REMOVED`. Đề xuất `GROUPED` chuyển `REJECTED`. Lịch sử `REMOVED` |
+| `PATCH` | `PENDING`, `APPROVED`, `UNDER_REVIEW` | Không đổi trạng thái. Lịch sử `EDITED`. Biển `PENDING` chỉ sửa được vị trí và hướng |
+| `POST /admin/signs` | | `APPROVED`, `M = 2`, `locationLocked = true`. Lịch sử `CREATED` |
+
+Khi kiểm duyệt viên chốt mã (duyệt, giữ, hoặc sửa mã biển đã công bố), đề xuất khác mã chuyển `REJECTED` và trọng số của các mã khác về 0. Biển vừa duyệt vì vậy có điểm không dưới 0,5. Thao tác có `location` đặt `locationLocked = true`. `headingDeg` trong `keep` để trống thì giữ hướng cũ. Lịch sử ghi `before`, `after` gồm các trường thay đổi trong `status`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `locationLocked`, `confidence`.
+
+Lỗi của các thao tác ghi:
+
+| Mã | Khi nào |
+| --- | --- |
+| `400 VALIDATION_ERROR` | Thiếu `version`, `reason` rỗng hoặc dài quá 1000 ký tự, toạ độ hoặc hướng sai miền, `PATCH` không có thay đổi nào |
+| `404 NOT_FOUND` | Không có biển |
+| `409 SIGN_ALREADY_PROCESSED` | `version` lệch, hoặc biển không ở trạng thái cho phép thao tác |
+| `422 BUSINESS_RULE` | Mã không có hoặc đã ngừng dùng; đổi mã biển `PENDING` bằng `PATCH`; `PATCH` có giá trị trùng hệt biển hiện tại |
 
 ### Báo cáo
 

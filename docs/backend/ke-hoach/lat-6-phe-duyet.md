@@ -92,11 +92,29 @@ Thứ tự khoá không tạo chu trình: worker khoá đề xuất mới (chưa
 
 ### Nhiệm vụ 5 · Tài liệu và kiểm tra cuối
 
-- [ ] `docs/07 §8` ghi mã trả về, lỗi và các luật đã chốt của mục "Phê duyệt và biển".
-- [ ] `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` exit 0; markdownlint sạch; ghi "Tiến độ"; commit.
+- [x] `docs/07 §8` ghi mã trả về, lỗi và các luật đã chốt của mục "Phê duyệt và biển".
+- [x] `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` exit 0; markdownlint sạch; ghi "Tiến độ"; commit.
 
 ## Tiến độ
 
 Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
 
 **2026-11-24.** Bắt đầu trên `backend/6-review`, đã chứa lát 1–5 (`backend/5-submissions-clustering` ở `899606e`, không cần merge thêm).
+
+**2026-11-24 · Xong.** NV0–NV5 đã commit trên `backend/6-review`, chưa push.
+
+- `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` trả exit 0 với 517 unit test đạt (lát 5 có 426). Lát này thêm 91 ca: `ReviewRulesTest` 20, `ReviewServiceTest` 9, `ReviewRequestsTest` 7, `ReviewQueriesTest` 4, `ReviewQueryServiceTest` 3, `AdminSignControllerTest` 12, `ReviewQueueControllerTest` 4 và 32 ca mới của `PermissionMatrixTest` (8 endpoint × 4 vai trò). Test kiến trúc vẫn đạt.
+- Chỉ chạy được trên CI vì máy không có Docker: `ReviewIT` 7 ca (IT-B04, IT-B05 kèm kiểm `signa_app` không `UPDATE`, `DELETE` được `audit_logs`, duyệt bằng mã không dẫn đầu, thứ tự và bộ lọc hàng đợi, `nearbySigns`, từ chối và giữ, thêm biển) và `ReviewRaceIT` 3 ca (duyệt trước rồi worker gán, worker gán trước rồi duyệt nhận `409` và thử lại, 8 lượt chạy đồng thời). Hai lớp này đã biên dịch.
+- Worker của lát 5 đã khoá ứng viên bằng `SELECT … FOR UPDATE` và ghi bằng `WHERE id = ? AND version = ?`, nên không sửa mã lát 5. Lát 6 khoá cùng dòng `signs` trước khi đụng đề xuất thành viên và trọng số (xem mục "Kiểm tra worker của lát 5").
+- Không sửa repository nào của lát 5, không thêm migration, không sửa `shared/`. `SecurityConfig` chỉ thêm năm quy tắc URL trước `anyRequest()`. Controller vẫn có `@PreAuthorize` như các lát trước. `ReviewSql` lặp lại vài hàm chuyển kiểu của `SignSql` vì lớp này package-private.
+- Quyết định tự đưa ra nằm ở mục "Luật đã chốt khi tài liệu chưa nói rõ". Ba điểm cần nhóm xem lại:
+  - Chốt mã đưa `W` của mã khác về 0 để đạt yêu cầu điểm không dưới 0,5. Đây là thay đổi ý nghĩa so với `docs/04 §6`, nơi `β` vẫn gồm trọng số mã khác.
+  - `PATCH` đổi mã biển `PENDING` trả `422`.
+  - `PATCH` có giá trị trùng hệt biển hiện tại trả `422`.
+- Đã ghi mã trả về, bảng trạng thái và lỗi vào `docs/07 §8` mục "Phê duyệt và biển". Sơ đồ `docs/03 §6.4` còn ghi `200` cho duyệt, còn `docs/07` và code trả `204`. Chưa sửa sơ đồ vì nằm ngoài mục của lát.
+- Rủi ro:
+  - Giữ biển `UNDER_REVIEW` có nhiều đánh giá "không đúng" vẫn có thể cho điểm dưới 0,5, vì `R−` không đổi. Lần đánh giá hoặc xác nhận kế tiếp sẽ đưa biển về `UNDER_REVIEW` theo luật FR-22 của lát 5.
+  - Biển tự duyệt (FR-25) có `M = 0` và chưa chốt trọng số. Lần giữ hoặc sửa mã đầu tiên mới chốt.
+  - `ReviewRaceIT` chưa chạy thật. Nếu CI báo deadlock, kiểm thứ tự khoá giữa `submissions` và `signs` trước tiên.
+  - `nearbySigns` gần kinh tuyến 180° hoặc gần cực bỏ lọc `MBRContains` và chỉ lọc theo vĩ độ, nên chậm hơn. Ngoài vùng đó vẫn đúng.
+  - Lát 7 cũng thêm quy tắc vào cùng chỗ trong `SecurityConfig` và `PermissionMatrixTest`, nên khi ghép sẽ xung đột dạng chỉ thêm dòng.
