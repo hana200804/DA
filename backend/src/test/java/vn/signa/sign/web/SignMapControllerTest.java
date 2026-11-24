@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.signa.identity.web.WithApiSecurity;
@@ -73,7 +75,8 @@ class SignMapControllerTest {
         .andExpect(jsonPath("$.items[0].location.lng").value(105.8048))
         .andExpect(jsonPath("$.items[0].headingDeg").value(92))
         .andExpect(jsonPath("$.items[0].status").value("APPROVED"))
-        .andExpect(jsonPath("$.items[0].confidence").value(0.91));
+        .andExpect(jsonPath("$.items[0].confidence").value(0.91))
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache"));
   }
 
   @Test
@@ -137,7 +140,8 @@ class SignMapControllerTest {
         .andExpect(jsonPath("$.confirmCount").value(4))
         .andExpect(jsonPath("$.denyCount").value(2))
         .andExpect(jsonPath("$.updatedAt").value("2026-01-15T08:30:12.345Z"))
-        .andExpect(jsonPath("$.coverCropUrl").isEmpty());
+        .andExpect(jsonPath("$.coverCropUrl").isEmpty())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"));
   }
 
   @Test
