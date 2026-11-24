@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -95,11 +96,18 @@ class LabelImporterTest {
   @Test
   void keepsAdminEditsAndUpdatesUntouchedName(@TempDir Path dir) throws IOException {
     repository.categories.put("OTHER", new CategoryRow("OTHER", "Tên admin sửa", "Mô tả", 9));
-    // Tên đã sửa: name khác label_name.
     repository.types.put(
-        "A.1",
-        new TypeRow(
-            "A.1", "OTHER", "Tên admin", "Mô tả admin", null, "a.png", 0, 1, "A cũ", false));
+        "A.1", new TypeRow("A.1", "OTHER", "A cũ", null, null, "a.png", 0, 1, "A cũ", false));
+    // Mô phỏng PATCH hoàn tất sau khi bắt đầu nạp, trước lúc khoá loại biển.
+    repository.beforeLock =
+        code -> {
+          if (code.equals("A.1")) {
+            repository.types.put(
+                code,
+                new TypeRow(
+                    code, "OTHER", "Tên admin", "Mô tả admin", null, "a.png", 0, 1, "A cũ", false));
+          }
+        };
     // Tên chưa sửa: name bằng label_name.
     repository.types.put(
         "A.2", new TypeRow("A.2", "OTHER", "B cũ", "Mô tả 2", null, null, 1, 1, "B cũ", true));
@@ -183,6 +191,7 @@ class LabelImporterTest {
     final Map<String, CategoryRow> categories = new TreeMap<>();
     final Map<String, TypeRow> types = new TreeMap<>();
     int updates;
+    Consumer<String> beforeLock = code -> {};
     long generation = 1;
 
     @Override
@@ -207,6 +216,12 @@ class LabelImporterTest {
     @Override
     public void insertCategory(CategoryRow row) {
       assertThat(categories.putIfAbsent(row.code(), row)).isNull();
+    }
+
+    @Override
+    Optional<AdminTypeRow> lockType(String code) {
+      beforeLock.accept(code);
+      return type(code).map(row -> new AdminTypeRow(row, Instant.EPOCH));
     }
 
     @Override

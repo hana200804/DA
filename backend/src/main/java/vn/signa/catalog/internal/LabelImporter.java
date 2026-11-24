@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,15 +101,15 @@ public class LabelImporter {
       categoriesCreated++;
     }
 
-    Map<String, TypeRow> existing =
-        repository.allTypes().stream()
-            .collect(Collectors.toMap(TypeRow::code, Function.identity()));
+    Set<String> importedCodes =
+        map.classes().stream().map(LabelMap.LabelClass::code).collect(Collectors.toSet());
     int created = 0;
     int updated = 0;
     int unchanged = 0;
     for (LabelMap.LabelClass c : map.classes()) {
       String categoryCode = codeByKey.get(c.categoryKey());
-      TypeRow old = existing.remove(c.code());
+      TypeRow old =
+          repository.lockType(c.code()).map(CatalogRepository.AdminTypeRow::type).orElse(null);
       if (old == null) {
         TypeRow row =
             new TypeRow(
@@ -164,8 +163,8 @@ public class LabelImporter {
     }
 
     List<String> notInFile = new ArrayList<>();
-    existing.values().stream()
-        .filter(t -> t.labelId() != null && t.active())
+    repository.allTypes().stream()
+        .filter(t -> !importedCodes.contains(t.code()) && t.labelId() != null && t.active())
         .forEach(t -> notInFile.add(t.code()));
 
     if (created + updated > 0) repository.advanceGeneration();
