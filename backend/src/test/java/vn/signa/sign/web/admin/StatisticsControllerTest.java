@@ -1,6 +1,7 @@
 package vn.signa.sign.web.admin;
 
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -46,6 +47,31 @@ class StatisticsControllerTest {
     when(sessions.authenticate(TOKEN))
         .thenReturn(Optional.of(new SessionService.ActiveSession("s1", "u1", "ADMIN")));
     when(permissions.of("ADMIN")).thenReturn(Set.of("stats:read"));
+  }
+
+  @Test
+  void moderatorWithStatsReadGets200AndUserGets403() throws Exception {
+    String moderatorToken = "m".repeat(43);
+    String userToken = "u".repeat(43);
+    when(sessions.authenticate(moderatorToken))
+        .thenReturn(Optional.of(new SessionService.ActiveSession("s2", "u2", "MODERATOR")));
+    when(sessions.authenticate(userToken))
+        .thenReturn(Optional.of(new SessionService.ActiveSession("s3", "u3", "USER")));
+    // Chỉ cấp stats:read để phát hiện nếu quy tắc /admin/** chạy trước quy tắc thống kê.
+    when(permissions.of("MODERATOR")).thenReturn(Set.of("stats:read"));
+    when(permissions.of("USER"))
+        .thenReturn(Set.of("submission:create", "sign:rate", "report:create"));
+    when(statistics.statistics(null, null))
+        .thenReturn(
+            new StatisticsView(
+                List.of(), new Decisions(0, 0), new ProcessingTime(null, 0), List.of(), List.of()));
+
+    mvc.perform(get(PATH).header("Authorization", "Bearer " + moderatorToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.decisions.approved").value(0));
+    mvc.perform(get(PATH).header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isForbidden());
+    verify(statistics).statistics(null, null);
   }
 
   @Test
