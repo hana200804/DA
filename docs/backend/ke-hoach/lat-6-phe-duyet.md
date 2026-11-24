@@ -21,8 +21,8 @@ Các luật dưới đây là lựa chọn của lát này, cần cả nhóm xem
 
 | Chủ đề | Tài liệu | Cách làm |
 | --- | --- | --- |
-| Chốt mã | `docs/04 §6`: duyệt thì đề xuất khác mã `REJECTED`. Đề bài yêu cầu điểm không dưới 0,5 ngay sau khi duyệt bằng mã không dẫn đầu | Khi kiểm duyệt viên chốt mã `c` (duyệt, giữ, sửa mã biển đã công bố), đề xuất khác mã chuyển `REJECTED`, và `W` của các mã khác trong `sign_code_weights` về 0, giữ `submitter_count`. `W_c` đặt bằng tổng `w` của đề xuất mang mã `c`, nên chọn lại một mã từng bị loại sẽ lấy lại bằng chứng của nó. `w` của từng đề xuất giữ nguyên để còn dấu vết. Nhờ vậy `β = 0,5 + R−`, biển `PENDING` vừa duyệt có điểm ≥ 2,5 / 3 ≈ 0,83. Lát 5 và lát 7 tính lại điểm từ chính bảng này nên kết quả nhất quán |
-| Điểm khi duyệt | `Scoring.score` | Tính bằng `Scoring.score(biển đã chốt, c)` với `M = 2`. Thao tác của kiểm duyệt viên không tự chuyển biển sang `UNDER_REVIEW`, kể cả khi điểm < 0,5 (luật FR-22 chỉ chạy khi có xác nhận hoặc đánh giá mới) |
+| Chốt mã | `docs/04 §6`: duyệt thì đề xuất khác mã `REJECTED`. Đề bài yêu cầu điểm không dưới 0,5 ngay sau khi duyệt bằng mã không dẫn đầu | Người điều phối chốt (thay cách đặt `W` về 0 của bản đầu): duyệt, giữ, thêm trực tiếp đặt `reviewed_at`, và `β` chỉ tính `W_c` của đề xuất có `received_at > reviewed_at` cùng đánh giá DENY có `updated_at > reviewed_at`. Xem `docs/04 §6` đoạn "Sau quyết định của kiểm duyệt viên". Đề xuất khác mã vẫn chuyển `REJECTED`. Không đổi dòng nào trong `sign_code_weights` |
+| Điểm khi duyệt | `Scoring.score` | Tính bằng `Scoring.score(biển đã chốt, c)` với `M = 2`, sau khi `SignState.Builder.reviewed(now)` xoá bằng chứng phản đối cũ. Biển `PENDING` vừa duyệt có `β = 0,5`, điểm ≥ 2,5 / 3 ≈ 0,83. Thao tác của kiểm duyệt viên không tự chuyển biển sang `UNDER_REVIEW` |
 | Mã không hợp lệ | "Mã mới phải là loại đang dùng" | Mã không có hoặc đã ngừng dùng trả `422 BUSINESS_RULE`. Lỗi cú pháp trả `400 VALIDATION_ERROR` |
 | Sửa mã biển `PENDING` | `PATCH` áp dụng cho `PENDING` | Chỉ sửa được vị trí và hướng. Đổi mã trả `422 BUSINESS_RULE` vì worker tính lại mã dẫn đầu theo trọng số nên sẽ ghi đè mã đã sửa. Đổi mã khi duyệt dùng `approve` |
 | Sửa vị trí | "Có `location` thì đặt `location_locked = true`" | Áp dụng cho mọi thao tác có `location` (duyệt, giữ, sửa, thêm) |
@@ -95,6 +95,60 @@ Thứ tự khoá không tạo chu trình: worker khoá đề xuất mới (chưa
 - [x] `docs/07 §8` ghi mã trả về, lỗi và các luật đã chốt của mục "Phê duyệt và biển".
 - [x] `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` exit 0; markdownlint sạch; ghi "Tiến độ"; commit.
 
+## Hợp đồng cho lát 7
+
+Lát 7 tính lại điểm khi có đánh giá bằng `ClusteringEngine.applyRating`, nên phải nạp `SignState` đủ hai giá trị dưới đây bằng SQL, giống worker gom cụm (`SignRepository.candidates`, `SubmissionRepository.weightsSinceReview`) và `ReviewSignRepository.lock`.
+
+```java
+package vn.signa.sign.clustering;
+
+public record SignState(
+    /* …các trường cũ… */
+    int denySinceReview,                         // R− sau reviewed_at
+    /* … */
+    Instant reviewedAt,
+    int version,
+    List<MemberSubmission> members,
+    Map<String, BigDecimal> weightsSinceReview) { // W_c sau reviewed_at, theo mã
+
+  public static final class Builder {
+    public Builder weightsSinceReview(Map<String, BigDecimal> v);
+    public Builder addWeightSinceReview(String code, BigDecimal w);
+    /** Quyết định mới: reviewedAt = at, weightsSinceReview rỗng, denySinceReview = 0. */
+    public Builder reviewed(Instant at);
+  }
+}
+
+public final class Scoring {
+  /** α = 0,5 + W_c* + R+ + M; β = 0,5 + opposingWeight + denies. */
+  public static BigDecimal score(SignState sign, String leading);
+  /** reviewedAt rỗng: Σ_{c≠c*} W_c; ngược lại Σ_{c≠c*} weightsSinceReview. */
+  public static BigDecimal opposingWeight(SignState sign, String leading);
+  /** reviewedAt rỗng: denyCount; ngược lại denySinceReview. */
+  public static int denies(SignState sign);
+}
+```
+
+SQL nạp hai giá trị, `reviewed_at` của chính biển:
+
+```sql
+-- denySinceReview
+SELECT COUNT(*) FROM sign_ratings r
+WHERE r.sign_id = :id AND r.value = 'DENY'
+  AND (signs.reviewed_at IS NULL OR r.updated_at > signs.reviewed_at);
+
+-- weightsSinceReview
+SELECT s.sign_type_code, SUM(s.weight)
+FROM submissions s JOIN signs g ON g.id = s.sign_id
+WHERE s.sign_id = :id AND s.weight IS NOT NULL
+  AND g.reviewed_at IS NOT NULL AND s.received_at > g.reviewed_at
+GROUP BY s.sign_type_code;
+```
+
+- `weightsSinceReview` khác rỗng khi `reviewedAt` rỗng thì `SignState` ném `IllegalArgumentException`.
+- `applyRating` coi đánh giá là "sau duyệt" khi thời điểm **lớn hơn hẳn** `reviewedAt`, khớp `updated_at > reviewed_at`. Bản trước dùng "không trước".
+- Mọi chỗ đặt `reviewedAt` mới phải dùng `Builder.reviewed(at)` để không mang bằng chứng phản đối cũ sang mốc mới.
+
 ## Tiến độ
 
 Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
@@ -108,13 +162,29 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 - Worker của lát 5 đã khoá ứng viên bằng `SELECT … FOR UPDATE` và ghi bằng `WHERE id = ? AND version = ?`, nên không sửa mã lát 5. Lát 6 khoá cùng dòng `signs` trước khi đụng đề xuất thành viên và trọng số (xem mục "Kiểm tra worker của lát 5").
 - Không sửa repository nào của lát 5, không thêm migration, không sửa `shared/`. `SecurityConfig` chỉ thêm năm quy tắc URL trước `anyRequest()`. Controller vẫn có `@PreAuthorize` như các lát trước. `ReviewSql` lặp lại vài hàm chuyển kiểu của `SignSql` vì lớp này package-private.
 - Quyết định tự đưa ra nằm ở mục "Luật đã chốt khi tài liệu chưa nói rõ". Ba điểm cần nhóm xem lại:
-  - Chốt mã đưa `W` của mã khác về 0 để đạt yêu cầu điểm không dưới 0,5. Đây là thay đổi ý nghĩa so với `docs/04 §6`, nơi `β` vẫn gồm trọng số mã khác.
+  - Chốt mã đưa `W` của mã khác về 0 để đạt yêu cầu điểm không dưới 0,5. Người điều phối không đồng ý; đã thay, xem mục ngày 2026-11-24 bên dưới.
   - `PATCH` đổi mã biển `PENDING` trả `422`.
   - `PATCH` có giá trị trùng hệt biển hiện tại trả `422`.
-- Đã ghi mã trả về, bảng trạng thái và lỗi vào `docs/07 §8` mục "Phê duyệt và biển". Sơ đồ `docs/03 §6.4` còn ghi `200` cho duyệt, còn `docs/07` và code trả `204`. Chưa sửa sơ đồ vì nằm ngoài mục của lát.
+- Đã ghi mã trả về, bảng trạng thái và lỗi vào `docs/07 §8` mục "Phê duyệt và biển". Sơ đồ `docs/03 §6.4` đã sửa thành `204` ở lần sửa sau.
 - Rủi ro:
-  - Giữ biển `UNDER_REVIEW` có nhiều đánh giá "không đúng" vẫn có thể cho điểm dưới 0,5, vì `R−` không đổi. Lần đánh giá hoặc xác nhận kế tiếp sẽ đưa biển về `UNDER_REVIEW` theo luật FR-22 của lát 5.
-  - Biển tự duyệt (FR-25) có `M = 0` và chưa chốt trọng số. Lần giữ hoặc sửa mã đầu tiên mới chốt.
+  - Đã xử lý ở lần sửa sau: giữ biển có nhiều đánh giá "không đúng" từng có thể cho điểm dưới 0,5.
   - `ReviewRaceIT` chưa chạy thật. Nếu CI báo deadlock, kiểm thứ tự khoá giữa `submissions` và `signs` trước tiên.
   - `nearbySigns` gần kinh tuyến 180° hoặc gần cực bỏ lọc `MBRContains` và chỉ lọc theo vĩ độ, nên chậm hơn. Ngoài vùng đó vẫn đúng.
   - Lát 7 cũng thêm quy tắc vào cùng chỗ trong `SecurityConfig` và `PermissionMatrixTest`, nên khi ghép sẽ xung đột dạng chỉ thêm dòng.
+
+**2026-11-24 · Đổi luật điểm sau quyết định.** Người điều phối không đồng ý đặt `W` của mã khác về 0, vì cách đó xoá bằng chứng và lệch `docs/04 §6`. Đã thay bằng quy tắc "bằng chứng phản đối trước `reviewed_at` coi như đã xem xét".
+
+- Commit: `e37b72a` sửa lõi `clustering` và SQL của worker, `8eba236` bỏ đặt `W` về 0 ở lát 6, `9347412` `docs/04 §6`, `93e03d5` `docs/03 §6.4`, và commit tài liệu này.
+- Đã sửa mã lát 5, được người điều phối cho phép:
+  - `SignState` thêm `weightsSinceReview`, `Builder.reviewed(at)`, `Builder.addWeightSinceReview`.
+  - `Scoring.score` tính `β` theo mốc `reviewedAt`, thêm `opposingWeight`, `denies`.
+  - `ClusteringEngine` cộng `w` vào `weightsSinceReview` khi đề xuất nhận sau `reviewedAt`. Tự duyệt dùng `reviewed(now)` và tính lại điểm. `applyRating` so "sau duyệt" nghiêm ngặt.
+  - `SignRepository.candidates` đếm `deny_since_review` từ `sign_ratings` bằng truy vấn con, chỉ đổi SQL, không đổi chữ ký. `SubmissionRepository` thêm hàm `weightsSinceReview(ids)`. `ClusteringProcessor` nạp thêm giá trị này.
+  - Hai test cũ của lát 5 (`ClusteringEngineTest.confirmationCanTriggerReview`, `RatingTest.lowScoreTriggersReview`) dựng bằng chứng phản đối trước lần duyệt. Đã đánh dấu bằng chứng đó là sau duyệt để giữ đúng tình huống cần kiểm.
+- Lát 6: bỏ `Outcome.weights`, `ReviewSignRepository.saveWeights` và phần khôi phục `W_c` từ đề xuất. Duyệt, giữ, thêm, từ chối, gỡ đều đặt mốc bằng `reviewed(now)`. `ReviewSignRepository.lock` nạp hai giá trị bằng SQL như worker.
+- Test mới, không cần Docker: `ReviewedEvidenceTest` 9 ca trong gói `clustering`, `ReviewEvidenceChainTest` 1 ca đi trọn chuỗi duyệt B (A có W 1,8, B có W 0,9) → điểm 0,8718 và `sign_code_weights` không đổi → một CONFIRM, vẫn `APPROVED`, điểm 0,8958 → ba DENY mới, chuyển `UNDER_REVIEW` → giữ, điểm 0,8958. `ReviewRulesTest` thay ca khôi phục trọng số bằng ca giữ biển có 5 DENY cũ, điểm 0,8718.
+- `./gradlew spotlessApply test compileTestJava jacocoTestCoverageVerification` trả exit 0 với 527 unit test đạt. Độ phủ gói `clustering` là 98,9% dòng (555/561) và 94,7% nhánh (270/285).
+- `ReviewIT` sửa kỳ vọng: `W` của mã A giữ 2,7 sau khi duyệt bằng B. IT vẫn chỉ biên dịch trên máy và chờ CI.
+- Rủi ro:
+  - Truy vấn con đếm DENY chạy mỗi lần worker nạp ứng viên. `sign_ratings` có khoá chính `(sign_id, user_id)` nên tra theo `sign_id` dùng được chỉ mục.
+  - Cột `deny_since_review` giờ là bản sao của giá trị tính từ `sign_ratings`. Worker và lát 6 ghi lại giá trị đã tính nên cột tự khớp sau mỗi lần ghi.

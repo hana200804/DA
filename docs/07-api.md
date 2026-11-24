@@ -399,7 +399,7 @@ Trạng thái áp dụng của từng thao tác:
 | `PATCH` | `PENDING`, `APPROVED`, `UNDER_REVIEW` | Không đổi trạng thái. Lịch sử `EDITED`. Biển `PENDING` chỉ sửa được vị trí và hướng |
 | `POST /admin/signs` | | `APPROVED`, `M = 2`, `locationLocked = true`. Lịch sử `CREATED` |
 
-Khi kiểm duyệt viên chốt mã (duyệt, giữ, hoặc sửa mã biển đã công bố), đề xuất khác mã chuyển `REJECTED` và trọng số của các mã khác về 0. Biển vừa duyệt vì vậy có điểm không dưới 0,5. Thao tác có `location` đặt `locationLocked = true`. `headingDeg` trong `keep` để trống thì giữ hướng cũ. Lịch sử ghi `before`, `after` gồm các trường thay đổi trong `status`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `locationLocked`, `confidence`.
+Khi kiểm duyệt viên chốt mã (duyệt, giữ, hoặc sửa mã biển đã công bố), đề xuất khác mã chuyển `REJECTED`. Duyệt, giữ và thêm biển đặt `reviewed_at`; bằng chứng phản đối có trước mốc này không còn tính vào điểm theo [Thiết kế AI §6](04-thiet-ke-ai.md#sau-quyết-định-của-kiểm-duyệt-viên), nên biển vừa duyệt hoặc vừa giữ có điểm không dưới 0,5. `sign_code_weights` không đổi và `codeWeights` vẫn hiển thị đủ. Thao tác có `location` đặt `locationLocked = true`. `headingDeg` trong `keep` để trống thì giữ hướng cũ. Lịch sử ghi `before`, `after` gồm các trường thay đổi trong `status`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `locationLocked`, `confidence`.
 
 Lỗi của các thao tác ghi:
 
