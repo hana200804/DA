@@ -40,6 +40,19 @@ class ImageProcessorTest {
   }
 
   @Test
+  void wideAndTallImagesArePaddedToTheAiMinimumEdge() throws Exception {
+    PreparedImage wide = processor.prepare(TestImages.png(4096, 20));
+    PreparedImage tall = processor.prepare(TestImages.png(20, 4096));
+
+    assertThat(TestImages.decode(wide.payload()).getHeight()).isEqualTo(8);
+    assertThat(TestImages.decode(tall.payload()).getWidth()).isEqualTo(8);
+    assertThat(wide.sentWidth()).isEqualTo(1280);
+    assertThat(tall.sentHeight()).isEqualTo(1280);
+    assertThat(wide.toOriginal(new Box(5, 3, 10, 5))).isEqualTo(new Box(16, 10, 32, 10));
+    assertThat(tall.toOriginal(new Box(3, 5, 5, 10))).isEqualTo(new Box(10, 16, 10, 32));
+  }
+
+  @Test
   void smallImageIsSentUnchanged() throws Exception {
     byte[] png = TestImages.png(1280, 720);
 

@@ -144,6 +144,7 @@ public class RecognitionService {
               sign == null ? null : sign.description(),
               sign == null ? null : sign.iconUrl());
         })
+        .filter(d -> !image.hasPadding() || (d.box().width() > 0 && d.box().height() > 0))
         .toList();
   }
 

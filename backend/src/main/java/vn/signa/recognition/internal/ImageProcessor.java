@@ -37,6 +37,7 @@ public class ImageProcessor {
   public static final long MAX_PIXELS = 25_000_000L;
 
   public static final int MAX_EDGE = 1280;
+  private static final int AI_MIN_EDGE = 8;
   static final float JPEG_QUALITY = 0.9f;
 
   private final Semaphore decodePixels;
@@ -62,6 +63,9 @@ public class ImageProcessor {
       long pixels = (long) width * height;
       if (pixels > MAX_PIXELS) {
         throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, "Ảnh nhận diện tối đa 25 triệu pixel");
+      }
+      if (Math.min(width, height) < AI_MIN_EDGE) {
+        throw new ApiException(ErrorCode.VALIDATION_ERROR, "Mỗi cạnh ảnh phải từ 8 px");
       }
       int longEdge = Math.max(width, height);
       if (longEdge <= MAX_EDGE) {
@@ -92,12 +96,36 @@ public class ImageProcessor {
       int step = Math.max(1, Math.max(width, height) / MAX_EDGE);
       parameters.setSourceSubsampling(step, step, 0, 0);
       BufferedImage resized = resize(reader.read(0, parameters), sentWidth, sentHeight);
+      int paddedWidth = Math.max(sentWidth, AI_MIN_EDGE);
+      int paddedHeight = Math.max(sentHeight, AI_MIN_EDGE);
+      BufferedImage output = pad(resized, paddedWidth, paddedHeight);
       return new PreparedImage(
-          encodeJpeg(resized), MediaType.IMAGE_JPEG, "image.jpg",
-          width, height, sentWidth, sentHeight);
+          encodeJpeg(output),
+          MediaType.IMAGE_JPEG,
+          "image.jpg",
+          width,
+          height,
+          paddedWidth,
+          paddedHeight,
+          sentWidth,
+          sentHeight);
     } finally {
       decodePixels.release(pixels);
     }
+  }
+
+  private static BufferedImage pad(BufferedImage content, int width, int height) {
+    if (content.getWidth() == width && content.getHeight() == height) return content;
+    BufferedImage padded = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+    Graphics2D graphics = padded.createGraphics();
+    try {
+      graphics.setColor(Color.WHITE);
+      graphics.fillRect(0, 0, width, height);
+      graphics.drawImage(content, 0, 0, null);
+    } finally {
+      graphics.dispose();
+    }
+    return padded;
   }
 
   private static ImageReader reader(ImageFormat format) {
