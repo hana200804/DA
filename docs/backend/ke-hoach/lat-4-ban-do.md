@@ -67,12 +67,33 @@
 - [x] NFR-03: 500 biển, gọi 50 lần, in p95 ra log, không assert cứng.
 - [x] `./gradlew spotlessCheck test compileTestJava` thành công; markdownlint sạch; commit.
 
-## Phần 2 · Sau khi merge lát 1, 2
+## Phần 2 · Sau khi merge lát 1, 2, 3
 
-Chỉ ghi lại, chưa làm trong đợt này.
+### Nhiệm vụ 6 · Ghép lát 1, 2, 3
 
-- [ ] `myRating` trong `GET /signs/{id}` khi đã đăng nhập: thuộc lát 7 (đánh giá), cần filter phiên của lát 1.
-- [ ] Chạy lại IT-B06, IT-B07 trên dữ liệu mẫu `R__demo_data.sql` của lát 2 (profile `demo`) thay cho dữ liệu chèn tay.
+- [x] `git merge --no-ff backend/3-recognition`, không có xung đột văn bản. Sửa để build xanh ngay trong commit ghép: `PermissionMatrixTest` nạp mọi controller nên cần `@MockitoBean MapService`; `SignMapControllerTest` thêm `@WithApiSecurity`.
+
+### Nhiệm vụ 7 · Quyền công khai
+
+- [x] `SecurityConfig` lát 1 đã `permitAll` cho `GET /api/v1/signs/**` (khớp cả `/api/v1/signs`). Dòng `Endpoint.reserved(GET /api/v1/signs)` trong `PermissionMatrixTest` đổi thành hai dòng `Endpoint.of(..., Access.PUBLIC)` cho `GET /signs?bbox=…` và `GET /signs/{id}`, có stub `MapService`; khách và mọi vai trò nhận `200`.
+- [x] `SignMapControllerTest` chạy với chuỗi Security thật, không gửi token.
+
+### Nhiệm vụ 8 · Dữ liệu mẫu
+
+**Tạo:** `src/test/java/vn/signa/sign/map/DemoMapIT.java`.
+
+- [x] Nạp `db/demo/R__demo_data.sql` của lát 2 rồi gọi `GET /signs` trên `bbox` Hà Nội: đúng 24 biển mẫu `APPROVED` + `UNDER_REVIEW`, không có `PENDING`; lọc `PROHIBITORY` khớp CSDL; chi tiết biển `PENDING` trả `404`.
+- [x] Không bật profile `demo` cho context IT: Flyway sẽ ghi dòng `R__` vào lịch sử migration dùng chung và các context khác (không có `classpath:db/demo`) báo migration thiếu. Nạp file bằng tài khoản migrator như `DemoDataIT`, xoá biển mẫu sau mỗi ca. Chỉ so biển có UUID mẫu vì `MapIT`, `SchemaIT` cũng chèn biển ở Hà Nội.
+
+### Nhiệm vụ 9 · Cache-Control
+
+- [x] `GET /signs`: `no-cache`. Biển đổi trạng thái ngay khi duyệt, web quản trị tải lại bản đồ sau khi sửa; chưa có ETag nên client hỏi lại mỗi lần. Dữ liệu công khai nên vẫn cho lưu, khác `no-store` mặc định của Spring Security; cùng cách lát 2 làm với danh mục.
+- [x] `GET /signs/{id}`: `no-store`. Có URL ký 10 phút tới ảnh riêng tư; từ lát 7 có đánh giá của người đang đăng nhập.
+- [x] Lỗi (`400`, `404`) giữ header mặc định của Spring Security.
+
+### Việc chuyển sang lát khác
+
+- [ ] `myRating` trong `GET /signs/{id}` khi đã đăng nhập: việc của **lát 7** (đánh giá). Khi thêm, giữ `no-store` cho chi tiết.
 - [ ] Ghi số p95 NFR-03 đo trên CI vào mục "Tiến độ"; nghiệm thu chính thức bằng k6 ở lát 10.
 
 ## Tiến độ
@@ -83,3 +104,9 @@ Chỉ ghi lại, chưa làm trong đợt này.
 - Chỉ chạy trên CI (máy không có Docker): `MapIT` (IT-B06, IT-B07, trạng thái ẩn, thứ tự trục, vùng gần cả thế giới, chi tiết và URL ký) và `MapPerformanceIT` (p95 NFR-03, chưa có số, ghi vào đây sau lần chạy CI đầu tiên).
 - Quyết định: tham số nhận dạng chuỗi và kiểm tra trong `MapQueryParser` để mọi lỗi có `details`; mã lọc bỏ trùng, giới hạn theo độ dài cột; WKT dùng số thập phân thường và chia cạnh đông–tây ≤ 90° để `bbox` rộng không bị MySQL nối vòng theo đường trắc địa; cạnh ô nới ra khi vượt 128 ô mỗi trục; ảnh đại diện ký lỗi thì trả `500`, không nuốt lỗi.
 - Rủi ro: `worldWideBboxStillMatches` dựa trên cách MySQL tính MBR của đa giác địa lý, chưa kiểm chứng được trên máy; nếu đỏ trên CI cần xử lý vùng rộng riêng. Cạnh trắc địa hơi phồng về phía cực nên vùng rộng có thể lấy thừa biển sát mép. Truy vấn gom vẫn quét mọi biển trong vùng (kết quả có giới hạn, chi phí quét thì không). Web phải kẹp `bounds` về [-180, 180] ở zoom thấp, nếu không sẽ nhận `400`.
+
+**2026-11-24.** Phần 2 đã commit trên `backend/4-map`, chưa push: commit ghép lát 1, 2, 3, ba commit cho nhiệm vụ 7–9 và một commit tiến độ.
+
+- Trên máy: `./gradlew spotlessApply test compileTestJava` thành công, 341/341 unit test đạt sau khi ghép (gồm `PermissionMatrixTest` 100 ca, có 8 ca mới cho `/signs`).
+- Chỉ chạy trên CI: `DemoMapIT`, cùng `MapIT`, `MapPerformanceIT` của phần 1.
+- Rủi ro: `DemoMapIT` và `DemoDataIT` cùng nạp và xoá biển mẫu; JUnit chạy tuần tự nên không đụng nhau, nếu bật chạy song song thì phải tách. Số p95 NFR-03 vẫn chưa có.
