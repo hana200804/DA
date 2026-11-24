@@ -84,7 +84,8 @@ class AuthIT extends IntegrationTest {
     String userId = redis.<String, String>opsForHash().get("session:" + hash, "userId");
     assertThat(userId).isNotNull();
     assertThat(redis.opsForHash().entries("session:" + hash))
-        .containsKeys("userId", "role", "client", "createdAt");
+        .containsKeys("userId", "client", "createdAt")
+        .containsEntry("credentialVersion", "0");
     assertThat(redis.getExpire("session:" + hash)).isPositive();
     assertThat(redis.opsForSet().members("user-sessions:" + userId)).contains(hash);
     assertThat(redis.hasKey("session:" + token)).isFalse();

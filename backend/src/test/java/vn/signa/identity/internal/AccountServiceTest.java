@@ -3,6 +3,7 @@ package vn.signa.identity.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -23,9 +24,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.SessionService.IssuedSession;
+import vn.signa.identity.internal.UserRepository.AuthState;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
 
@@ -40,7 +44,7 @@ class AccountServiceTest {
 
   private final UserRepository users = mock(UserRepository.class);
   private final InMemorySessionStore store = new InMemorySessionStore(clock);
-  private final SessionService sessions = new SessionService(store, clock);
+  private final SessionService sessions = new SessionService(store, users, clock);
   private final RolePermissions rolePermissions = new RolePermissions(null);
   private final LoginRateLimiter limiter = new LoginRateLimiter(new InMemoryAttemptCounter(clock));
   private AccountService accounts;
@@ -53,7 +57,7 @@ class AccountServiceTest {
             "MODERATOR", Set.of("submission:create", "review:decide")));
     PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-    when(users.touchLastLogin(anyString(), anyString(), any())).thenReturn(true);
+
     accounts =
         new AccountService(
             users,
@@ -67,6 +71,14 @@ class AccountServiceTest {
 
   private UserRecord user(String role, UserStatus status) {
     return new UserRecord("u-1", "a@b.vn", encoder.encode(PASSWORD), "Nguyễn Văn A", role, status);
+  }
+
+  private void givenLogin(UserRecord user) {
+    when(users.findByEmail(user.email())).thenReturn(Optional.of(user));
+    when(users.findByIdForUpdate(user.id())).thenReturn(Optional.of(user));
+    when(users.findAuthState(user.id()))
+        .thenReturn(
+            Optional.of(new AuthState(user.role(), user.status(), user.credentialVersion(), null)));
   }
 
   @Test
@@ -95,7 +107,7 @@ class AccountServiceTest {
 
   @Test
   void loginIssuesSessionAndTouchesLastLogin() {
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    givenLogin(user("USER", UserStatus.ACTIVE));
 
     LoginResult result = accounts.login("a@b.vn", PASSWORD, Client.MOBILE, "ip");
 
@@ -103,15 +115,24 @@ class AccountServiceTest {
     assertThat(result.expiresAt()).isEqualTo(Instant.parse("2026-12-23T08:00:00Z"));
     assertThat(result.user().id()).isEqualTo("u-1");
     assertThat(sessions.authenticate(result.token())).isPresent();
-    verify(users).touchLastLogin(eq("u-1"), anyString(), eq(clock.instant()));
+    verify(users).touchLastLogin("u-1", clock.instant());
   }
 
   @Test
   void loginCannotIssueASessionIfPasswordChangedAfterVerification() {
     UserRecord beforeReset = user("USER", UserStatus.ACTIVE);
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(beforeReset));
-    when(users.touchLastLogin(beforeReset.id(), beforeReset.passwordHash(), clock.instant()))
-        .thenReturn(false);
+    givenLogin(beforeReset);
+    when(users.findByIdForUpdate(beforeReset.id()))
+        .thenReturn(
+            Optional.of(
+                new UserRecord(
+                    beforeReset.id(),
+                    beforeReset.email(),
+                    "hash-moi",
+                    beforeReset.displayName(),
+                    beforeReset.role(),
+                    beforeReset.status(),
+                    1)));
 
     assertThat(loginFails("a@b.vn", PASSWORD, Client.MOBILE).code())
         .isEqualTo(ErrorCode.UNAUTHENTICATED);
@@ -120,7 +141,7 @@ class AccountServiceTest {
 
   @Test
   void unknownEmailAndWrongPasswordLookTheSame() {
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    givenLogin(user("USER", UserStatus.ACTIVE));
     when(users.findByEmail("x@b.vn")).thenReturn(Optional.empty());
 
     ApiException wrong = loginFails("a@b.vn", "sai-mat-khau", Client.MOBILE);
@@ -134,28 +155,28 @@ class AccountServiceTest {
 
   @Test
   void lockedAccountIsForbiddenOnlyWithCorrectPassword() {
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("USER", UserStatus.LOCKED)));
+    givenLogin(user("USER", UserStatus.LOCKED));
 
     assertThat(loginFails("a@b.vn", "sai-mat-khau", Client.MOBILE).code())
         .isEqualTo(ErrorCode.UNAUTHENTICATED);
     assertThat(loginFails("a@b.vn", PASSWORD, Client.MOBILE).code()).isEqualTo(ErrorCode.FORBIDDEN);
     assertThat(store.size()).isZero();
-    verify(users, never()).touchLastLogin(anyString(), anyString(), any());
+    verify(users, never()).touchLastLogin(anyString(), any());
   }
 
   @Test
   void webLoginNeedsReviewPermission() {
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    givenLogin(user("USER", UserStatus.ACTIVE));
     assertThat(loginFails("a@b.vn", PASSWORD, Client.WEB).code()).isEqualTo(ErrorCode.FORBIDDEN);
 
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("MODERATOR", UserStatus.ACTIVE)));
+    givenLogin(user("MODERATOR", UserStatus.ACTIVE));
     LoginResult result = accounts.login("a@b.vn", PASSWORD, Client.WEB, "ip");
     assertThat(result.expiresAt()).isEqualTo(Instant.parse("2026-11-23T16:00:00Z"));
   }
 
   @Test
   void eleventhAttemptIsRateLimitedEvenWithCorrectPassword() {
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    givenLogin(user("USER", UserStatus.ACTIVE));
     for (int i = 0; i < 10; i++) {
       assertThat(loginFails("a@b.vn", "sai-mat-khau", Client.MOBILE).code())
           .isEqualTo(ErrorCode.UNAUTHENTICATED);
@@ -168,7 +189,7 @@ class AccountServiceTest {
 
   @Test
   void successResetsFailureCounter() {
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    givenLogin(user("USER", UserStatus.ACTIVE));
     for (int i = 0; i < 9; i++) {
       loginFails("a@b.vn", "sai-mat-khau", Client.MOBILE);
     }
@@ -181,7 +202,7 @@ class AccountServiceTest {
 
   @Test
   void passwordOver72BytesNeverMatches() {
-    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    givenLogin(user("USER", UserStatus.ACTIVE));
 
     assertThat(loginFails("a@b.vn", "ệ".repeat(30), Client.MOBILE).code())
         .isEqualTo(ErrorCode.UNAUTHENTICATED);
@@ -194,24 +215,41 @@ class AccountServiceTest {
     assertThatThrownBy(() -> accounts.changePassword("u-1", "s", "sai-mat-khau", "moi-12345"))
         .isInstanceOfSatisfying(
             ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.BUSINESS_RULE));
-    verify(users, never()).updatePasswordHash(anyString(), anyString(), anyString(), any());
+    verify(users, never())
+        .updateActivePasswordHash(anyString(), anyInt(), anyString(), anyString(), any());
   }
 
   @Test
   void changePasswordRevokesOtherSessionsOnly() {
     UserRecord user = user("USER", UserStatus.ACTIVE);
     when(users.findById("u-1")).thenReturn(Optional.of(user));
-    when(users.updatePasswordHash(eq("u-1"), eq(user.passwordHash()), anyString(), any()))
+    IssuedSession current = sessions.issue("u-1", 0, Client.MOBILE);
+    IssuedSession other = sessions.issue("u-1", 0, Client.WEB);
+    when(users.updateActivePasswordHash(
+            eq("u-1"), eq(0), anyString(), eq(current.sessionId()), any()))
         .thenReturn(true);
-    IssuedSession current = sessions.issue("u-1", "USER", Client.MOBILE);
-    IssuedSession other = sessions.issue("u-1", "USER", Client.WEB);
 
-    accounts.changePassword("u-1", current.sessionId(), PASSWORD, "mat-khau-moi");
+    TransactionSynchronizationManager.initSynchronization();
+    try {
+      accounts.changePassword("u-1", current.sessionId(), PASSWORD, "mat-khau-moi");
+      assertThat(store.size()).isEqualTo(2);
+      assertThat(store.find(current.sessionId()))
+          .get()
+          .extracting(Session::credentialVersion)
+          .isEqualTo(0);
+      when(users.findAuthState("u-1"))
+          .thenReturn(
+              Optional.of(new AuthState("USER", UserStatus.ACTIVE, 1, current.sessionId())));
+      TransactionSynchronizationManager.getSynchronizations()
+          .forEach(TransactionSynchronization::afterCommit);
+    } finally {
+      TransactionSynchronizationManager.clearSynchronization();
+    }
 
     ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
     verify(users)
-        .updatePasswordHash(
-            eq("u-1"), eq(user.passwordHash()), hash.capture(), eq(clock.instant()));
+        .updateActivePasswordHash(
+            eq("u-1"), eq(0), hash.capture(), eq(current.sessionId()), eq(clock.instant()));
     assertThat(encoder.matches("mat-khau-moi", hash.getValue())).isTrue();
     assertThat(sessions.authenticate(current.token())).isPresent();
     assertThat(sessions.authenticate(other.token())).isEmpty();

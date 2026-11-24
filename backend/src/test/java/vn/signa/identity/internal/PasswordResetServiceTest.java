@@ -187,16 +187,16 @@ class PasswordResetServiceTest {
 
     assertThat(challenge.get()).isNull();
     var ordered = inOrder(users, otp, sessions);
-    ordered.verify(users).updateActivePasswordHash(ACTIVE.id(), "new-hash", NOW);
+    ordered.verify(users).updateActivePasswordHash(ACTIVE.id(), 0, "new-hash", null, NOW);
     ordered.verify(otp).applyAttempt(EMAIL_HASH, new Challenge(codes.hash(CODE), 0), true);
-    ordered.verify(sessions).revokeAll(ACTIVE.id());
+    ordered.verify(sessions).revokeOlderAfterCommit(ACTIVE.id(), 1);
     assertInvalidCode(CODE);
   }
 
   private void activePasswordUpdate() {
     when(users.findByEmail(EMAIL)).thenReturn(Optional.of(ACTIVE));
     when(encoder.encode(NEW_PASSWORD)).thenReturn("new-hash");
-    when(users.updateActivePasswordHash(ACTIVE.id(), "new-hash", NOW)).thenReturn(true);
+    when(users.updateActivePasswordHash(ACTIVE.id(), 0, "new-hash", null, NOW)).thenReturn(true);
     doAnswer(
             invocation -> {
               invocation

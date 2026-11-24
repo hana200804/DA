@@ -4,13 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -21,7 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.dao.QueryTimeoutException;
 import org.springframework.transaction.support.TransactionOperations;
 import vn.signa.audit.api.ActorType;
 import vn.signa.audit.api.AuditEntityType;
@@ -69,7 +66,7 @@ class UserAdminServiceTest {
   }
 
   @Test
-  void lockingRecordsHistoryAndRevokesSessionsBeforeAndAfterCommit() {
+  void lockingRecordsHistoryAndSchedulesSessionCleanup() {
     given(user(TARGET, "USER", UserStatus.ACTIVE), ACTOR);
 
     service.update(ACTOR, TARGET, null, UserStatus.LOCKED);
@@ -77,9 +74,11 @@ class UserAdminServiceTest {
     var order = inOrder(users, audit, sessions);
     order.verify(users).lockActiveAdmins();
     order.verify(users).findByIdForUpdate(TARGET);
-    order.verify(users).updateRoleAndStatus(TARGET, "USER", UserStatus.LOCKED, clock.instant());
+    order
+        .verify(users)
+        .updateRoleAndStatus(TARGET, "USER", UserStatus.LOCKED, true, clock.instant());
     order.verify(audit).record(any());
-    order.verify(sessions, times(2)).revokeAll(TARGET);
+    order.verify(sessions).revokeOlderAfterCommit(TARGET, 1);
     AuditEntry entry = recorded().getFirst();
     assertThat(entry.entityType()).isEqualTo(AuditEntityType.USER);
     assertThat(entry.entityId()).isEqualTo(TARGET);
@@ -103,6 +102,7 @@ class UserAdminServiceTest {
           assertThat(e.before()).isEqualTo(Map.of("status", "LOCKED"));
           assertThat(e.after()).isEqualTo(Map.of("status", "ACTIVE"));
         });
+    verify(users).updateRoleAndStatus(TARGET, "USER", UserStatus.ACTIVE, false, clock.instant());
     verifyNoInteractions(sessions);
   }
 
@@ -112,7 +112,8 @@ class UserAdminServiceTest {
 
     service.update(ACTOR, TARGET, "MODERATOR", null);
 
-    verify(users).updateRoleAndStatus(TARGET, "MODERATOR", UserStatus.ACTIVE, clock.instant());
+    verify(users)
+        .updateRoleAndStatus(TARGET, "MODERATOR", UserStatus.ACTIVE, true, clock.instant());
     assertThat(recorded())
         .singleElement()
         .satisfies(e -> {
@@ -120,7 +121,7 @@ class UserAdminServiceTest {
           assertThat(e.before()).isEqualTo(Map.of("role", "USER"));
           assertThat(e.after()).isEqualTo(Map.of("role", "MODERATOR"));
         });
-    verify(sessions, times(2)).revokeAll(TARGET);
+    verify(sessions).revokeOlderAfterCommit(TARGET, 1);
   }
 
   @Test
@@ -138,7 +139,8 @@ class UserAdminServiceTest {
 
     service.update(ACTOR, TARGET, "USER", UserStatus.ACTIVE);
 
-    verify(users, never()).updateRoleAndStatus(anyString(), anyString(), any(), any());
+    verify(users, never())
+        .updateRoleAndStatus(anyString(), anyString(), any(), anyBoolean(), any());
     verifyNoInteractions(audit, sessions);
   }
 
@@ -165,7 +167,8 @@ class UserAdminServiceTest {
             });
     assertThat(codeOf(() -> service.update(ACTOR, ACTOR, "MODERATOR", null)))
         .isEqualTo(ErrorCode.BUSINESS_RULE);
-    verify(users, never()).updateRoleAndStatus(anyString(), anyString(), any(), any());
+    verify(users, never())
+        .updateRoleAndStatus(anyString(), anyString(), any(), anyBoolean(), any());
     verifyNoInteractions(audit, sessions);
   }
 
@@ -216,26 +219,6 @@ class UserAdminServiceTest {
     UserRecord admin = user(TARGET, "ADMIN", UserStatus.ACTIVE);
     assertThatCode(() -> UserAdminService.checkRules(ACTOR, admin, "ADMIN", UserStatus.ACTIVE, 1))
         .doesNotThrowAnyException();
-  }
-
-  @Test
-  void sessionStoreFailureInsideTransactionPropagates() {
-    given(user(TARGET, "USER", UserStatus.ACTIVE), ACTOR);
-    doThrow(new QueryTimeoutException("redis")).when(sessions).revokeAll(TARGET);
-
-    assertThatThrownBy(() -> service.update(ACTOR, TARGET, null, UserStatus.LOCKED))
-        .isInstanceOf(QueryTimeoutException.class);
-    verify(sessions, times(1)).revokeAll(TARGET);
-  }
-
-  @Test
-  void failureOfTheSecondRevokeAfterCommitIsOnlyLogged() {
-    given(user(TARGET, "USER", UserStatus.ACTIVE), ACTOR);
-    doNothing().doThrow(new QueryTimeoutException("redis")).when(sessions).revokeAll(TARGET);
-
-    assertThatCode(() -> service.update(ACTOR, TARGET, null, UserStatus.LOCKED))
-        .doesNotThrowAnyException();
-    verify(sessions, times(2)).revokeAll(TARGET);
   }
 
   @Test

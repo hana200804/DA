@@ -7,7 +7,18 @@ record UserRecord(
     String passwordHash,
     String displayName,
     String role,
-    UserStatus status) {
+    UserStatus status,
+    int credentialVersion) {
+
+  UserRecord(
+      String id,
+      String email,
+      String passwordHash,
+      String displayName,
+      String role,
+      UserStatus status) {
+    this(id, email, passwordHash, displayName, role, status, 0);
+  }
 
   @Override
   public String toString() {
