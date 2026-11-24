@@ -92,9 +92,30 @@ Lát 7 dùng `UserDirectory` cho `reporterName`. `audit` lấy tên qua cổng `
 
 **Sửa:** `docs/07-api.md` (chỉ mục lịch sử và người dùng), kế hoạch này.
 
-- [ ] `docs/07 §8` ghi rõ mặc định phân trang, thứ tự sắp, hai đầu khoảng thời gian, mã `400`, `404`, `422`, `204`, thu hồi phiên.
-- [ ] `./gradlew spotlessCheck test compileTestJava` sạch; markdownlint sạch; ghi "Tiến độ"; commit.
+- [x] `docs/07 §8` ghi rõ mặc định phân trang, thứ tự sắp, hai đầu khoảng thời gian, mã `400`, `404`, `422`, `204`, thu hồi phiên.
+- [x] `./gradlew spotlessCheck test compileTestJava` sạch; markdownlint sạch; ghi "Tiến độ"; commit.
 
 ## Tiến độ
 
 Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừng.
+
+**2026-11-24.** NV0–NV5 đã commit trên `backend/8-audit-users`, chưa push.
+
+- Trên máy: `./gradlew clean spotlessCheck test compileTestJava` thành công, 214/214 unit test đạt (thêm 51 so với lát 1: `AuditLogQueryTest` 6, `AuditLogServiceTest` 3, `AuditLogControllerTest` 6, `LikePatternTest` 4, `UserAdminServiceTest` 14, `AdminUserControllerTest` 6, `PermissionMatrixTest` từ 68 lên 80 ca với 3 endpoint mới). `markdownlint` sạch.
+- Chỉ verify được trên CI (máy không có Docker): `AdminUsersIT` (khoá thì phiên cũ `401`, mở khoá đăng nhập lại được, đổi vai trò có lịch sử đúng before/after và `requestId`, `MODERATOR` nhận `403`, tự khoá `422`, escape `LIKE`, `404`), `AuditLogsIT` (lọc theo khoảng thời gian lấy hai đầu, theo người thực hiện và hành động, phân trang, `from > to` trả `400`, `USER` nhận `403`).
+- Quyết định tự đưa ra:
+  - `audit` không gọi thẳng `identity.api.UserDirectory` như đề bài, vì `identity` đã phụ thuộc `audit.api` và `ModuleBoundaryTest` cấm chu trình giữa module (quy tắc song song cấm sửa luật). Cổng `audit.api.ActorNames` có cùng chữ ký; `identity.api.UserDirectory` mở rộng cổng này; bean `identity.internal.JdbcUserDirectory` cài đặt cả hai.
+  - `PATCH /admin/users/{id}` trả `204`, kể cả khi không có gì thay đổi (khi đó không ghi lịch sử, không thu hồi phiên). Đổi cả vai trò và trạng thái ghi hai dòng lịch sử. Mở khoá không thu hồi phiên.
+  - "Quản trị viên" trong luật cuối cùng là `role_code = 'ADMIN'`, giống `BootstrapAdmin`. Mọi PATCH khoá tập quản trị viên `ACTIVE` bằng `FOR UPDATE` trước dòng đích, nên hai quản trị viên khoá nhau cùng lúc chạy lần lượt và không gây deadlock.
+  - Tự đổi vai trò sang giá trị khác bị chặn, không chỉ tự hạ, vì `ADMIN` đã là vai trò cao nhất.
+  - Thu hồi phiên hai lần: trong giao dịch (Redis lỗi thì rollback, trả `500`) và sau commit (lỗi chỉ ghi log), để xoá phiên đăng nhập kịp tạo khi trạng thái mới chưa commit.
+  - `LIKE` dùng `ESCAPE '!'` thay vì `\`, để không phụ thuộc `sql_mode`.
+  - Mặc định `size = 20`. Danh sách người dùng sắp theo `created_at DESC, id DESC`, giống lịch sử.
+  - Dòng `PermissionMatrixTest` thêm ngay ở commit có controller (NV1, NV2), vì `@WebMvcTest` nạp mọi controller nên thiếu `@MockitoBean` là ma trận không chạy được.
+  - Test `@WebMvcTest` ở module khác cần Security thật của identity, mà `SecurityConfig` không công khai. Thêm file test mới `identity/web/SecuredWebMvc.java` thay vì sửa file của lát 1.
+- Theo quy tắc làm song song: không sửa `shared/`, `build.gradle.kts`, `application.yml`, không thêm migration. `docs/07` chỉ sửa hai mục của lát 8. `UserRepository` có thêm phương thức; nếu lát khác cũng sửa file này thì có thể xung đột khi ghép.
+- Rủi ro:
+  - `@PreAuthorize` chạy sau khi Spring đọc và kiểm tham số, thân request, nên người thiếu quyền gửi dữ liệu sai nhận `400` thay vì `403`. Không lộ dữ liệu. Muốn đổi thì phải khai báo quyền theo URL trong `SecurityConfig` của lát 1.
+  - Thu hồi sau commit lỗi thì phiên tạo trong khoảng giao dịch đang chạy có thể còn sống. Khoảng này chỉ vài mili giây và có log lỗi.
+  - `lockActiveAdmins` khoá cả khoảng chỉ mục `role_code = 'ADMIN'`, nên việc tạo hoặc nâng quyền quản trị viên đồng thời phải chờ. Thao tác này hiếm nên chấp nhận được.
+  - Rủi ro "tài khoản bị khoá vẫn giữ phiên cũ" của lát 1 đã xử lý ở lát này.

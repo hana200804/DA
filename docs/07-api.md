@@ -417,6 +417,8 @@ Chấp nhận một báo cáo sẽ sửa hoặc gỡ biển và ghi lịch sử 
 
 Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorType, actorId, actorName, beforeValue, afterValue, reason, requestId, createdAt }`. `actorId` và `actorName` là `null` khi `actorType = SYSTEM`. `from` và `to` là thời điểm ISO-8601.
 
+`GET /admin/audit-logs` trả trang `{ items, page, size, total }`, mặc định `page = 0`, `size = 20`, sắp theo `createdAt` rồi `id` giảm dần. `from` và `to` lấy cả hai đầu. `beforeValue`, `afterValue` là JSON object (không phải chuỗi), `null` khi không có. Trả `400 VALIDATION_ERROR` khi `from > to` (`details[].field = "from"`), `size` ngoài 1–100, `page < 0`, `entityType` lạ, thời điểm sai định dạng, `entityId` hay `actorId` dài quá 36 ký tự, `action` dài quá 40 ký tự. Không có endpoint sửa hay xoá lịch sử (FR-23).
+
 `/admin/stats` trả:
 
 ```json
@@ -464,7 +466,18 @@ Một mô hình lỗi không làm hỏng cả request; kết quả của mô hì
 
 Loại biển trong API quản trị có dạng `{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable, active, updatedAt }`. `POST /admin/sign-types` luôn tạo loại `recognizable = false`. Tải ảnh minh hoạ dùng multipart part `icon` (PNG, JPEG hoặc WebP, ≤ 1 MB).
 
-Người dùng trong danh sách có dạng `{ id, email, displayName, role, status, createdAt, lastLoginAt }`. `q` tìm theo một phần email. Quản trị viên tự hạ vai trò hoặc tự khoá chính mình thì nhận `422 BUSINESS_RULE`.
+Người dùng trong danh sách có dạng `{ id, email, displayName, role, status, createdAt, lastLoginAt }`. `q` tìm theo một phần email, không phân biệt hoa thường; `%` và `_` trong `q` được hiểu là ký tự thường. `role` là `USER`, `MODERATOR` hoặc `ADMIN`; `status` là `ACTIVE` hoặc `LOCKED`. Trang mặc định `page = 0`, `size = 20`, sắp theo ngày tạo mới nhất. Quản trị viên tự hạ vai trò hoặc tự khoá chính mình thì nhận `422 BUSINESS_RULE`.
+
+`PATCH /admin/users/{id}` nhận `{ "role": "MODERATOR", "status": "LOCKED" }`, cần ít nhất một trường, trường vắng là giữ nguyên. Kết quả:
+
+| Trường hợp | Mã |
+| --- | --- |
+| Thành công, kể cả khi không có gì thay đổi | `204` |
+| Thiếu cả hai trường, giá trị ngoài danh sách | `400 VALIDATION_ERROR` |
+| Không có người dùng | `404 NOT_FOUND` |
+| Tự hạ vai trò, tự khoá; khoá hoặc hạ vai trò quản trị viên `ACTIVE` cuối cùng | `422 BUSINESS_RULE` |
+
+Khoá tài khoản hoặc đổi vai trò thu hồi mọi phiên của người đó, nên token cũ nhận `401` và người đó phải đăng nhập lại. Mỗi thay đổi ghi một dòng lịch sử `USER` với `ROLE_CHANGED`, `LOCKED` hoặc `UNLOCKED`, kèm giá trị trước và sau.
 
 ## 9. Tài liệu OpenAPI
 
