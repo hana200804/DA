@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.signa.catalog.internal.CatalogQueryService;
@@ -45,6 +46,7 @@ class CatalogControllerTest {
 
     mvc.perform(get("/api/v1/sign-categories"))
         .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache"))
         .andExpect(jsonPath("$.items[0].code").value("PROHIBITORY"))
         .andExpect(jsonPath("$.items[0].name").value("Biển cấm"))
         .andExpect(jsonPath("$.items[0].sortOrder").value(1))
@@ -58,7 +60,7 @@ class CatalogControllerTest {
     mvc.perform(get("/api/v1/sign-types"))
         .andExpect(status().isOk())
         .andExpect(header().string("ETag", SNAPSHOT.etag()))
-        .andExpect(header().string("Cache-Control", "no-cache"))
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache"))
         .andExpect(content().contentTypeCompatibleWith("application/json"))
         .andExpect(jsonPath("$.labelMapVersion").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Cấm đi ngược chiều"));
@@ -70,6 +72,7 @@ class CatalogControllerTest {
 
     mvc.perform(get("/api/v1/sign-types").header("If-None-Match", SNAPSHOT.etag()))
         .andExpect(status().isNotModified())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache"))
         .andExpect(header().string("ETag", SNAPSHOT.etag()))
         .andExpect(content().string(""));
     mvc.perform(
@@ -102,6 +105,7 @@ class CatalogControllerTest {
 
     mvc.perform(get("/api/v1/sign-types/P.127_50"))
         .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache"))
         .andExpect(jsonPath("$.code").value("P.127_50"))
         .andExpect(jsonPath("$.speedKmh").value(50))
         .andExpect(jsonPath("$.iconUrl").value("/icons/P.127_50.png"))
@@ -114,6 +118,7 @@ class CatalogControllerTest {
 
     mvc.perform(get("/api/v1/sign-types/OLD"))
         .andExpect(status().isNotFound())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-cache"))
         .andExpect(jsonPath("$.code").value("NOT_FOUND"));
   }
 }

@@ -4,7 +4,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +25,8 @@ import vn.signa.shared.error.ApiException;
 @RequestMapping("/api/v1")
 class CatalogController {
 
+  private static final CacheControl REVALIDATE = CacheControl.noCache();
+
   private final CatalogQueryService catalog;
 
   CatalogController(CatalogQueryService catalog) {
@@ -30,8 +34,8 @@ class CatalogController {
   }
 
   @GetMapping("/sign-categories")
-  SignCategoryList categories() {
-    return catalog.categories();
+  ResponseEntity<SignCategoryList> categories() {
+    return ResponseEntity.ok().cacheControl(REVALIDATE).body(catalog.categories());
   }
 
   /**
@@ -51,13 +55,14 @@ class CatalogController {
     SignTypesSnapshot snapshot = catalog.signTypes();
     return ResponseEntity.ok()
         .eTag(snapshot.etag())
-        .cacheControl(CacheControl.noCache())
+        .cacheControl(REVALIDATE)
         .contentType(MediaType.APPLICATION_JSON)
         .body(snapshot.body());
   }
 
   @GetMapping("/sign-types/{code}")
-  SignTypeItem signType(@PathVariable String code) {
+  SignTypeItem signType(@PathVariable String code, HttpServletResponse response) {
+    response.setHeader(HttpHeaders.CACHE_CONTROL, REVALIDATE.getHeaderValue());
     return catalog.activeType(code).orElseThrow(ApiException::notFound);
   }
 }
