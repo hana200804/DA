@@ -6,9 +6,11 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import vn.signa.sign.clustering.SignStatus;
 import vn.signa.sign.internal.feedback.ReportService.Reason;
 import vn.signa.sign.internal.feedback.ReportService.Resolution;
 import vn.signa.sign.internal.feedback.ReportService.Status;
+import vn.signa.sign.internal.map.MapResult.LatLng;
 
 @Repository
 class ReportRepository {
@@ -19,6 +21,8 @@ class ReportRepository {
              resolution_note, created_at, resolved_at
       FROM sign_reports
       """;
+  private static final String FILTER =
+      " WHERE status = :status AND (:reason IS NULL OR reason = :reason)";
   private static final String ORDER = " ORDER BY created_at DESC, id DESC";
   private static final String PAGE = " LIMIT :size OFFSET :offset";
 
@@ -79,6 +83,69 @@ class ReportRepository {
         .single();
   }
 
+  List<SignRow> findSigns(Status status, Reason reason, int page, int size) {
+    return filtered(
+            """
+            SELECT s.id, s.sign_type_code, s.status, s.version,
+                   ST_Latitude(s.location) AS lat, ST_Longitude(s.location) AS lng
+            FROM (
+              SELECT sign_id, MAX(created_at) AS newest FROM sign_reports
+            """
+                + FILTER
+                + " GROUP BY sign_id ORDER BY newest DESC, sign_id DESC"
+                + PAGE
+                + """
+                ) AS report_groups JOIN signs s ON s.id = report_groups.sign_id
+                ORDER BY report_groups.newest DESC, report_groups.sign_id DESC
+                """,
+            status,
+            reason)
+        .param("size", size)
+        .param("offset", (long) page * size)
+        .query((rs, row) ->
+            new SignRow(
+                rs.getString("id"),
+                rs.getString("sign_type_code"),
+                new LatLng(rs.getDouble("lat"), rs.getDouble("lng")),
+                SignStatus.valueOf(rs.getString("status")),
+                rs.getInt("version")))
+        .list();
+  }
+
+  long countSigns(Status status, Reason reason) {
+    return filtered("SELECT COUNT(DISTINCT sign_id) FROM sign_reports" + FILTER, status, reason)
+        .query(Long.class)
+        .single();
+  }
+
+  List<ReportRow> findForSigns(List<String> ids, Status status, Reason reason) {
+    return filtered(REPORT_COLUMNS + FILTER + " AND sign_id IN (:ids)" + ORDER, status, reason)
+        .param("ids", ids)
+        .query(ReportRepository::report)
+        .list();
+  }
+
+  boolean dismiss(String id, String userId, String note, Instant now) {
+    return jdbc.sql(
+                """
+                UPDATE sign_reports
+                SET status = 'DISMISSED', resolution_note = :note, resolved_by = :user, resolved_at = :now
+                WHERE id = :id AND status = 'PENDING'
+                """)
+            .param("id", id)
+            .param("note", note)
+            .param("user", userId)
+            .param("now", FeedbackSql.utc(now))
+            .update()
+        == 1;
+  }
+
+  private JdbcClient.StatementSpec filtered(String sql, Status status, Reason reason) {
+    return jdbc.sql(sql)
+        .param("status", status.name())
+        .param("reason", reason == null ? null : reason.name());
+  }
+
   private static ReportRow report(ResultSet rs, int row) throws SQLException {
     String resolution = rs.getString("resolution");
     return new ReportRow(
@@ -107,4 +174,6 @@ class ReportRepository {
       String resolutionNote,
       Instant createdAt,
       Instant resolvedAt) {}
+
+  record SignRow(String id, String code, LatLng location, SignStatus status, int version) {}
 }

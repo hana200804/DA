@@ -324,6 +324,8 @@ class PermissionMatrixTest {
         .thenReturn(new ReportService.Receipt("r-1", ReportService.Status.PENDING));
     when(reports.mine(anyString(), anyInt(), anyInt()))
         .thenReturn(new ReportService.Page<>(List.of(), 0, 20, 0));
+    when(reports.queue(any(), any(), anyInt(), anyInt()))
+        .thenReturn(new ReportService.Page<>(List.of(), 0, 20, 0));
     when(submissions.submit(anyString(), any(), any()))
         .thenReturn(
             new SubmissionService.Result(
