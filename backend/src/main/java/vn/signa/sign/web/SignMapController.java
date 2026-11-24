@@ -1,13 +1,17 @@
 package vn.signa.sign.web;
 
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.signa.identity.api.AuthenticatedUser;
 import vn.signa.shared.error.ApiException;
+import vn.signa.sign.clustering.RatingValue;
 import vn.signa.sign.internal.map.MapQueryParser;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
@@ -52,8 +56,17 @@ public class SignMapController {
   }
 
   @GetMapping("/{id}")
-  public ResponseEntity<SignDetail> detail(@PathVariable String id) {
-    SignDetail detail = service.detail(id).orElseThrow(ApiException::notFound);
+  public ResponseEntity<?> detail(
+      @PathVariable String id, @AuthenticationPrincipal AuthenticatedUser user) {
+    if (user != null) {
+      var detail = service.detail(id, user.userId()).orElseThrow(ApiException::notFound);
+      return ResponseEntity.ok()
+          .cacheControl(DETAIL_CACHE)
+          .body(new RatedDetail(detail.sign(), detail.myRating()));
+    }
+    var detail = service.detail(id).orElseThrow(ApiException::notFound);
     return ResponseEntity.ok().cacheControl(DETAIL_CACHE).body(detail);
   }
+
+  record RatedDetail(@JsonUnwrapped SignDetail sign, RatingValue myRating) {}
 }

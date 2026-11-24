@@ -57,6 +57,7 @@ import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
 import vn.signa.sign.clustering.SubmissionStatus;
 import vn.signa.sign.internal.SubmissionService;
+import vn.signa.sign.internal.feedback.RatingService;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
 import vn.signa.sign.internal.map.SignDetail;
@@ -274,6 +275,8 @@ class PermissionMatrixTest {
   @MockitoBean RecognitionService recognition;
   // Lát 4 · bản đồ
   @MockitoBean MapService map;
+  // Lát 7 · đánh giá và báo cáo
+  @MockitoBean RatingService ratings;
 
   @BeforeEach
   void stubs() {
@@ -311,6 +314,10 @@ class PermissionMatrixTest {
                     0,
                     Instant.parse("2026-01-15T08:30:12.345Z"),
                     null)));
+    when(map.detail(anyString(), anyString()))
+        .thenAnswer(call ->
+            map.detail(call.getArgument(0, String.class))
+                .map(sign -> new MapService.PersonalDetail(sign, null)));
     when(submissions.submit(anyString(), any(), any()))
         .thenReturn(
             new SubmissionService.Result(
