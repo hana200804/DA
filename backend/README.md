@@ -119,6 +119,11 @@ Profile `demo` thêm 30 biển mẫu quanh Hà Nội (`db/demo/R__demo_data.sql`
 ./gradlew bootRun --args='--spring.profiles.active=migrate,demo'
 ```
 
+Có thể chạy lại profile `migrate` trên cùng volume sau khi nạp demo. Flyway
+bỏ qua repeatable migration đã áp dụng nhưng vắng ở locations hiện hành
+(`repeatable:missing`). Hiện chỉ `R__demo_data.sql` dùng locations riêng.
+Các migration có số phiên bản vẫn được kiểm tra như trước.
+
 ## Lưu ảnh
 
 Khi khởi động, backend tạo các bucket còn thiếu: `sign-crops`, `report-photos` (riêng tư, đọc qua URL ký) và `sign-icons` (đọc công khai). URL ký dùng `SIGNA_MINIO_PUBLIC_ENDPOINT` và được ký offline. Chữ ký gắn với host, nên proxy đứng trước MinIO phải giữ nguyên header `Host` của URL đó. Ảnh gửi chỉ để nhận diện không bao giờ được ghi vào MinIO (NFR-09).
