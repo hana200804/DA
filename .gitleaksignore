@@ -1,0 +1,3 @@
+# Báo nhầm của gitleaks. Mỗi dòng là fingerprint commit:file:rule:line.
+# Mật khẩu giả dùng trong test tích hợp CredentialVersionIT, không phải bí mật thật.
+62912f60b3e37dd53f4b80ee7dec451b8ab0af55:backend/src/test/java/vn/signa/identity/internal/CredentialVersionIT.java:generic-api-key:37
