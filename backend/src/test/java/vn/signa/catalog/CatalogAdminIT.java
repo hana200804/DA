@@ -33,7 +33,7 @@ class CatalogAdminIT extends IntegrationTest {
   private static final byte[] PNG =
       Base64.getDecoder()
           .decode(
-              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jM1sAAAAASUVORK5CYII=");
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==");
 
   private final HttpClient http = HttpClient.newHttpClient();
 
@@ -167,6 +167,10 @@ class CatalogAdminIT extends IntegrationTest {
     assertStatus(upload(admin, code, "one.png", "image/png", PNG), 204);
     String firstKey = currentIconKey(code);
     assertThat(firstKey).startsWith(code + "-").endsWith(".png");
+    assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
+    assertStatus(upload(admin, code, "truncated.png", "image/png",
+        java.util.Arrays.copyOf(PNG, 8)), 415);
+    assertThat(currentIconKey(code)).isEqualTo(firstKey);
     assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
 
     assertStatus(upload(admin, code, "another.png", "image/png", PNG), 204);

@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
 
 class ImageFormatTest {
 

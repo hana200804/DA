@@ -19,6 +19,8 @@ import vn.signa.catalog.api.SignCatalog;
 import vn.signa.catalog.api.SignTypeView;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
+import vn.signa.shared.image.ImageValidation;
 import vn.signa.shared.storage.Bucket;
 import vn.signa.shared.storage.ObjectStorage;
 import vn.signa.sign.clustering.GeoPoint;
@@ -109,12 +111,7 @@ public class SubmissionService {
   private static void validateCrop(byte[] crop) {
     if (crop == null) throw SubmissionMetadata.invalid("crop", "phải có ảnh cắt");
     if (crop.length > MAX_CROP_BYTES) throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE);
-    if (crop.length < 3
-        || crop[0] != (byte) 0xff
-        || crop[1] != (byte) 0xd8
-        || crop[2] != (byte) 0xff) {
-      throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, "Ảnh cắt phải là JPEG");
-    }
+    ImageValidation.validate(crop, ImageFormat.JPEG, 4096, 4_000_000L);
   }
 
   public record Receipt(String id, SubmissionStatus status) {}

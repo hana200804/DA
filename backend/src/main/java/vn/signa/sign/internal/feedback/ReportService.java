@@ -23,6 +23,8 @@ import vn.signa.catalog.api.SignTypeView;
 import vn.signa.identity.api.UserDirectory;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
+import vn.signa.shared.image.ImageValidation;
 import vn.signa.shared.storage.Bucket;
 import vn.signa.shared.storage.ObjectStorage;
 import vn.signa.sign.clustering.SignStatus;
@@ -36,7 +38,7 @@ import vn.signa.sign.internal.review.ReviewService;
 @Service
 public class ReportService {
 
-  public static final int MAX_PHOTO_BYTES = ReportPhoto.MAX_BYTES;
+  public static final int MAX_PHOTO_BYTES = 5 * 1024 * 1024;
   static final Duration PHOTO_RETENTION = Duration.ofDays(90);
   private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(10);
 
@@ -67,18 +69,23 @@ public class ReportService {
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
   public Receipt create(String signId, String userId, ReportMetadata metadata, byte[] photo) {
-    ReportPhoto format = photo == null ? null : ReportPhoto.detect(photo);
+    ImageFormat format = photo == null ? null : validatePhoto(photo);
     if (!reports.lockPublishedSign(signId)) throw ApiException.notFound();
 
     String id = UUID.randomUUID().toString();
-    String photoKey = format == null ? null : id + "." + format.extension;
-    if (format != null) storePhoto(photoKey, photo, format.contentType);
+    String photoKey = format == null ? null : id + "." + format.extension();
+    if (format != null) storePhoto(photoKey, photo, format.mediaType().toString());
     try {
       reports.insert(id, signId, userId, metadata, photoKey, now());
     } catch (DuplicateKeyException e) {
       throw new ApiException(ErrorCode.CONFLICT, "Bạn đã có báo cáo đang chờ cho biển này");
     }
     return new Receipt(id, Status.PENDING);
+  }
+
+  static ImageFormat validatePhoto(byte[] photo) {
+    if (photo.length > MAX_PHOTO_BYTES) throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE);
+    return ImageValidation.validate(photo, 4096, 8_000_000L);
   }
 
   private void storePhoto(String key, byte[] photo, String contentType) {

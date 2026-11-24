@@ -44,6 +44,8 @@ import vn.signa.catalog.internal.CatalogResponses.AdminSignTypeList;
 import vn.signa.catalog.internal.CatalogResponses.SignCategoryItem;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
+import vn.signa.shared.image.ImageValidation;
 import vn.signa.shared.storage.ObjectStorage;
 import vn.signa.shared.storage.ObjectStorageException;
 
@@ -51,6 +53,8 @@ import vn.signa.shared.storage.ObjectStorageException;
 @Service
 public class CatalogAdminService {
 
+  private static final int MAX_ICON_EDGE = 4096;
+  private static final long MAX_ICON_PIXELS = 4_000_000L;
   private static final Logger log = LoggerFactory.getLogger(CatalogAdminService.class);
 
   private final CatalogRepository repository;
@@ -170,11 +174,11 @@ public class CatalogAdminService {
 
   @Transactional
   public void uploadIcon(String actorId, String code, byte[] bytes) {
-    CatalogIcon format = CatalogIcon.detect(bytes);
+    ImageFormat format = ImageValidation.validate(bytes, MAX_ICON_EDGE, MAX_ICON_PIXELS);
     TypeRow row = lockType(code).type();
-    String key = row.code() + "-" + UUID.randomUUID() + "." + format.extension;
+    String key = row.code() + "-" + UUID.randomUUID() + "." + format.extension();
     scheduleIconCleanup(row.code(), row.iconKey(), key);
-    storage.put(SIGN_ICONS, key, bytes, format.contentType);
+    storage.put(SIGN_ICONS, key, bytes, format.mediaType().toString());
     repository.updateIcon(row.code(), key, now());
     Map<String, Object> before = new LinkedHashMap<>();
     before.put("iconKey", row.iconKey());

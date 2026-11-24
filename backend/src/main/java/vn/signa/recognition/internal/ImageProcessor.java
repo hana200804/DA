@@ -22,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
 
 /**
  * Kiểm tra và thu nhỏ ảnh nhận diện hoàn toàn trong bộ nhớ (NFR-09). Dùng stream bộ nhớ của ImageIO

@@ -24,3 +24,4 @@ Chạy `spotlessCheck test compileTestJava jacocoTestCoverageVerification` bằn
 
 - Đã xác nhận nhánh và tổ tiên lát 9, đọc hai báo cáo và đối chiếu thiết kế các lát liên quan.
 - A12/B4 giữ bản sao nhóm trên biển để bản đồ và gom cụm tiếp tục lọc theo chỉ mục hiện có. Danh mục phát sự kiện đồng bộ trong giao dịch, đi vào `sign.api` qua listener, giữ chiều phụ thuộc từ sign đến catalog. V111 đồng bộ dữ liệu cũ.
+- A14/B7 đặt bộ kiểm tra ImageIO trong `shared.image` vì catalog và sign dùng cùng các định dạng, không cần thêm phụ thuộc giữa các module. Cạnh tối đa 4096 px, tổng tối đa 4 triệu pixel cho icon và crop, 8 triệu pixel cho ảnh báo cáo.
