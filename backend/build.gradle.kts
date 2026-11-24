@@ -44,6 +44,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     implementation("org.springframework.boot:spring-boot-starter-security") // lát 1
     testImplementation("org.springframework.boot:spring-boot-starter-security-test") // lát 1
+    implementation("org.springframework.boot:spring-boot-starter-mail") // lát 9
 }
 
 tasks.withType<JavaCompile> {

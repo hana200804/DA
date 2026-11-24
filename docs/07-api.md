@@ -63,7 +63,7 @@
 | POST | `/auth/register` | Công khai | Đăng ký, vai trò `USER` | FR-01 |
 | POST | `/auth/login` | Công khai | Đăng nhập, trả token | FR-01, FR-30 |
 | POST | `/auth/logout` | Đăng nhập | Thu hồi token hiện tại | FR-01 |
-| POST | `/auth/password/forgot` | Công khai | Gửi OTP qua email; luôn trả `202` | FR-13 |
+| POST | `/auth/password/forgot` | Công khai | Yêu cầu OTP qua email; trả `202` trong hạn mức | FR-13 |
 | POST | `/auth/password/reset` | Công khai | Đặt lại mật khẩu bằng OTP | FR-13 |
 | GET | `/me` | Đăng nhập | Thông tin tài khoản và danh sách quyền | FR-01 |
 | PATCH | `/me` | Đăng nhập | Sửa tên hiển thị | FR-01 |
@@ -100,9 +100,13 @@ Ràng buộc đầu vào: email được trim và chuyển chữ thường, ≤ 
 | `POST /auth/register` `{ email, password, displayName }` | `201`, thân như `GET /me` | `409 CONFLICT` khi email đã đăng ký |
 | `POST /auth/login` | `200` | `401` cùng một thông điệp dù email có tồn tại hay không; `403` khi tài khoản `LOCKED` hoặc `WEB` thiếu `review:decide`, chỉ sau khi mật khẩu đúng; `429` kèm `Retry-After` |
 | `POST /auth/logout` | `204` | |
+| `POST /auth/password/forgot` `{ email }` | `202`, thân rỗng, bất kể email có tồn tại | `429 RATE_LIMITED` kèm `Retry-After` sau 3 yêu cầu trong 15 phút theo cặp email và IP |
+| `POST /auth/password/reset` `{ email, code, newPassword }` | `204`; thu hồi mọi phiên | Cùng lỗi `422 BUSINESS_RULE` khi mã sai, hết hạn hoặc đã bị xoá sau 5 lần sai |
 | `GET /me` | `200` | |
 | `PATCH /me` `{ displayName }` | `200`, thân như `GET /me` | |
 | `PUT /me/password` `{ currentPassword, newPassword }` | `204`; phiên đang dùng vẫn hợp lệ | `422 BUSINESS_RULE` khi sai mật khẩu hiện tại; `429` khi sai quá 10 lần trong 15 phút |
+
+OTP chỉ gửi cho tài khoản `ACTIVE`. Mã gồm 6 chữ số, có hiệu lực 10 phút và thay thế mã trước đó. Gửi `code` dưới dạng chuỗi để giữ chữ số 0 ở đầu.
 
 Token thiếu, sai hoặc đã thu hồi ở endpoint cần đăng nhập trả `401` kèm `WWW-Authenticate: Bearer`. Ở endpoint công khai, token như vậy bị bỏ qua và request được xử lý như khách. `expiresAt` tính tại lúc đăng nhập; mỗi lần dùng, phiên được gia hạn thêm một khoảng thời hạn đầy đủ.
 

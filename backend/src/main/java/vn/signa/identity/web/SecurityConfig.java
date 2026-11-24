@@ -50,6 +50,8 @@ class SecurityConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, API + "/auth/register", API + "/auth/login")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, API + "/auth/password/**")
+                .permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**")
                 .permitAll()
                 .requestMatchers(

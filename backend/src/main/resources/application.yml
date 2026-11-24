@@ -72,3 +72,9 @@ signa:
     bootstrap-admin:
       email: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:}
       password: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:}
+    # Lát 9 · Quên mật khẩu (OtpProperties).
+    otp:
+      secret: ${SIGNA_OTP_SECRET:}
+      smtp-host: ${SIGNA_SMTP_HOST:localhost}
+      smtp-port: ${SIGNA_SMTP_PORT:1025}
+      smtp-from: ${SIGNA_SMTP_FROM:no-reply@signa.local}

@@ -17,6 +17,7 @@ Spring Boot một khối chia module (`identity`, `catalog`, `sign`, `recognitio
 | MySQL | 8.4.13 |
 | Redis | 7.4.12 |
 | MinIO server | `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` |
+| SMTP khi phát triển | [`axllent/mailpit:v1.34.0`](https://github.com/axllent/mailpit/releases/tag/v1.34.0) |
 
 Ảnh `minio/minio` chính thức không còn công khai trên Docker Hub và quay.io, nên Compose và test dùng `pgsty/minio`, bản cộng đồng giữ nguyên dòng lệnh và API của MinIO.
 
@@ -40,14 +41,14 @@ Chạy trong thư mục `backend/`:
 
 ## Chạy trên máy
 
-Từ gốc repo, dựng MySQL, Redis, MinIO:
+Từ gốc repo, dựng MySQL, Redis, MinIO và Mailpit:
 
 ```sh
-cp infra/.env.example infra/.env   # rồi đổi mọi mật khẩu
+cp infra/.env.example infra/.env   # rồi đổi mọi mật khẩu và đặt SIGNA_OTP_SECRET
 docker compose -f infra/compose.yaml up -d
 ```
 
-Cổng chỉ mở trên `127.0.0.1`: MySQL 3306, Redis 6379, MinIO 9000 (console 9001). Script `01-users.sh` chỉ chạy khi volume MySQL được tạo lần đầu. Đổi mật khẩu sau đó thì xoá volume: `docker compose -f infra/compose.yaml down -v`.
+Cổng chỉ mở trên `127.0.0.1`: MySQL 3306, Redis 6379, MinIO 9000 (console 9001) và Mailpit 1025 (hộp thư web 8025). Script `01-users.sh` chỉ chạy khi volume MySQL được tạo lần đầu. Đổi mật khẩu sau đó thì xoá volume: `docker compose -f infra/compose.yaml down -v`.
 
 Backend có hai chế độ chạy, dùng hai tài khoản MySQL khác nhau:
 
@@ -63,7 +64,7 @@ Backend có hai chế độ chạy, dùng hai tài khoản MySQL khác nhau:
 Dành cho web quản trị cần API thật mà không cài JDK. Image build từ [`Dockerfile`](Dockerfile) (JDK build, JRE chạy bằng user `signa` uid 10001):
 
 ```sh
-docker compose -f infra/compose.yaml --profile app up -d --build   # MySQL, Redis, MinIO, migrate, backend
+docker compose -f infra/compose.yaml --profile app up -d --build   # hạ tầng, migrate, backend
 docker compose -f infra/compose.yaml --profile migrate up migrate  # chỉ chạy migration
 ```
 
@@ -99,6 +100,9 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
 | `SIGNA_TRUSTED_PROXIES` | dải IP riêng | Biểu thức chính quy các proxy được tin `X-Forwarded-For`, ví dụ `172\.18\.0\.5` |
 | `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |
+| `SIGNA_OTP_SECRET` | (bắt buộc ngoài profile `test`) | Bí mật HMAC của OTP, tạo bằng `openssl rand -hex 32`; các bản sao backend dùng cùng giá trị |
+| `SIGNA_SMTP_HOST`, `SIGNA_SMTP_PORT` | `localhost` (Gradle) hoặc `mailpit` (Compose), `1025` | Máy chủ SMTP |
+| `SIGNA_SMTP_FROM` | `no-reply@signa.local` | Địa chỉ gửi OTP |
 
 ## Lưu ảnh
 
@@ -109,6 +113,10 @@ Khi khởi động, backend tạo các bucket còn thiếu: `sign-crops`, `repor
 API ở [`docs/07 §3`](../docs/07-api.md#3-tài-khoản). Token phiên là 32 byte ngẫu nhiên (base64url), gửi bằng `Authorization: Bearer`. Redis chỉ giữ SHA-256 của token: `session:{hash}` (hash `userId`, `role`, `client`, `createdAt`; TTL 30 ngày với `MOBILE`, 8 giờ với `WEB`, gia hạn mỗi lần dùng) và `user-sessions:{userId}`. Đổi mật khẩu thu hồi các phiên khác; module khác thu hồi mọi phiên qua `identity.api.SessionRevoker`.
 
 Quyền theo vai trò nạp từ `role_permissions` khi khởi động. Endpoint kiểm tra bằng `@PreAuthorize("hasAuthority('<mã quyền>')")` và lấy người dùng bằng `@AuthenticationPrincipal AuthenticatedUser`. Endpoint mới phải có dòng trong `PermissionMatrixTest` (UT-B11). Lỗi `401`, `403` của Spring Security và của `@PreAuthorize` cùng định dạng lỗi chung.
+
+**Quên mật khẩu.** `POST /api/v1/auth/password/forgot` nhận email, trả `202` rỗng và gửi mã cho tài khoản hoạt động qua SMTP bất đồng bộ. Lần thứ 4 trong 15 phút theo cùng email và IP trả `429`. Khi chạy local, xem thư ở hộp thư Mailpit tại `http://127.0.0.1:8025`. Mã hợp lệ 10 phút hoặc đến lần nhập sai thứ 5. `POST /api/v1/auth/password/reset` đặt mật khẩu mới bằng mã và thu hồi mọi phiên.
+
+Đặt `SIGNA_OTP_SECRET` trước khi chạy backend hoặc chế độ `migrate`. Thay bí mật làm mất hiệu lực các mã đã cấp. Profile kiểm thử tự tạo bí mật trong bộ nhớ nếu thiếu.
 
 Giới hạn: sai mật khẩu quá 10 lần trong 15 phút theo `rl:login:{email}:{ip}` thì `429` kèm `Retry-After`; nhập sai mật khẩu hiện tại khi đổi mật khẩu giới hạn tương tự theo `rl:password:{userId}`. IP của client do `RemoteIpValve` của Tomcat xác định (`server.forward-headers-strategy: native`). Valve chỉ đọc `X-Forwarded-For` khi kết nối đến từ proxy khớp `SIGNA_TRUSTED_PROXIES`, mặc định là các dải IP riêng 10/8, 172.16/12, 192.168/16, 127/8 và `::1`. Client bên ngoài gửi header giả thì vẫn bị tính theo IP thật (`TrustedProxyForwardedForTest`, `UntrustedForwardedForTest`).
 

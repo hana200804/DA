@@ -39,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.signa.identity.internal.AccountService;
 import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
+import vn.signa.identity.internal.PasswordResetService;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
 
@@ -147,6 +148,17 @@ class PermissionMatrixTest {
               "/api/v1/me/password",
               "{\"currentPassword\":\"cu-12345\",\"newPassword\":\"moi-12345\"}",
               Access.AUTHENTICATED),
+          // Lát 9 · OTP đặt lại mật khẩu (docs/07 §3).
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/auth/password/forgot",
+              "{\"email\":\"a@b.vn\"}",
+              Access.PUBLIC),
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/auth/password/reset",
+              "{\"email\":\"a@b.vn\",\"code\":\"001234\",\"newPassword\":\"moi-12345\"}",
+              Access.PUBLIC),
           // Quy tắc công khai đặt sẵn cho lát 2–4. Lát có controller đổi dòng sang Endpoint.of.
           Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-types", Access.PUBLIC),
           Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-categories", Access.PUBLIC),
@@ -187,6 +199,7 @@ class PermissionMatrixTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean AccountService accounts;
+  @MockitoBean PasswordResetService passwords;
   @MockitoBean SessionService sessions;
   @MockitoBean RolePermissions rolePermissions;
 

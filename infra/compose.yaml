@@ -1,6 +1,6 @@
 # Máy dev. Chạy từ gốc repo:
 #   cp infra/.env.example infra/.env                          # rồi đổi mật khẩu
-#   docker compose -f infra/compose.yaml up -d                # chỉ MySQL, Redis, MinIO
+#   docker compose -f infra/compose.yaml up -d                # MySQL, Redis, MinIO, Mailpit
 #   docker compose -f infra/compose.yaml --profile migrate up migrate   # chỉ chạy migration
 #   docker compose -f infra/compose.yaml --profile app up -d --build    # thêm migrate và backend
 # Cổng chỉ mở trên 127.0.0.1. Phiên bản ảnh khớp backend/src/test/.../support/Containers.java.
@@ -61,6 +61,12 @@ services:
       timeout: 3s
       retries: 20
 
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
   migrate:
     build: ../backend
     image: signa-backend:local
@@ -72,6 +78,7 @@ services:
       SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
       SIGNA_DB_MIGRATOR_USER: ${SIGNA_DB_MIGRATOR_USER:-signa_migrator}
       SIGNA_DB_MIGRATOR_PASSWORD: ${SIGNA_DB_MIGRATOR_PASSWORD:?Đặt SIGNA_DB_MIGRATOR_PASSWORD trong infra/.env}
+      SIGNA_OTP_SECRET: ${SIGNA_OTP_SECRET:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -93,6 +100,10 @@ services:
       # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).
       SIGNA_BOOTSTRAP_ADMIN_EMAIL: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
       SIGNA_BOOTSTRAP_ADMIN_PASSWORD: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}
+      SIGNA_OTP_SECRET: ${SIGNA_OTP_SECRET:-}
+      SIGNA_SMTP_HOST: ${SIGNA_SMTP_HOST:-mailpit}
+      SIGNA_SMTP_PORT: ${SIGNA_SMTP_PORT:-1025}
+      SIGNA_SMTP_FROM: ${SIGNA_SMTP_FROM:-no-reply@signa.local}
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -102,6 +113,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
 volumes:
   mysql-data:
