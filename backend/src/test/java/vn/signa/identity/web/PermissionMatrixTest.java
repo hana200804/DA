@@ -311,7 +311,15 @@ class PermissionMatrixTest {
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
           Endpoint.reserved(HttpMethod.POST, "/api/v1/signs", Access.AUTHENTICATED),
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/signs", Access.AUTHENTICATED),
+          // /admin chưa có quy tắc riêng rơi vào mặc định review:decide (lát 8).
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/signs", REVIEW),
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/chua-co", REVIEW),
+          // Đặt sẵn cho lát 9: mặc định review:decide cho đúng các vai trò có quyền này.
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/stats", Access.permission("stats:read")),
+          Endpoint.reserved(
+              HttpMethod.POST,
+              "/api/v1/admin/recognition/compare",
+              Access.permission("recognition:compare")),
           // Tự kiểm: endpoint mẫu có @PreAuthorize chứng minh khung bắt được thiếu quyền.
           Endpoint.of(HttpMethod.GET, PROBE + "/review", null, Access.permission("review:decide")),
           Endpoint.of(

@@ -102,6 +102,15 @@ class SecurityConfig {
                 .hasAuthority("user:manage")
                 .requestMatchers(API + "/admin/audit-logs/**")
                 .hasAuthority("audit:read")
+                // Lát 2 · quản trị danh mục: chỉ cần catalog:manage, không cần review:decide.
+                .requestMatchers(API + "/admin/sign-types/**", API + "/admin/sign-categories/**")
+                .hasAuthority("catalog:manage")
+                // Mặc định: /admin còn lại cần tối thiểu review:decide. Đặt SAU mọi quy tắc /admin
+                // cụ
+                // thể, vì quy tắc khớp trước được dùng. Mọi quyền quản trị chỉ thuộc MODERATOR,
+                // ADMIN, và cả hai đều có review:decide.
+                .requestMatchers(API + "/admin/**")
+                .hasAuthority("review:decide")
                 .anyRequest()
                 .authenticated());
     return http.build();

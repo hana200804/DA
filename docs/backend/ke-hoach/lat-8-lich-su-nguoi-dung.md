@@ -119,3 +119,13 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
   - Thu hồi sau commit lỗi thì phiên tạo trong khoảng giao dịch đang chạy có thể còn sống. Khoảng này chỉ vài mili giây và có log lỗi.
   - `lockActiveAdmins` khoá cả khoảng chỉ mục `role_code = 'ADMIN'`, nên việc tạo hoặc nâng quyền quản trị viên đồng thời phải chờ. Thao tác này hiếm nên chấp nhận được.
   - Rủi ro "tài khoản bị khoá vẫn giữ phiên cũ" của lát 1 đã xử lý ở lát này.
+
+**2026-11-24, ghép lát 2–7.** Đã merge `backend/7-ratings-reports` vào `backend/8-audit-users` bằng `--no-ff`, rồi thêm quy tắc mặc định cho `/admin`. Chưa push.
+
+- Xung đột đã giải, giữ cả hai bên:
+  - `identity/api/UserDirectory.java` (add/add): lát 7 tạo interface cùng tên và chép `JdbcUserDirectory` giống hệt lát 8. Giữ bản lát 8 (`UserDirectory extends audit.api.ActorNames`), để một bean phục vụ cả `AuditLogService` (qua `ActorNames`) và `ReportService` của lát 7 (qua `UserDirectory`). Nơi gọi không phải sửa.
+  - `identity/web/SecurityConfig.java`: giữ các dòng của lát 5–7 (`submissions`, `admin/review-queue`, `admin/signs`, `admin/reports`, `rating`, `reports`, `me/reports`), rồi tới hai dòng của lát 8.
+  - `PermissionMatrixTest`: gộp import, `@MockitoBean`, stub của cả hai bên. Các dòng `Endpoint.reserved` công khai mà lát 2–4 đã đổi sang `Endpoint.of` thì theo bản lát 7, rồi thêm ba dòng lát 8.
+  - `docs/06`, `docs/07`, `build.gradle.kts` tự gộp, không có xung đột.
+- Quy tắc mặc định: `/api/v1/admin/**` còn lại cần `review:decide`, đặt sau mọi dòng `/admin` cụ thể. Chỉ thêm dòng này thì 6 ca `CatalogAdminControllerTest` nhận `403`, vì vai trò giả chỉ có `catalog:manage`. Vì vậy thêm dòng `catalog:manage` cho `/admin/sign-types/**`, `/admin/sign-categories/**` trước dòng mặc định. Ca mới `catalogManageAloneIsEnoughAndReviewDecideAloneIsNot` chứng minh chỉ cần `catalog:manage`, còn chỉ có `review:decide` thì nhận `403`. `PermissionMatrixTest`: `reserved GET /admin/signs` đổi sang `review:decide`; thêm `reserved` cho `/admin/chua-co`, `/admin/stats`, `/admin/recognition/compare`.
+- `./gradlew spotlessApply test compileTestJava jacocoTestCoverageVerification` thành công, 649/649 unit test (636 sau merge). `markdownlint` sạch. Các `*IT` của lát 2–8 vẫn chỉ chạy trên CI.
