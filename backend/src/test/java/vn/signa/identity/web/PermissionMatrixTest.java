@@ -58,6 +58,7 @@ import vn.signa.recognition.internal.RecognitionService;
 import vn.signa.sign.clustering.SubmissionStatus;
 import vn.signa.sign.internal.SubmissionService;
 import vn.signa.sign.internal.feedback.RatingService;
+import vn.signa.sign.internal.feedback.ReportService;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
 import vn.signa.sign.internal.map.SignDetail;
@@ -277,6 +278,7 @@ class PermissionMatrixTest {
   @MockitoBean MapService map;
   // Lát 7 · đánh giá và báo cáo
   @MockitoBean RatingService ratings;
+  @MockitoBean ReportService reports;
 
   @BeforeEach
   void stubs() {
@@ -318,6 +320,10 @@ class PermissionMatrixTest {
         .thenAnswer(call ->
             map.detail(call.getArgument(0, String.class))
                 .map(sign -> new MapService.PersonalDetail(sign, null)));
+    when(reports.create(anyString(), anyString(), any(), any()))
+        .thenReturn(new ReportService.Receipt("r-1", ReportService.Status.PENDING));
+    when(reports.mine(anyString(), anyInt(), anyInt()))
+        .thenReturn(new ReportService.Page<>(List.of(), 0, 20, 0));
     when(submissions.submit(anyString(), any(), any()))
         .thenReturn(
             new SubmissionService.Result(
