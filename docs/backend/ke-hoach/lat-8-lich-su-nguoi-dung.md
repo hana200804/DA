@@ -51,14 +51,14 @@ Lát 7 dùng `UserDirectory` cho `reporterName`. `audit` lấy tên qua cổng `
 
 ### Nhiệm vụ 1 · Xem lịch sử `GET /admin/audit-logs`
 
-**Tạo:** `audit/api/ActorNames.java`, `identity/api/UserDirectory.java`, `identity/internal/JdbcUserDirectory.java`, `audit/internal/AuditLogQuery.java` (bộ lọc đã kiểm tra), `AuditLogRepository.java`, `AuditLogService.java`, `AuditLogView.java`, `AuditPage.java`, `audit/web/AuditLogController.java`; test `AuditLogQueryTest`, `AuditLogServiceTest`, `AuditLogControllerTest`.
+**Tạo:** `audit/api/ActorNames.java`, `identity/api/UserDirectory.java`, `identity/internal/JdbcUserDirectory.java`, `audit/internal/AuditLogQuery.java` (bộ lọc đã kiểm tra), `AuditLogRepository.java`, `AuditLogService.java`, `AuditLogView.java`, `AuditPage.java`, `audit/web/AuditLogController.java`; test `AuditLogQueryTest`, `AuditLogServiceTest`, `AuditLogControllerTest`, `identity/web/SecuredWebMvc.java` (nạp Security thật của identity cho `@WebMvcTest` ở module khác, vì `SecurityConfig` không công khai).
 
-- [ ] Tham số `entityType` (enum), `entityId` ≤ 36, `actorId` ≤ 36, `action` ≤ 40, `from`, `to` (ISO-8601), `page` ≥ 0 (mặc định 0), `size` 1–100 (mặc định 20). `from > to` trả `400` với `details[].field = from`.
-- [ ] SQL `WHERE` ghép từ các điều kiện có mặt, `COUNT(*)` cùng điều kiện, `ORDER BY created_at DESC, id DESC LIMIT … OFFSET …`.
-- [ ] `before_value`, `after_value` đọc thành `JsonNode`. `actorName` lấy qua `ActorNames.displayNames` một lần cho các `actorId` khác `null` của trang.
-- [ ] `JdbcUserDirectory`: `SELECT id, display_name FROM users WHERE id IN (…)`; danh sách rỗng thì không truy vấn.
-- [ ] `@PreAuthorize("hasAuthority('audit:read')")`. Không có `POST`, `PUT`, `PATCH`, `DELETE`.
-- [ ] Unit test bộ lọc, service (ActorNames gọi một lần, JSON object); `@WebMvcTest` controller. Commit.
+- [x] Tham số `entityType` (enum), `entityId` ≤ 36, `actorId` ≤ 36, `action` ≤ 40, `from`, `to` (ISO-8601), `page` ≥ 0 (mặc định 0), `size` 1–100 (mặc định 20). `from > to` trả `400` với `details[].field = from`.
+- [x] SQL `WHERE` ghép từ các điều kiện có mặt, `COUNT(*)` cùng điều kiện, `ORDER BY created_at DESC, id DESC LIMIT … OFFSET …`.
+- [x] `before_value`, `after_value` đọc thành `JsonNode`. `actorName` lấy qua `ActorNames.displayNames` một lần cho các `actorId` khác `null` của trang.
+- [x] `JdbcUserDirectory`: `SELECT id, display_name FROM users WHERE id IN (…)`; danh sách rỗng thì không truy vấn.
+- [x] `@PreAuthorize("hasAuthority('audit:read')")`. Không có `POST`, `PUT`, `PATCH`, `DELETE`.
+- [x] Unit test bộ lọc, service (ActorNames gọi một lần, JSON object); `@WebMvcTest` controller; thêm dòng `GET /admin/audit-logs` vào `PermissionMatrixTest` ngay ở nhiệm vụ này để ma trận luôn nạp được mọi controller. Commit.
 
 ### Nhiệm vụ 2 · Quản lý người dùng `GET`, `PATCH /admin/users`
 

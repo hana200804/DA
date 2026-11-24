@@ -36,6 +36,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.signa.audit.internal.AuditLogService;
+import vn.signa.audit.internal.AuditPage;
 import vn.signa.identity.internal.AccountService;
 import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
@@ -147,6 +149,9 @@ class PermissionMatrixTest {
               "/api/v1/me/password",
               "{\"currentPassword\":\"cu-12345\",\"newPassword\":\"moi-12345\"}",
               Access.AUTHENTICATED),
+          // Lát 8 · lịch sử (docs/07 §8)
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/admin/audit-logs", null, Access.permission("audit:read")),
           // Quy tắc công khai đặt sẵn cho lát 2–4. Lát có controller đổi dòng sang Endpoint.of.
           Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-types", Access.PUBLIC),
           Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-categories", Access.PUBLIC),
@@ -189,6 +194,7 @@ class PermissionMatrixTest {
   @MockitoBean AccountService accounts;
   @MockitoBean SessionService sessions;
   @MockitoBean RolePermissions rolePermissions;
+  @MockitoBean AuditLogService auditLogs;
 
   @BeforeEach
   void stubs() {
@@ -202,6 +208,7 @@ class PermissionMatrixTest {
         .thenReturn(new LoginResult("tok", Instant.parse("2026-12-01T00:00:00Z"), profile));
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
+    when(auditLogs.search(any())).thenReturn(new AuditPage<>(List.of(), 0, 20, 0));
   }
 
   static Stream<Arguments> cases() {
