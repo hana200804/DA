@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.concurrent.Semaphore;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -38,6 +39,16 @@ public class ImageProcessor {
   public static final int MAX_EDGE = 1280;
   static final float JPEG_QUALITY = 0.9f;
 
+  private final Semaphore decodePixels;
+
+  public ImageProcessor() {
+    this(new Semaphore((int) MAX_PIXELS));
+  }
+
+  ImageProcessor(Semaphore decodePixels) {
+    this.decodePixels = decodePixels;
+  }
+
   public PreparedImage prepare(byte[] data) {
     ImageFormat format = ImageFormat.detect(data);
     ImageReader reader = reader(format);
@@ -48,7 +59,8 @@ public class ImageProcessor {
       if (width <= 0 || height <= 0) {
         throw ImageFormat.unsupported();
       }
-      if ((long) width * height > MAX_PIXELS) {
+      long pixels = (long) width * height;
+      if (pixels > MAX_PIXELS) {
         throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, "Ảnh nhận diện tối đa 25 triệu pixel");
       }
       int longEdge = Math.max(width, height);
@@ -59,15 +71,7 @@ public class ImageProcessor {
       double ratio = (double) MAX_EDGE / longEdge;
       int sentWidth = Math.max(1, (int) Math.round(width * ratio));
       int sentHeight = Math.max(1, (int) Math.round(height * ratio));
-      BufferedImage resized = resize(reader.read(0), sentWidth, sentHeight);
-      return new PreparedImage(
-          encodeJpeg(resized),
-          MediaType.IMAGE_JPEG,
-          "image.jpg",
-          width,
-          height,
-          sentWidth,
-          sentHeight);
+      return decodeAndResize(reader, (int) pixels, width, height, sentWidth, sentHeight);
     } catch (IOException | RuntimeException e) {
       if (e instanceof ApiException api) {
         throw api;
@@ -75,6 +79,24 @@ public class ImageProcessor {
       throw ImageFormat.unsupported();
     } finally {
       reader.dispose();
+    }
+  }
+
+  private PreparedImage decodeAndResize(
+      ImageReader reader, int pixels, int width, int height, int sentWidth, int sentHeight)
+      throws IOException {
+    if (!decodePixels.tryAcquire(pixels)) throw RecognitionClient.unavailable();
+    try {
+      // Tính ngân sách theo raster gốc, kể cả khi decoder hỗ trợ giảm mẫu khi đọc.
+      var parameters = reader.getDefaultReadParam();
+      int step = Math.max(1, Math.max(width, height) / MAX_EDGE);
+      parameters.setSourceSubsampling(step, step, 0, 0);
+      BufferedImage resized = resize(reader.read(0, parameters), sentWidth, sentHeight);
+      return new PreparedImage(
+          encodeJpeg(resized), MediaType.IMAGE_JPEG, "image.jpg",
+          width, height, sentWidth, sentHeight);
+    } finally {
+      decodePixels.release(pixels);
     }
   }
 
