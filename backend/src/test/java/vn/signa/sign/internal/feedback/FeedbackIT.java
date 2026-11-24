@@ -255,6 +255,7 @@ class FeedbackIT extends IntegrationTest {
     var moderator = signIn("Kiểm duyệt báo cáo", "MODERATOR");
     var sign = sign("APPROVED");
     String correctedCode = sign("APPROVED").code();
+    jdbc.update("UPDATE signs SET cover_crop_key = 'old-code.jpg' WHERE id = ?", sign.id());
     String id = report(sign, owner, "WRONG_TYPE");
     String otherId = report(sign, other, "NOT_EXIST");
     String data =
@@ -275,6 +276,9 @@ class FeedbackIT extends IntegrationTest {
 
     var detail = body(request("GET", signPath(sign), null, null), 200);
     assertThat(detail.get("signTypeCode").asString()).isEqualTo(correctedCode);
+    assertThat(detail.get("coverCropUrl").isNull()).isTrue();
+    assertThat(jdbc.queryForObject(
+        "SELECT cover_crop_key FROM signs WHERE id = ?", String.class, sign.id())).isNull();
     assertThat(detail.get("location").get("lat").asDouble()).isCloseTo(21.01, within(1e-8));
     assertThat(detail.get("location").get("lng").asDouble()).isCloseTo(105.02, within(1e-8));
     assertThat(

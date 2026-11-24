@@ -176,7 +176,8 @@ class ReviewIT extends IntegrationTest {
     String sign = it.submissionRow(other).get("sign_id").toString();
     assertThat(leading)
         .allSatisfy(id -> assertThat(it.submissionRow(id)).containsEntry("sign_id", sign));
-    assertThat(it.signRow(sign)).containsEntry("sign_type_code", codeA);
+    assertThat(it.signRow(sign)).containsEntry("sign_type_code", codeA)
+        .containsEntry("cover_crop_key", leading.getFirst() + ".jpg");
 
     assertStatus(
         it.approve(moderator, sign, Map.of("version", it.version(sign), "signTypeCode", codeB)),
@@ -199,7 +200,10 @@ class ReviewIT extends IntegrationTest {
                 .containsEntry("status", "REJECTED")
                 .containsEntry("reject_reason", "Biển được duyệt với mã khác"));
     assertThat(it.submissionRow(other)).containsEntry("status", "ACCEPTED");
-    assertThat(it.detail(moderator, sign).get("confidence").asDouble()).isGreaterThanOrEqualTo(0.5);
+    assertThat(row).containsEntry("cover_crop_key", other + ".jpg");
+    JsonNode detail = it.body(it.send("GET", "/api/v1/signs/" + sign, null, null), 200);
+    assertThat(detail.get("confidence").asDouble()).isGreaterThanOrEqualTo(0.5);
+    assertThat(detail.get("coverCropUrl").asString()).contains(other + ".jpg");
   }
 
   @Test
@@ -318,6 +322,26 @@ class ReviewIT extends IntegrationTest {
     assertThat(it.history(review))
         .extracting(row -> row.get("action"))
         .containsExactly("EDITED", "KEPT");
+  }
+
+  @Test
+  void keepSelectsTheNewCodesCropAndPatchClearsItWhenNoCropMatches() throws Exception {
+    Session moderator = it.moderator();
+    GeoPoint at = somewhere();
+    String sign = it.sign(codeA, category, at, "UNDER_REVIEW", "0.4", "INSPECT", Instant.now());
+    String old = it.member(sign, it.submitter(), codeA, "0.9000", at);
+    String replacement = it.member(sign, it.submitter(), codeB, "0.8000", at);
+    jdbc.update("UPDATE signs SET cover_crop_key = ? WHERE id = ?", old + ".jpg", sign);
+    String path = ADMIN + "/signs/" + sign;
+
+    assertStatus(it.send("POST", path + "/keep", moderator.token(),
+        Map.of("version", 0, "signTypeCode", codeB)), 204);
+    assertThat(it.signRow(sign)).containsEntry("cover_crop_key", replacement + ".jpg");
+
+    String codeWithoutCrop = it.type("C", category);
+    assertStatus(it.send("PATCH", path, moderator.token(),
+        Map.of("version", 1, "signTypeCode", codeWithoutCrop)), 204);
+    assertThat(it.signRow(sign)).containsEntry("cover_crop_key", null);
   }
 
   @Test

@@ -3,6 +3,7 @@ package vn.signa.sign.internal.review;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -63,7 +64,7 @@ class ReviewServiceTest {
   void catalog() {
     when(catalog.findTypeForSignWrite("P.123b")).thenReturn(Optional.of(type("P.123b", true)));
     when(catalog.findTypeForSignWrite("P.old")).thenReturn(Optional.of(type("P.old", false)));
-    when(signs.update(any(), anyInt(), any(), any())).thenReturn(true);
+    when(signs.update(any(), anyInt(), any(), any(), anyBoolean())).thenReturn(true);
   }
 
   @Test
@@ -73,7 +74,7 @@ class ReviewServiceTest {
     service.approve(ACTOR, ID, new Approve(3, "P.123b", null));
 
     ArgumentCaptor<SignState> written = ArgumentCaptor.forClass(SignState.class);
-    verify(signs).update(written.capture(), eq(3), eq(ACTOR), eq(NOW));
+    verify(signs).update(written.capture(), eq(3), eq(ACTOR), eq(NOW), eq(true));
     assertThat(written.getValue().status()).isEqualTo(SignStatus.APPROVED);
     assertThat(written.getValue().signTypeCode()).isEqualTo("P.123b");
     assertThat(written.getValue().reviewedAt()).isEqualTo(NOW);
@@ -94,7 +95,7 @@ class ReviewServiceTest {
   @Test
   void lostVersionRaceIsAlreadyProcessedAndWritesNothingElse() {
     when(signs.lock(ID)).thenReturn(Optional.of(pending()));
-    when(signs.update(any(), anyInt(), any(), any())).thenReturn(false);
+    when(signs.update(any(), anyInt(), any(), any(), anyBoolean())).thenReturn(false);
 
     assertThatThrownBy(() -> service.approve(ACTOR, ID, new Approve(3, null, null)))
         .isInstanceOfSatisfying(
@@ -112,7 +113,7 @@ class ReviewServiceTest {
         .isInstanceOfSatisfying(
             ApiException.class,
             e -> assertThat(e.code()).isEqualTo(ErrorCode.SIGN_ALREADY_PROCESSED));
-    verify(signs, never()).update(any(), anyInt(), any(), any());
+    verify(signs, never()).update(any(), anyInt(), any(), any(), anyBoolean());
   }
 
   @Test
@@ -145,7 +146,7 @@ class ReviewServiceTest {
     service.keep(ACTOR, ID, new Keep(3, null, new LocationInput(21.0286, 105.8049), 10));
 
     assertThat(recorded()).extracting(AuditEntry::action).containsExactly("EDITED", "KEPT");
-    verify(signs).update(any(), eq(3), eq(ACTOR), eq(NOW));
+    verify(signs).update(any(), eq(3), eq(ACTOR), eq(NOW), eq(false));
   }
 
   @Test
@@ -171,7 +172,7 @@ class ReviewServiceTest {
     service.edit(
         ACTOR, ID, new Edit(3, null, null, tools.jackson.databind.node.NullNode.getInstance()));
 
-    verify(signs).update(any(), eq(3), isNull(), eq(NOW));
+    verify(signs).update(any(), eq(3), isNull(), eq(NOW), eq(false));
     assertThat(recorded()).extracting(AuditEntry::action).containsExactly("EDITED");
   }
 

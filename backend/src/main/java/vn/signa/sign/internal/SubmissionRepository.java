@@ -23,7 +23,7 @@ import vn.signa.sign.internal.SubmissionService.Item;
 import vn.signa.sign.internal.SubmissionService.Receipt;
 
 @Repository
-class SubmissionRepository {
+public class SubmissionRepository {
 
   private final JdbcClient jdbc;
   private final JsonMapper json;
@@ -183,7 +183,7 @@ class SubmissionRepository {
     return weights;
   }
 
-  String bestCrop(String signId, String submissionId, String code) {
+  public String bestCrop(String signId, String submissionId, String code) {
     return jdbc.sql(
             """
             SELECT crop_key FROM submissions
