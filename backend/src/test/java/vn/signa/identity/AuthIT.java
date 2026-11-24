@@ -154,6 +154,21 @@ class AuthIT extends IntegrationTest {
   }
 
   @Test
+  void mysqlEquivalentEmailsShareTheLoginLimit() throws Exception {
+    String suffix = UUID.randomUUID() + "@signa.vn";
+    String email = "rate-" + suffix;
+    String alias = "ráté-" + suffix;
+    assertThat(register(email, PASSWORD).status()).isEqualTo(201);
+    assertThat(jdbc.queryForObject("SELECT email FROM users WHERE email = ?", String.class, alias))
+        .isEqualTo(email);
+
+    for (int i = 0; i < 10; i++) {
+      assertThat(login(email, "sai-mat-khau", "MOBILE").reply().status()).isEqualTo(401);
+    }
+    assertThat(login(alias, PASSWORD, "MOBILE").reply().status()).isEqualTo(429);
+  }
+
+  @Test
   void unknownEmailLooksLikeWrongPassword() throws Exception {
     Reply unknown = login(newEmail(), PASSWORD, "MOBILE").reply();
     assertThat(unknown.status()).isEqualTo(401);

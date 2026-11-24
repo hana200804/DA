@@ -84,9 +84,10 @@ public class AccountService {
   }
 
   public LoginResult login(String email, String password, Client client, String ip) {
-    String limitKey = LoginRateLimiter.loginKey(email, ip);
-    limiter.acquire(limitKey);
     UserRecord user = users.findByEmail(email).orElse(null);
+    // Các chuỗi email được MySQL coi là tương đương cùng dùng email chuẩn trong bản ghi.
+    String limitKey = LoginRateLimiter.loginKey(user == null ? email : user.email(), ip);
+    limiter.acquire(limitKey);
     boolean matches = matches(password, user == null ? dummyHash : user.passwordHash());
     if (user == null || !matches) {
       throw new ApiException(ErrorCode.UNAUTHENTICATED, BAD_CREDENTIALS);

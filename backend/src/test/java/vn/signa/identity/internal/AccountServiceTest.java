@@ -188,6 +188,20 @@ class AccountServiceTest {
   }
 
   @Test
+  void spellingVariantsOfKnownEmailShareTheSameCounter() {
+    UserRecord account = user("USER", UserStatus.ACTIVE);
+    givenLogin(account);
+    when(users.findByEmail("á@b.vn")).thenReturn(Optional.of(account));
+
+    for (int i = 0; i < 10; i++) {
+      assertThat(loginFails("a@b.vn", "sai-mat-khau", Client.MOBILE).code())
+          .isEqualTo(ErrorCode.UNAUTHENTICATED);
+    }
+    assertThat(loginFails("á@b.vn", PASSWORD, Client.MOBILE).code())
+        .isEqualTo(ErrorCode.RATE_LIMITED);
+  }
+
+  @Test
   void successResetsFailureCounter() {
     givenLogin(user("USER", UserStatus.ACTIVE));
     for (int i = 0; i < 9; i++) {
