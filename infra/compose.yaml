@@ -12,6 +12,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Đặt MYSQL_ROOT_PASSWORD trong infra/.env}
       # Đọc bởi mysql/init/01-users.sh khi khởi tạo volume lần đầu.
+      SIGNA_DB_MIGRATOR_USER: ${SIGNA_DB_MIGRATOR_USER:-signa_migrator}
+      SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
       SIGNA_MIGRATOR_PASSWORD: ${SIGNA_DB_MIGRATOR_PASSWORD:?Đặt SIGNA_DB_MIGRATOR_PASSWORD trong infra/.env}
       SIGNA_APP_PASSWORD: ${SIGNA_DB_APP_PASSWORD:?Đặt SIGNA_DB_APP_PASSWORD trong infra/.env}
     ports:

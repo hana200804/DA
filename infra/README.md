@@ -12,6 +12,11 @@ cp infra/.env.example infra/.env
 `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` nếu cần tạo
 quản trị viên đầu tiên. Giữ `infra/.env` ngoài Git.
 
+Khi khởi tạo volume MySQL, script dùng `SIGNA_DB_MIGRATOR_USER` và
+`SIGNA_DB_APP_USER` cùng với các mật khẩu tương ứng. Hai tên phải khác nhau,
+khác `root` và có 1–32 ký tự trong tập `A–Z`, `a–z`, `0–9`, `_`, `.`, `-`.
+Với volume đã tạo, cần đổi tài khoản trong MySQL trước khi đổi cấu hình kết nối.
+
 Tải ba checkpoint của nhóm theo [hướng dẫn nhận diện](../ai/README.md#ba-mô-hình).
 Đặt chúng cùng thẻ mô hình tương ứng trong `ai/models/` hoặc cấu hình
 `SIGNA_RECOGNITION_MODELS_DIR` trong `infra/.env` để dùng thư mục khác.
