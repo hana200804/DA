@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -28,15 +29,18 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import vn.signa.identity.internal.RolePermissions;
+import vn.signa.identity.internal.SessionService;
 import vn.signa.identity.web.WithApiSecurity;
 import vn.signa.recognition.internal.Box;
-import vn.signa.recognition.internal.CallerIdentity;
 import vn.signa.recognition.internal.ImageProcessor;
 import vn.signa.recognition.internal.ModelList;
+import vn.signa.recognition.internal.PrincipalCallerIdentity;
 import vn.signa.recognition.internal.RateLimit;
 import vn.signa.recognition.internal.RecognitionClient;
 import vn.signa.recognition.internal.RecognitionProperties;
@@ -54,6 +58,7 @@ import vn.signa.shared.web.RequestIdFilter;
 @WithApiSecurity
 @Import({
   RecognitionService.class,
+  PrincipalCallerIdentity.class,
   ImageProcessor.class,
   GlobalExceptionHandler.class,
   RequestIdFilter.class,
@@ -66,7 +71,8 @@ class RecognitionControllerTest {
 
   @MockitoBean RecognitionClient client;
   @MockitoBean RecognitionRateLimiter limiter;
-  @MockitoBean CallerIdentity caller;
+  @Autowired SessionService sessions;
+  @Autowired RolePermissions rolePermissions;
   @MockitoBean SignInfoLookup signInfo;
 
   @TestConfiguration
@@ -103,7 +109,6 @@ class RecognitionControllerTest {
 
   @Test
   void detectScalesBoxesAndAddsSignInfo() throws Exception {
-    when(caller.userId()).thenReturn(Optional.empty());
     when(client.detect(any(), eq("yolov8")))
         .thenReturn(
             new ServiceDetection(
@@ -168,11 +173,17 @@ class RecognitionControllerTest {
 
   @Test
   void signedInUserIsLimitedByAccount() throws Exception {
-    when(caller.userId()).thenReturn(Optional.of("user-1"));
+    String token = "t".repeat(43);
+    when(sessions.authenticate(token))
+        .thenReturn(Optional.of(new SessionService.ActiveSession("sid-1", "user-1", "USER")));
+    when(rolePermissions.of("USER")).thenReturn(Set.of("submission:create"));
     when(client.detect(any(), isNull()))
         .thenReturn(new ServiceDetection("yolov8", "v", 1, 1, List.of()));
 
-    mvc.perform(multipart("/api/v1/recognition/detect").file(image("a.png", TestImages.png(8, 8))))
+    mvc.perform(
+            multipart("/api/v1/recognition/detect")
+                .file(image("a.png", TestImages.png(8, 8)))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
         .andExpect(status().isOk());
 
     verify(limiter).acquire(new RateLimit("rl:recognize:user:user-1", 10));
