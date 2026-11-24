@@ -1,5 +1,6 @@
 package vn.signa.catalog.api;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -14,6 +15,9 @@ public interface SignCatalog {
 
   /** Mã nhóm của loại biển, kể cả loại đã ngừng dùng; rỗng nếu không có mã này. */
   Optional<String> categoryOf(String code);
+
+  /** Tên hiển thị của các nhóm theo mã nhóm. */
+  Map<String, String> categoryNames();
 
   /**
    * Loại đang dùng, có trong danh mục nhãn, và {@code label_map_version} của nó bằng đúng {@code

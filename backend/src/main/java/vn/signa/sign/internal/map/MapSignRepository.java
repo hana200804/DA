@@ -66,7 +66,17 @@ public class MapSignRepository {
 
   /** Gom mọi biển khớp trong vùng theo ô vuông cạnh {@code cellDeg} độ. */
   public List<MapCluster> countByCell(MapQuery query, double cellDeg) {
-    return bind(CLUSTERS_SQL + where(query) + CLUSTERS_GROUP, query)
+    return clusters(bind(CLUSTERS_SQL + where(query) + CLUSTERS_GROUP, query), cellDeg);
+  }
+
+  /** Mật độ toàn bộ biển đã duyệt cho thống kê quản trị. */
+  public List<MapCluster> countApprovedByCell(int zoom) {
+    var approved = jdbc.sql(CLUSTERS_SQL + " WHERE status = 'APPROVED'" + CLUSTERS_GROUP);
+    return clusters(approved, GridCell.sizeDeg(zoom));
+  }
+
+  private static List<MapCluster> clusters(JdbcClient.StatementSpec query, double cellDeg) {
+    return query
         .param("cell", cellDeg)
         .query((rs, i) ->
             new MapCluster(new LatLng(rs.getDouble("lat"), rs.getDouble("lng")), rs.getLong("n")))

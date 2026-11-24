@@ -68,6 +68,7 @@ import vn.signa.sign.internal.review.ReviewQueryService;
 import vn.signa.sign.internal.review.ReviewService;
 import vn.signa.sign.internal.review.ReviewViews.Created;
 import vn.signa.sign.internal.review.ReviewViews.QueuePage;
+import vn.signa.sign.internal.stats.StatisticsService;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -354,6 +355,7 @@ class PermissionMatrixTest {
   // Lát 7 · đánh giá và báo cáo
   @MockitoBean RatingService ratings;
   @MockitoBean ReportService reports;
+  @MockitoBean StatisticsService statistics;
 
   @BeforeEach
   void stubs() {

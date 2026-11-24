@@ -1,12 +1,15 @@
 package vn.signa.catalog.internal;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import vn.signa.catalog.api.SignCatalog;
 import vn.signa.catalog.api.SignTypeView;
+import vn.signa.catalog.internal.CatalogRepository.CategoryRow;
 import vn.signa.catalog.internal.CatalogRepository.TypeRow;
 
 @Service
@@ -27,6 +30,12 @@ class JdbcSignCatalog implements SignCatalog {
   @Override
   public Optional<String> categoryOf(String code) {
     return findType(code).map(SignTypeView::categoryCode);
+  }
+
+  @Override
+  public Map<String, String> categoryNames() {
+    return repository.categories().stream()
+        .collect(Collectors.toUnmodifiableMap(CategoryRow::code, CategoryRow::name));
   }
 
   @Override
