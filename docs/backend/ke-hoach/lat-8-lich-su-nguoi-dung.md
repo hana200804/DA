@@ -62,20 +62,20 @@ Lát 7 dùng `UserDirectory` cho `reporterName`. `audit` lấy tên qua cổng `
 
 ### Nhiệm vụ 2 · Quản lý người dùng `GET`, `PATCH /admin/users`
 
-**Tạo:** `identity/internal/LikePattern.java`, `UserAdminService.java`, `ManagedUser.java`, `UserPage.java`; sửa `UserRepository.java`; `identity/web/AdminUserController.java`, `AdminUserRequests.java`; test `LikePatternTest`, `UserAdminServiceTest`, `AdminUserControllerTest`.
+**Tạo:** `identity/internal/LikePattern.java`, `UserAdminService.java`, `ManagedUser.java`, `UserSearch.java`, `UserPage.java`; sửa `UserRepository.java`; `identity/web/AdminUserController.java` (DTO `UpdateUser` lồng trong controller); test `LikePatternTest`, `UserAdminServiceTest`, `AdminUserControllerTest`.
 
-- [ ] `GET`: `q` ≤ 255, lowercase và escape `LIKE`; `role` thuộc `USER|MODERATOR|ADMIN`; `status` thuộc `ACTIVE|LOCKED`; phân trang như NV1, sắp `created_at DESC, id DESC`. Trả `{ items: [{ id, email, displayName, role, status, createdAt, lastLoginAt }], page, size, total }`.
-- [ ] `PATCH /{id}` `{ role?, status? }`: thiếu cả hai trả `400`; không có người dùng trả `404`; trả `204`.
-- [ ] Trong một giao dịch: `FOR UPDATE` các quản trị viên `ACTIVE`, rồi dòng đích; kiểm luật tự thay đổi và quản trị viên cuối cùng (`422`); `UPDATE users`; ghi `ROLE_CHANGED`, `LOCKED`, `UNLOCKED` kèm before/after; `revokeAll` khi khoá hoặc đổi vai trò. Sau commit gọi `revokeAll` lần nữa.
-- [ ] `@PreAuthorize("hasAuthority('user:manage')")`; người thực hiện lấy từ `@AuthenticationPrincipal AuthenticatedUser`.
-- [ ] Unit test escape `LIKE`, luật quản trị viên cuối cùng và tự thay đổi, ghi lịch sử, thu hồi phiên; `@WebMvcTest` controller. Commit.
+- [x] `GET`: `q` ≤ 255, lowercase và escape `LIKE`; `role` thuộc `USER|MODERATOR|ADMIN`; `status` thuộc `ACTIVE|LOCKED`; phân trang như NV1, sắp `created_at DESC, id DESC`. Trả `{ items: [{ id, email, displayName, role, status, createdAt, lastLoginAt }], page, size, total }`.
+- [x] `PATCH /{id}` `{ role?, status? }`: thiếu cả hai trả `400`; không có người dùng trả `404`; trả `204`.
+- [x] Trong một giao dịch: `FOR UPDATE` các quản trị viên `ACTIVE`, rồi dòng đích; kiểm luật tự thay đổi và quản trị viên cuối cùng (`422`); `UPDATE users`; ghi `ROLE_CHANGED`, `LOCKED`, `UNLOCKED` kèm before/after; `revokeAll` khi khoá hoặc đổi vai trò. Sau commit gọi `revokeAll` lần nữa.
+- [x] `@PreAuthorize("hasAuthority('user:manage')")`; người thực hiện lấy từ `@AuthenticationPrincipal AuthenticatedUser`.
+- [x] Unit test escape `LIKE`, luật quản trị viên cuối cùng và tự thay đổi, ghi lịch sử, thu hồi phiên; `@WebMvcTest` controller. Commit.
 
 ### Nhiệm vụ 3 · Ma trận quyền UT-B11
 
 **Sửa:** `src/test/.../identity/web/PermissionMatrixTest.java`.
 
-- [ ] Thêm `Endpoint.of` cho `GET /admin/audit-logs` (`audit:read`), `GET /admin/users` và `PATCH /admin/users/{id}` (`user:manage`); `@MockitoBean` cho `AuditLogService`, `UserAdminService`. Không sửa `violation(...)`.
-- [ ] Commit.
+- [x] Thêm `Endpoint.of` cho `GET /admin/audit-logs` (`audit:read`), `GET /admin/users` và `PATCH /admin/users/{id}` (`user:manage`); `@MockitoBean` cho `AuditLogService`, `UserAdminService`. Không sửa `violation(...)`.
+- [x] Làm cùng commit với nhiệm vụ 1 (dòng lịch sử) và nhiệm vụ 2 (hai dòng người dùng), để mỗi commit đều nạp được mọi controller. `PATCH` dùng id `u-khac` để `ADMIN` không chạm luật tự khoá.
 
 ### Nhiệm vụ 4 · Test tích hợp
 

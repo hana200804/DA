@@ -43,6 +43,8 @@ import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
+import vn.signa.identity.internal.UserAdminService;
+import vn.signa.identity.internal.UserPage;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -152,6 +154,14 @@ class PermissionMatrixTest {
           // Lát 8 · lịch sử (docs/07 §8)
           Endpoint.of(
               HttpMethod.GET, "/api/v1/admin/audit-logs", null, Access.permission("audit:read")),
+          // Lát 8 · người dùng (docs/07 §8)
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/admin/users", null, Access.permission("user:manage")),
+          Endpoint.of(
+              HttpMethod.PATCH,
+              "/api/v1/admin/users/u-khac",
+              "{\"status\":\"LOCKED\"}",
+              Access.permission("user:manage")),
           // Quy tắc công khai đặt sẵn cho lát 2–4. Lát có controller đổi dòng sang Endpoint.of.
           Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-types", Access.PUBLIC),
           Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-categories", Access.PUBLIC),
@@ -195,6 +205,7 @@ class PermissionMatrixTest {
   @MockitoBean SessionService sessions;
   @MockitoBean RolePermissions rolePermissions;
   @MockitoBean AuditLogService auditLogs;
+  @MockitoBean UserAdminService userAdmin;
 
   @BeforeEach
   void stubs() {
@@ -209,6 +220,7 @@ class PermissionMatrixTest {
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
     when(auditLogs.search(any())).thenReturn(new AuditPage<>(List.of(), 0, 20, 0));
+    when(userAdmin.search(any())).thenReturn(new UserPage(List.of(), 0, 20, 0));
   }
 
   static Stream<Arguments> cases() {
