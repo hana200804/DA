@@ -3,6 +3,7 @@ package vn.signa.catalog.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -60,12 +61,12 @@ class CatalogQueryServiceTest {
                 + "\"description\":\"Mô tả\",\"speedKmh\":50,\"iconUrl\":\"/icons/P.127_50.png\","
                 + "\"recognizable\":true}]}");
     assertThat(snapshot.etag()).isEqualTo(ETags.of(snapshot.json()));
-    verify(values).set(SignTypesCache.KEY, snapshot.json(), Duration.ofHours(24));
+    verify(values).set(SignTypesCache.key(1), snapshot.json(), Duration.ofHours(24));
   }
 
   @Test
-  void servesCachedBodyWithoutDatabase() {
-    when(values.get(SignTypesCache.KEY)).thenReturn("{\"cached\":true}");
+  void servesCachedBodyWithoutReadingTypes() {
+    when(values.get(SignTypesCache.key(1))).thenReturn("{\"cached\":true}");
     repository.types.clear();
 
     SignTypesSnapshot snapshot = service.signTypes();
@@ -77,12 +78,30 @@ class CatalogQueryServiceTest {
 
   @Test
   void fallsBackToDatabaseWhenRedisIsDown() {
-    when(values.get(SignTypesCache.KEY)).thenThrow(new RedisConnectionFailureException("down"));
+    when(values.get(SignTypesCache.key(1))).thenThrow(new RedisConnectionFailureException("down"));
     org.mockito.Mockito.doThrow(new RedisConnectionFailureException("down"))
         .when(values)
-        .set(eq(SignTypesCache.KEY), any(), any(Duration.class));
+        .set(eq(SignTypesCache.key(1)), any(), any(Duration.class));
 
     assertThat(service.signTypes().json()).contains("P.127_50");
+  }
+
+  @Test
+  void aLateWriteToThePreviousGenerationCannotRepublishTheOldCatalog() {
+    doAnswer(
+            call -> {
+              // Admin commit sau khi GET lấy danh mục từ MySQL, trước khi nội dung đi vào Redis.
+              repository.types.remove("P.127_50");
+              repository.advanceGeneration();
+              when(values.get(SignTypesCache.key(1))).thenReturn(call.getArgument(1));
+              return null;
+            })
+        .when(values)
+        .set(eq(SignTypesCache.key(1)), any(), any(Duration.class));
+
+    assertThat(service.signTypes().json()).contains("P.127_50");
+    assertThat(service.signTypes().json()).doesNotContain("P.127_50");
+    verify(values).get(SignTypesCache.key(2));
   }
 
   @Test

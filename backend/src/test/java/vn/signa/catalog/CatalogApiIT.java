@@ -20,8 +20,6 @@ import vn.signa.support.IntegrationTest;
 /** API danh mục công khai và {@link SignCatalog} trên container. Chỉ chạy trên CI. */
 class CatalogApiIT extends IntegrationTest {
 
-  private static final String CACHE_KEY = "cache:sign-types";
-
   private final HttpClient http = HttpClient.newHttpClient();
 
   @LocalServerPort int port;
@@ -38,7 +36,7 @@ class CatalogApiIT extends IntegrationTest {
   @AfterEach
   void reactivate() {
     jdbc.sql("UPDATE sign_types SET active = TRUE WHERE code = 'P.104'").update();
-    redis.delete(CACHE_KEY);
+    redis.delete(cacheKey());
   }
 
   @Test
@@ -47,7 +45,7 @@ class CatalogApiIT extends IntegrationTest {
     assertThat(first.statusCode()).isEqualTo(200);
     assertThat(first.body()).contains("\"labelMapVersion\":1", "\"code\":\"P.127_50\"");
     String etag = first.headers().firstValue("ETag").orElseThrow();
-    assertThat(redis.hasKey(CACHE_KEY)).isTrue();
+    assertThat(redis.hasKey(cacheKey())).isTrue();
 
     HttpResponse<String> second = get("/api/v1/sign-types", etag);
     assertThat(second.statusCode()).isEqualTo(304);
@@ -57,19 +55,19 @@ class CatalogApiIT extends IntegrationTest {
   }
 
   @Test
-  void importEvictsCache() throws Exception {
+  void unchangedImportKeepsCurrentCache() throws Exception {
     get("/api/v1/sign-types", null);
-    assertThat(redis.hasKey(CACHE_KEY)).isTrue();
+    assertThat(redis.hasKey(cacheKey())).isTrue();
 
     importer.importFrom(LabelImportIT.LABELS);
 
-    assertThat(redis.hasKey(CACHE_KEY)).isFalse();
+    assertThat(redis.hasKey(cacheKey())).isTrue();
   }
 
   @Test
   void inactiveTypeIsHidden() throws Exception {
     jdbc.sql("UPDATE sign_types SET active = FALSE WHERE code = 'P.104'").update();
-    redis.delete(CACHE_KEY);
+    redis.delete(cacheKey());
 
     assertThat(get("/api/v1/sign-types", null).body())
         .doesNotContain("\"code\":\"P.104\"")
@@ -92,6 +90,14 @@ class CatalogApiIT extends IntegrationTest {
     assertThat(catalog.isActiveRecognizable("P.127_50", 1)).isTrue();
     assertThat(catalog.isActiveRecognizable("P.127_50", 2)).isFalse();
     assertThat(catalog.supportedLabelMapVersions()).contains(1);
+  }
+
+  private String cacheKey() {
+    long generation =
+        jdbc.sql("SELECT generation FROM catalog_generation WHERE id = 1")
+            .query(Long.class)
+            .single();
+    return "cache:sign-types:" + generation;
   }
 
   private HttpResponse<String> get(String path, String ifNoneMatch) throws Exception {

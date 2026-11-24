@@ -51,19 +51,16 @@ public class LabelImporter {
 
   private final CatalogRepository repository;
   private final AuditRecorder audit;
-  private final SignTypesCache cache;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   LabelImporter(
       CatalogRepository repository,
       AuditRecorder audit,
-      SignTypesCache cache,
       TransactionTemplate tx,
       Clock clock) {
     this.repository = repository;
     this.audit = audit;
-    this.cache = cache;
     this.tx = tx;
     this.clock = clock;
   }
@@ -171,7 +168,7 @@ public class LabelImporter {
         .filter(t -> t.labelId() != null && t.active())
         .forEach(t -> notInFile.add(t.code()));
 
-    cache.evictAfterCommit();
+    if (created + updated > 0) repository.advanceGeneration();
     return new Result(version, categoriesCreated, created, updated, unchanged, notInFile);
   }
 

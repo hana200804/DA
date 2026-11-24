@@ -12,7 +12,7 @@ final class Modules {
   static final Map<String, Set<String>> TABLES =
       Map.of(
           "identity", Set.of("users", "roles", "permissions", "role_permissions"),
-          "catalog", Set.of("sign_categories", "sign_types"),
+          "catalog", Set.of("sign_categories", "sign_types", "catalog_generation"),
           "sign",
               Set.of("signs", "sign_code_weights", "submissions", "sign_ratings", "sign_reports"),
           "recognition", Set.of(),

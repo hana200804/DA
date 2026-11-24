@@ -89,6 +89,16 @@ public class CatalogRepository {
         .update();
   }
 
+  long generation() {
+    return jdbc.sql("SELECT generation FROM catalog_generation WHERE id = 1")
+        .query(Long.class)
+        .single();
+  }
+
+  void advanceGeneration() {
+    jdbc.sql("UPDATE catalog_generation SET generation = generation + 1 WHERE id = 1").update();
+  }
+
   public List<TypeRow> allTypes() {
     return jdbc.sql("SELECT " + TYPE_COLUMNS + " FROM sign_types ORDER BY code")
         .query(CatalogRepository::type)

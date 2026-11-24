@@ -53,7 +53,6 @@ public class CatalogAdminService {
 
   private final CatalogRepository repository;
   private final AuditRecorder audit;
-  private final SignTypesCache cache;
   private final ObjectStorage storage;
   private final TransactionTemplate cleanupTx;
   private final Clock clock;
@@ -61,13 +60,11 @@ public class CatalogAdminService {
   CatalogAdminService(
       CatalogRepository repository,
       AuditRecorder audit,
-      SignTypesCache cache,
       ObjectStorage storage,
       PlatformTransactionManager transactionManager,
       Clock clock) {
     this.repository = repository;
     this.audit = audit;
-    this.cache = cache;
     this.storage = storage;
     this.cleanupTx = new TransactionTemplate(transactionManager);
     this.cleanupTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -198,7 +195,7 @@ public class CatalogAdminService {
       Map<String, ?> before,
       Map<String, ?> after) {
     audit.record(AuditEntry.byUser(actorId, entity, code, action, before, after, null));
-    cache.evictAfterCommit();
+    if (entity == SIGN_TYPE) repository.advanceGeneration();
   }
 
   private void recordUpdate(

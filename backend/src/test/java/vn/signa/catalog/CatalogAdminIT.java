@@ -18,7 +18,6 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -31,7 +30,6 @@ class CatalogAdminIT extends IntegrationTest {
   private static final String CATEGORIES = "/api/v1/admin/sign-categories";
   private static final String TYPES = "/api/v1/admin/sign-types";
   private static final String PUBLIC_TYPES = "/api/v1/sign-types";
-  private static final String CACHE_KEY = "cache:sign-types";
   private static final byte[] PNG =
       Base64.getDecoder()
           .decode(
@@ -42,7 +40,6 @@ class CatalogAdminIT extends IntegrationTest {
   @LocalServerPort int port;
   @Autowired JsonMapper json;
   @Autowired JdbcTemplate jdbc;
-  @Autowired StringRedisTemplate redis;
   @Autowired ObjectStorage storage;
 
   record Session(String userId, String token) {}
@@ -167,9 +164,7 @@ class CatalogAdminIT extends IntegrationTest {
     assertThat(json.readTree(fake).get("code").asString()).isEqualTo("UNSUPPORTED_MEDIA_TYPE");
     assertThat(storage.list(SIGN_ICONS, code)).isEmpty();
 
-    redis.opsForValue().set(CACHE_KEY, "{}");
     assertStatus(upload(admin, code, "one.png", "image/png", PNG), 204);
-    assertThat(redis.hasKey(CACHE_KEY)).isFalse();
     String firstKey = currentIconKey(code);
     assertThat(firstKey).startsWith(code + "-").endsWith(".png");
     assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
@@ -246,9 +241,7 @@ class CatalogAdminIT extends IntegrationTest {
 
   private JsonNode change(Session admin, String method, String path, String body, int status)
       throws Exception {
-    redis.opsForValue().set(CACHE_KEY, "{}");
     String result = assertStatus(call(method, path, admin.token(), body), status);
-    assertThat(redis.hasKey(CACHE_KEY)).isFalse();
     return json.readTree(result);
   }
 

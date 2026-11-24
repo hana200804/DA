@@ -2,16 +2,11 @@ package vn.signa.catalog.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -24,7 +19,6 @@ import java.util.TreeMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -42,18 +36,14 @@ class LabelImporterTest {
 
   private final FakeRepository repository = new FakeRepository();
   private final List<AuditEntry> audit = new ArrayList<>();
-  private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
   private LabelImporter importer;
 
   @BeforeEach
   void setUp() {
-    SignTypesCache cache =
-        new SignTypesCache(redis, new CatalogProperties(false, Duration.ofHours(1)));
     importer =
         new LabelImporter(
             repository,
             audit::add,
-            cache,
             new TransactionTemplate(new NoOpTransactionManager()),
             Clock.fixed(Instant.parse("2026-11-23T00:00:00Z"), ZoneOffset.UTC));
   }
@@ -99,7 +89,7 @@ class LabelImporterTest {
     assertThat(repository.types).isEqualTo(snapshot);
     assertThat(repository.updates).isZero();
     assertThat(audit).isEmpty();
-    verify(redis, times(2)).delete(SignTypesCache.KEY);
+    assertThat(repository.generation()).isEqualTo(2);
   }
 
   @Test
@@ -188,19 +178,22 @@ class LabelImporterTest {
     assertThat(repository.types).isEmpty();
   }
 
-  @Test
-  void redisFailureDoesNotFailImport() {
-    when(redis.delete(SignTypesCache.KEY))
-        .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("down"));
-
-    assertThat(importer.importFrom(LabelsYamlParserTest.REAL_FILE).typesCreated()).isEqualTo(46);
-  }
-
   /** Kho trong bộ nhớ thay cho MySQL. */
   static final class FakeRepository extends CatalogRepository {
     final Map<String, CategoryRow> categories = new TreeMap<>();
     final Map<String, TypeRow> types = new TreeMap<>();
     int updates;
+    long generation = 1;
+
+    @Override
+    long generation() {
+      return generation;
+    }
+
+    @Override
+    void advanceGeneration() {
+      generation++;
+    }
 
     FakeRepository() {
       super(null);

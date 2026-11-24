@@ -363,7 +363,7 @@ Truy vấn áp dụng các bộ lọc nhóm và mã biển khi có tham số. N�
 | `rl:login:{email}:{ip}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn đăng nhập: mỗi lần thử `INCR` trước khi so mật khẩu, lần thứ 11 trả `429`; đúng mật khẩu thì xoá |
 | `rl:password:{userId}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn nhập mật khẩu hiện tại khi đổi mật khẩu, cùng cách đếm với `rl:login` |
 | `rl:recognize:{userId hoặc ip}` | Counter | 1 phút | Giới hạn nhận diện ảnh |
-| `cache:sign-types` | String JSON + ETag | Xoá khi danh mục đổi | FR-08 |
+| `cache:sign-types:{generation}` | String JSON, ETag tính từ nội dung | Phiên bản tăng trong cùng giao dịch đổi loại biển, khoá cũ hết hạn theo TTL | FR-08 |
 | `stream:submissions` | Stream, group `clustering` | Xoá mục sau khi xử lý và xác nhận | Hàng đợi gom cụm ([ADR-0007](adr/0007-gom-cum-tuan-tu-qua-redis-stream.md)) |
 
 Khi Redis mất dữ liệu, người dùng đăng nhập lại. Worker quét các đề xuất còn `RECEIVED` khi khởi động và định kỳ để đưa chúng trở lại stream.
