@@ -82,13 +82,13 @@ Thứ tự khoá không tạo chu trình: worker khoá đề xuất mới (chưa
 
 ### Nhiệm vụ 4 · Test tích hợp
 
-**Tạo:** `src/test/.../sign/internal/ReviewIT.java`, `ReviewRaceIT.java`.
+**Tạo:** `src/test/.../sign/internal/ReviewIT.java`, `ReviewRaceIT.java`, `ReviewItSupport.java`. IT nằm trong gói `sign.internal` để gọi thẳng `ClusteringProcessor` của lát 5.
 
-- [ ] IT-B04: hai kiểm duyệt viên duyệt cùng `version`, một `204`, một `409 SIGN_ALREADY_PROCESSED`.
-- [ ] IT-B05: duyệt, sửa, gỡ một biển, đúng 3 dòng `audit_logs` với before/after đúng.
-- [ ] Duyệt bằng mã không dẫn đầu, điểm ≥ 0,5. Hàng đợi sắp đúng thứ tự. `nearbySigns` không gồm chính biển.
-- [ ] Đua với worker: duyệt trước rồi worker gán, worker gán trước rồi duyệt nhận `409` và thử lại, và chạy đồng thời nhiều lượt. Cả hai thay đổi đều còn.
-- [ ] Chỉ biên dịch trên máy, chạy trên CI. Commit.
+- [x] IT-B04: hai kiểm duyệt viên duyệt cùng `version`, một `204`, một `409 SIGN_ALREADY_PROCESSED`.
+- [x] IT-B05: duyệt, sửa, gỡ một biển, đúng 3 dòng `audit_logs` với before/after đúng.
+- [x] Duyệt bằng mã không dẫn đầu, điểm ≥ 0,5. Hàng đợi sắp đúng thứ tự. `nearbySigns` không gồm chính biển.
+- [x] Đua với worker: duyệt trước rồi worker gán, worker gán trước rồi duyệt nhận `409` và thử lại, và chạy đồng thời nhiều lượt. Cả hai thay đổi đều còn.
+- [x] Chỉ biên dịch trên máy, chạy trên CI. Commit.
 
 ### Nhiệm vụ 5 · Tài liệu và kiểm tra cuối
 
