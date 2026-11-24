@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static vn.signa.shared.storage.Bucket.SIGN_CROPS;
 
 import java.awt.image.BufferedImage;
@@ -253,10 +255,15 @@ class SubmissionIT extends IntegrationTest {
     } finally {
       worker.start();
     }
-    await().atMost(Duration.ofSeconds(60)).untilAsserted(() ->
-        assertThat(jdbc.queryForObject(
-            "SELECT COUNT(*) FROM submissions WHERE user_id = ? AND status = 'GROUPED'",
-            Integer.class, user.id())).isEqualTo(ClusteringWorker.SWEEP_BATCH_SIZE + 3));
+    await()
+        .atMost(Duration.ofSeconds(60))
+        .untilAsserted(() ->
+            assertThat(
+                    jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM submissions WHERE user_id = ? AND status = 'GROUPED'",
+                        Integer.class,
+                        user.id()))
+                .isEqualTo(ClusteringWorker.SWEEP_BATCH_SIZE + 3));
     drain();
     assertThat(redis.hasKey(SubmissionStream.QUEUED)).isFalse();
   }
@@ -274,13 +281,30 @@ class SubmissionIT extends IntegrationTest {
         """,
         code);
     String signId =
-        body(request("POST", "/api/v1/admin/signs", admin.token(),
-                json.writeValueAsString(Map.of(
-                    "signTypeCode", code, "location", Map.of("lat", 20, "lng", 105),
-                    "headingDeg", 90))), 201).get("id").asString();
+        body(
+                request(
+                    "POST",
+                    "/api/v1/admin/signs",
+                    admin.token(),
+                    json.writeValueAsString(
+                        Map.of(
+                            "signTypeCode",
+                            code,
+                            "location",
+                            Map.of("lat", 20, "lng", 105),
+                            "headingDeg",
+                            90))),
+                201)
+            .get("id")
+            .asString();
 
-    body(request("PATCH", "/api/v1/admin/sign-types/" + code, admin.token(),
-        "{\"categoryCode\":\"WARNING\"}"), 200);
+    body(
+        request(
+            "PATCH",
+            "/api/v1/admin/sign-types/" + code,
+            admin.token(),
+            "{\"categoryCode\":\"WARNING\"}"),
+        200);
     String map = "/api/v1/signs?bbox=104.9,19.9,105.1,20.1&signTypeCodes=" + code + "&categories=";
     assertThat(body(request("GET", map + "WARNING", null, null), 200).toString())
         .contains(signId, "WARNING");
@@ -288,12 +312,19 @@ class SubmissionIT extends IntegrationTest {
         .doesNotContain(signId);
 
     String submissionId =
-        body(http.send(upload(user, uuid(), 20, 105, 0.88, 1, code),
-                HttpResponse.BodyHandlers.ofString()), 201).get("id").asString();
-    await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
-        assertThat(submission(submissionId))
-            .containsEntry("status", "ACCEPTED")
-            .containsEntry("sign_id", signId));
+        body(
+                http.send(
+                    upload(user, uuid(), 20, 105, 0.88, 1, code),
+                    HttpResponse.BodyHandlers.ofString()),
+                201)
+            .get("id")
+            .asString();
+    await()
+        .atMost(Duration.ofSeconds(30))
+        .untilAsserted(() ->
+            assertThat(submission(submissionId))
+                .containsEntry("status", "ACCEPTED")
+                .containsEntry("sign_id", signId));
   }
 
   @Test
@@ -349,6 +380,19 @@ class SubmissionIT extends IntegrationTest {
     JsonNode others = body(request("GET", MINE, other.token(), null), 200);
     assertThat(others.get("total").longValue()).isEqualTo(1);
     assertItem(others.get("items").get(0), foreign);
+  }
+
+  @Test
+  void rejectsJpegSignatureWithoutWritingCrop() throws Exception {
+    Session user = signIn();
+    byte[] signature = {(byte) 0xff, (byte) 0xd8, (byte) 0xff};
+    var response =
+        http.send(
+            upload(user, uuid(), 19, 105, 0.88, 1, "P.102", signature),
+            HttpResponse.BodyHandlers.ofString());
+
+    assertThat(body(response, 415).get("code").asString()).isEqualTo("UNSUPPORTED_MEDIA_TYPE");
+    verify(storage, never()).put(eq(SIGN_CROPS), anyString(), any(byte[].class), anyString());
   }
 
   @Test
@@ -457,8 +501,25 @@ class SubmissionIT extends IntegrationTest {
   }
 
   private HttpRequest upload(
-      Session user, String clientId, double lat, double lng, double confidence, int labelVersion,
+      Session user,
+      String clientId,
+      double lat,
+      double lng,
+      double confidence,
+      int labelVersion,
       String code) {
+    return upload(user, clientId, lat, lng, confidence, labelVersion, code, JPEG);
+  }
+
+  private HttpRequest upload(
+      Session user,
+      String clientId,
+      double lat,
+      double lng,
+      double confidence,
+      int labelVersion,
+      String code,
+      byte[] crop) {
     String boundary = uuid();
     String metadata =
         json.writeValueAsString(
@@ -497,7 +558,7 @@ class SubmissionIT extends IntegrationTest {
         .timeout(Duration.ofSeconds(30))
         .header("Authorization", "Bearer " + user.token())
         .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-        .POST(HttpRequest.BodyPublishers.ofByteArrays(List.of(prefix, JPEG, suffix)))
+        .POST(HttpRequest.BodyPublishers.ofByteArrays(List.of(prefix, crop, suffix)))
         .build();
   }
 

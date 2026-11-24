@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static vn.signa.shared.storage.Bucket.REPORT_PHOTOS;
 
@@ -15,6 +16,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.Map;
@@ -66,17 +68,22 @@ class FeedbackIT extends IntegrationTest {
     var user = signIn("Người báo cáo", "USER");
     var sign = sign("APPROVED");
     Set<String> before = photoKeys();
-    doAnswer(call -> {
-      assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-      jdbc.update("UPDATE signs SET status = 'REMOVED' WHERE id = ?", sign.id());
-      return call.callRealMethod();
-    }).when(storage).put(eq(REPORT_PHOTOS), anyString(), any(byte[].class), eq("image/png"));
+    doAnswer(
+            call -> {
+              assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+              jdbc.update("UPDATE signs SET status = 'REMOVED' WHERE id = ?", sign.id());
+              return call.callRealMethod();
+            })
+        .when(storage)
+        .put(eq(REPORT_PHOTOS), anyString(), any(byte[].class), eq("image/png"));
 
     body(upload(signPath(sign) + "/reports", user, "NOT_EXIST"), 404);
 
     assertThat(photoKeys()).isEqualTo(before);
-    assertThat(jdbc.queryForObject(
-        "SELECT COUNT(*) FROM sign_reports WHERE sign_id = ?", Integer.class, sign.id())).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sign_reports WHERE sign_id = ?", Integer.class, sign.id()))
+        .isZero();
   }
 
   @Test
@@ -131,8 +138,10 @@ class FeedbackIT extends IntegrationTest {
                 "SELECT version, deny_since_review FROM signs WHERE id = ?", sign.id()))
         .containsEntry("version", 5)
         .containsEntry("deny_since_review", 3);
-    var audit = jdbc.queryForMap(
-        "SELECT action, before_value, after_value FROM audit_logs WHERE entity_id = ?", sign.id());
+    var audit =
+        jdbc.queryForMap(
+            "SELECT action, before_value, after_value FROM audit_logs WHERE entity_id = ?",
+            sign.id());
     assertThat(audit.get("action")).isEqualTo("MARKED_UNDER_REVIEW");
     var before = json.readTree(audit.get("before_value").toString());
     var after = json.readTree(audit.get("after_value").toString());
@@ -140,8 +149,20 @@ class FeedbackIT extends IntegrationTest {
     assertThat(before.get("confidence").decimalValue()).isEqualByComparingTo("0.7222");
     assertThat(after.get("status").asString()).isEqualTo("UNDER_REVIEW");
     assertThat(after.get("confidence").decimalValue()).isEqualByComparingTo("0.6500");
-    assertThat(jdbc.queryForObject("SELECT confidence FROM signs WHERE id = ?",
-        BigDecimal.class, sign.id())).isEqualByComparingTo(after.get("confidence").decimalValue());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT confidence FROM signs WHERE id = ?", BigDecimal.class, sign.id()))
+        .isEqualByComparingTo(after.get("confidence").decimalValue());
+  }
+
+  @Test
+  void rejectsPngSignatureWithoutWritingReportPhoto() throws Exception {
+    var user = signIn("Người gửi ảnh lỗi", "USER");
+    var response =
+        upload(signPath(sign("APPROVED")) + "/reports", user, "NOT_EXIST", Arrays.copyOf(PNG, 8));
+
+    assertThat(body(response, 415).get("code").asString()).isEqualTo("UNSUPPORTED_MEDIA_TYPE");
+    verify(storage, never()).put(eq(REPORT_PHOTOS), anyString(), any(byte[].class), anyString());
   }
 
   @Test
@@ -277,8 +298,10 @@ class FeedbackIT extends IntegrationTest {
     var detail = body(request("GET", signPath(sign), null, null), 200);
     assertThat(detail.get("signTypeCode").asString()).isEqualTo(correctedCode);
     assertThat(detail.get("coverCropUrl").isNull()).isTrue();
-    assertThat(jdbc.queryForObject(
-        "SELECT cover_crop_key FROM signs WHERE id = ?", String.class, sign.id())).isNull();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT cover_crop_key FROM signs WHERE id = ?", String.class, sign.id()))
+        .isNull();
     assertThat(detail.get("location").get("lat").asDouble()).isCloseTo(21.01, within(1e-8));
     assertThat(detail.get("location").get("lng").asDouble()).isCloseTo(105.02, within(1e-8));
     assertThat(
@@ -456,6 +479,11 @@ class FeedbackIT extends IntegrationTest {
   }
 
   private HttpResponse<String> upload(String path, Session user, String reason) throws Exception {
+    return upload(path, user, reason, PNG);
+  }
+
+  private HttpResponse<String> upload(String path, Session user, String reason, byte[] photo)
+      throws Exception {
     String boundary = uuid();
     String prefix =
         "--"
@@ -473,7 +501,7 @@ class FeedbackIT extends IntegrationTest {
     String suffix = "\r\n--" + boundary + "--\r\n";
     var data =
         HttpRequest.BodyPublishers.ofByteArrays(
-            java.util.List.of(prefix.getBytes(UTF_8), PNG, suffix.getBytes(UTF_8)));
+            java.util.List.of(prefix.getBytes(UTF_8), photo, suffix.getBytes(UTF_8)));
     return http.send(
         builder(path, user)
             .header("Content-Type", "multipart/form-data; boundary=" + boundary)

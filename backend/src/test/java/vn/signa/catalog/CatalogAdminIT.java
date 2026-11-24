@@ -2,6 +2,8 @@ package vn.signa.catalog;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static vn.signa.shared.storage.Bucket.SIGN_ICONS;
 
 import java.awt.image.BufferedImage;
@@ -19,8 +21,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.signa.audit.api.AuditRecorder;
 import vn.signa.shared.storage.ObjectStorage;
 import vn.signa.support.IntegrationTest;
 
@@ -41,6 +45,7 @@ class CatalogAdminIT extends IntegrationTest {
   @Autowired JsonMapper json;
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectStorage storage;
+  @MockitoSpyBean AuditRecorder audit;
 
   record Session(String userId, String token) {}
 
@@ -168,8 +173,8 @@ class CatalogAdminIT extends IntegrationTest {
     String firstKey = currentIconKey(code);
     assertThat(firstKey).startsWith(code + "-").endsWith(".png");
     assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
-    assertStatus(upload(admin, code, "truncated.png", "image/png",
-        java.util.Arrays.copyOf(PNG, 8)), 415);
+    assertStatus(
+        upload(admin, code, "truncated.png", "image/png", java.util.Arrays.copyOf(PNG, 8)), 415);
     assertThat(currentIconKey(code)).isEqualTo(firstKey);
     assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
 
@@ -187,8 +192,7 @@ class CatalogAdminIT extends IntegrationTest {
     assertThat(storage.exists(SIGN_ICONS, jpegKey)).isTrue();
     assertThat(storage.exists(SIGN_ICONS, secondKey)).isFalse();
     String detail = assertStatus(call("GET", PUBLIC_TYPES + "/" + code, null, null), 200);
-    assertThat(json.readTree(detail).get("iconUrl").asString())
-        .isEqualTo("/icons/" + jpegKey);
+    assertThat(json.readTree(detail).get("iconUrl").asString()).isEqualTo("/icons/" + jpegKey);
 
     List<Map<String, Object>> history = history("SIGN_TYPE", code, admin.userId());
     assertThat(history)
@@ -200,8 +204,30 @@ class CatalogAdminIT extends IntegrationTest {
         .isEqualTo(jpegKey);
   }
 
+  @Test
+  void rollbackKeepsThePreviousIconAndDeletesTheUncommittedVersion() throws Exception {
+    Session admin = signIn("ADMIN");
+    String category = "CAT_" + suffix();
+    String code = "IT." + suffix();
+    createCategory(admin, category);
+    change(admin, "POST", TYPES, typeInput(code, category), 201);
+
+    assertStatus(upload(admin, code, "one.png", "image/png", PNG), 204);
+    String original = currentIconKey(code);
+    doThrow(new IllegalStateException("Lỗi ghi lịch sử thử nghiệm"))
+        .when(audit)
+        .record(argThat(entry -> entry.entityId().equals(code)));
+
+    assertStatus(upload(admin, code, "replacement.png", "image/png", PNG), 500);
+    assertThat(currentIconKey(code)).isEqualTo(original);
+    assertThat(storage.list(SIGN_ICONS, code))
+        .extracting(ObjectStorage.StoredObject::key)
+        .containsExactly(original);
+  }
+
   private String currentIconKey(String code) {
-    return jdbc.queryForObject("SELECT icon_key FROM sign_types WHERE code = ?", String.class, code);
+    return jdbc.queryForObject(
+        "SELECT icon_key FROM sign_types WHERE code = ?", String.class, code);
   }
 
   private Session signIn(String role) throws Exception {

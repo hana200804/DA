@@ -240,7 +240,7 @@ Authorization: Bearer q7Zr…
 Content-Type: multipart/form-data; boundary=…
 
 metadata=<JSON bên dưới>
-crop=<ảnh cắt JPEG, ≤ 200 KB>
+crop=<ảnh cắt JPEG, ≤ 200 KB, ≤ 4096 px mỗi cạnh, ≤ 4 triệu pixel>
 ```
 
 ```json
@@ -283,7 +283,7 @@ Sau lần duyệt, thành phần bằng chứng phản đối trong điểm ch�
 Xem [Thiết kế AI §6](04-thiet-ke-ai.md#sau-quyết-định-của-kiểm-duyệt-viên).
 
 Báo cáo có ảnh dùng `multipart/form-data` với part `metadata` chứa cùng JSON và part `photo` chứa ảnh JPEG,
-PNG hoặc WebP tối đa 5 MB. `reason` nhận `NOT_EXIST`, `WRONG_TYPE`, `WRONG_LOCATION` hoặc `OTHER`.
+PNG hoặc WebP tối đa 5 MB, 4096 px mỗi cạnh và 8 triệu pixel. Tệp sai cấu trúc hoặc không giải mã được trả `415 UNSUPPORTED_MEDIA_TYPE`. `reason` nhận `NOT_EXIST`, `WRONG_TYPE`, `WRONG_LOCATION` hoặc `OTHER`.
 Mô tả tối đa 1000 ký tự, bắt buộc khi chọn `OTHER`. Tạo thành công trả `201` với `{ id, status }`.
 Cả hai thao tác trả `404` nếu biển chưa hiển thị hoặc đã gỡ. Báo cáo đang chờ trùng trả `409 CONFLICT`.
 
@@ -559,7 +559,9 @@ Với ảnh hợp lệ và yêu cầu trong hạn mức, API trả `200` kể c�
 
 Tạo nhóm hoặc loại trả `201`, trùng mã trả `409 CONFLICT`. Mã nhóm được chuẩn hoá chữ hoa và phải khớp `^[A-Z][A-Z0-9_]{0,19}$`. Mã loại dài 1–30 ký tự sau khi bỏ khoảng trắng ở hai đầu. `POST /admin/sign-types` luôn tạo loại `recognizable = false`. Trong `PATCH`, trường bỏ qua giữ giá trị cũ. Gửi `description: null` hoặc `speedKmh: null` để xoá giá trị tương ứng.
 
-Tải ảnh minh hoạ dùng multipart part `icon`. Backend kiểm tra chữ ký tệp và chấp nhận PNG, JPEG hoặc WebP tối đa 1 MB. Thành công trả `204`. Tệp vượt giới hạn trả `413 PAYLOAD_TOO_LARGE`, định dạng không hỗ trợ trả `415 UNSUPPORTED_MEDIA_TYPE`.
+Tải ảnh minh hoạ dùng multipart part `icon`. Backend xác thực cấu trúc và giải mã PNG, JPEG hoặc WebP. Giới hạn là 1 MB, 4096 px mỗi cạnh và 4 triệu pixel. Thành công trả `204`. Tệp vượt giới hạn trả `413 PAYLOAD_TOO_LARGE`. Tệp sai định dạng, sai cấu trúc hoặc không giải mã được trả `415 UNSUPPORTED_MEDIA_TYPE`.
+
+Mã loại biển mới dài từ 1 đến 30 ký tự và khớp `[A-Za-z0-9][A-Za-z0-9._~-]{0,29}`. Khi đổi nhóm của loại, nhóm lưu trên các biển cùng mã cũng đổi trong giao dịch đó.
 
 Mỗi thay đổi danh mục ghi lịch sử `SIGN_CATEGORY` hoặc `SIGN_TYPE` trong cùng giao dịch, với người thực hiện và giá trị trước, sau. Backend xoá `cache:sign-types` sau khi commit.
 

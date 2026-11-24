@@ -25,3 +25,9 @@ Chạy `spotlessCheck test compileTestJava jacocoTestCoverageVerification` bằn
 - Đã xác nhận nhánh và tổ tiên lát 9, đọc hai báo cáo và đối chiếu thiết kế các lát liên quan.
 - A12/B4 giữ bản sao nhóm trên biển để bản đồ và gom cụm tiếp tục lọc theo chỉ mục hiện có. Danh mục phát sự kiện đồng bộ trong giao dịch, đi vào `sign.api` qua listener, giữ chiều phụ thuộc từ sign đến catalog. V111 đồng bộ dữ liệu cũ.
 - A14/B7 đặt bộ kiểm tra ImageIO trong `shared.image` vì catalog và sign dùng cùng các định dạng, không cần thêm phụ thuộc giữa các module. Cạnh tối đa 4096 px, tổng tối đa 4 triệu pixel cho icon và crop, 8 triệu pixel cho ảnh báo cáo.
+- A10 dùng phiên bản từ MySQL (V110) cho khoá Redis. Lượt đọc bắt đầu trước khi admin commit chỉ có thể ghi vào khoá của phiên bản cũ.
+- A6 dùng ngân sách 25 triệu pixel cho ảnh đang giải mã và giảm mẫu khi đọc ảnh lớn. A15 đệm phần thiếu về phía phải hoặc dưới và cắt phần đệm khỏi box khi quy đổi.
+- B2 quét tối đa 250 đề xuất mỗi lô và đọc stream giữa các lô. Dấu Redis giữ ID mục stream và được đối chiếu với mục khi quét bù.
+- Đã xử lý đủ các phát hiện được giao.
+- Gradle hoàn tất `spotlessCheck test compileTestJava jacocoTestCoverageVerification` với 700 test đạt, 0 test lỗi hoặc bỏ qua. Markdown lint đạt.
+- Các ca Testcontainers đã biên dịch và chờ CI vì worktree thiếu Docker. Phạm vi gồm `CatalogAdminIT`, `CatalogApiIT`, `MapIT`, `SubmissionIT` (gồm biến thể IT-B12 nhiều lô), `ReviewIT` và `FeedbackIT`.

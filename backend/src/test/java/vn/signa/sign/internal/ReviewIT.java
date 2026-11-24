@@ -180,7 +180,8 @@ class ReviewIT extends IntegrationTest {
     String sign = it.submissionRow(other).get("sign_id").toString();
     assertThat(leading)
         .allSatisfy(id -> assertThat(it.submissionRow(id)).containsEntry("sign_id", sign));
-    assertThat(it.signRow(sign)).containsEntry("sign_type_code", codeA)
+    assertThat(it.signRow(sign))
+        .containsEntry("sign_type_code", codeA)
         .containsEntry("cover_crop_key", leading.getFirst() + ".jpg");
 
     assertStatus(
@@ -261,14 +262,18 @@ class ReviewIT extends IntegrationTest {
   void queueCountUsesTheSnapshotFromBeforeAConcurrentApproval() throws Exception {
     Session moderator = it.moderator();
     String sign = it.sign(codeA, category, somewhere(), "PENDING", "0.7", "WAIT", Instant.now());
-    doAnswer(invocation -> {
-      CompletableFuture.runAsync(() ->
-          jdbc.update("UPDATE signs SET status = 'APPROVED' WHERE id = ?", sign))
-          .get(10, TimeUnit.SECONDS);
-      return invocation.callRealMethod();
-    }).when(catalog).findType(codeA);
+    doAnswer(
+            invocation -> {
+              CompletableFuture.runAsync(
+                      () -> jdbc.update("UPDATE signs SET status = 'APPROVED' WHERE id = ?", sign))
+                  .get(10, TimeUnit.SECONDS);
+              return invocation.callRealMethod();
+            })
+        .when(catalog)
+        .findType(codeA);
 
-    String path = ADMIN + "/review-queue?status=PENDING&categories=" + category;
+    String path =
+        ADMIN + "/review-queue?status=PENDING&bbox=-180,-90,180,90&categories=" + category;
     JsonNode before = it.body(it.send("GET", path, moderator.token(), null), 200);
     assertThat(ids(before)).containsExactly(sign);
     assertThat(before.get("total").asLong()).isEqualTo(1);
@@ -358,13 +363,20 @@ class ReviewIT extends IntegrationTest {
     jdbc.update("UPDATE signs SET cover_crop_key = ? WHERE id = ?", old + ".jpg", sign);
     String path = ADMIN + "/signs/" + sign;
 
-    assertStatus(it.send("POST", path + "/keep", moderator.token(),
-        Map.of("version", 0, "signTypeCode", codeB)), 204);
+    assertStatus(
+        it.send(
+            "POST", path + "/keep", moderator.token(), Map.of("version", 0, "signTypeCode", codeB)),
+        204);
     assertThat(it.signRow(sign)).containsEntry("cover_crop_key", replacement + ".jpg");
 
     String codeWithoutCrop = it.type("C", category);
-    assertStatus(it.send("PATCH", path, moderator.token(),
-        Map.of("version", 1, "signTypeCode", codeWithoutCrop)), 204);
+    assertStatus(
+        it.send(
+            "PATCH",
+            path,
+            moderator.token(),
+            Map.of("version", 1, "signTypeCode", codeWithoutCrop)),
+        204);
     assertThat(it.signRow(sign)).containsEntry("cover_crop_key", null);
   }
 
