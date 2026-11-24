@@ -20,10 +20,12 @@ import vn.signa.catalog.internal.CatalogResponses.SignCategoryItem;
 import vn.signa.catalog.internal.CatalogResponses.SignCategoryList;
 import vn.signa.catalog.internal.CatalogResponses.SignTypeItem;
 import vn.signa.catalog.internal.CatalogResponses.SignTypesSnapshot;
+import vn.signa.identity.web.WithApiSecurity;
 import vn.signa.shared.web.GlobalExceptionHandler;
 import vn.signa.shared.web.RequestIdFilter;
 
 @WebMvcTest(controllers = CatalogController.class)
+@WithApiSecurity
 @Import({GlobalExceptionHandler.class, RequestIdFilter.class})
 class CatalogControllerTest {
 
