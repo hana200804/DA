@@ -63,13 +63,13 @@ Thứ tự khoá không tạo chu trình: worker khoá đề xuất mới (chưa
 
 ### Nhiệm vụ 2 · Repository và dịch vụ
 
-**Tạo:** `ReviewSignRepository`, `ReviewQueueRepository`, `ReviewService`, `ReviewQueries`, `ReviewViews`.
+**Tạo:** `ReviewSignRepository`, `ReviewQueryRepository`, `ReviewSql`, `ReviewService`, `ReviewQueryService`, `ReviewViews`.
 
-- [ ] Hàng đợi: lọc `status`, `suggestion`, `categories`, `bbox`; sắp `APPROVE` trước, `confidence` giảm, `created_at` tăng, `id`; đếm `total`; `signName` từ `SignCatalog`.
-- [ ] Chi tiết: biển, `codeWeights`, đề xuất kèm `cropUrl` ký 10 phút, `coverCropUrl`, `nearbySigns` trong 50 m không gồm chính biển.
-- [ ] Ghi: khoá biển `FOR UPDATE`, so `version`, `UPDATE … WHERE id = ? AND version = ?`, cập nhật đề xuất và trọng số, ghi lịch sử qua `AuditRecorder` trong cùng giao dịch.
-- [ ] Unit test dịch vụ với repository giả: `409` khi lệch `version`, sai trạng thái, lịch sử `EDITED` rồi `KEPT`.
-- [ ] Commit.
+- [x] Hàng đợi: lọc `status`, `suggestion`, `categories`, `bbox`; sắp `APPROVE` trước, `confidence` giảm, `created_at` tăng, `id`; đếm `total`; `signName` từ `SignCatalog`.
+- [x] Chi tiết: biển, `codeWeights`, đề xuất kèm `cropUrl` ký 10 phút, `coverCropUrl`, `nearbySigns` trong 50 m không gồm chính biển.
+- [x] Ghi: khoá biển `FOR UPDATE`, so `version`, `UPDATE … WHERE id = ? AND version = ?`, cập nhật đề xuất và trọng số, ghi lịch sử qua `AuditRecorder` trong cùng giao dịch.
+- [x] Unit test dịch vụ với repository giả: `409` khi lệch `version`, sai trạng thái, lịch sử `EDITED` rồi `KEPT`.
+- [x] Commit.
 
 ### Nhiệm vụ 3 · Controller và phân quyền
 
