@@ -172,6 +172,8 @@ Backend kiểm tra **quyền**, không kiểm tra tên vai trò, nên đổi ph�
 | `display_name` | VARCHAR(100) | NOT NULL | |
 | `role_code` | VARCHAR(20) | FK → `roles.code`, NOT NULL, mặc định `USER` | |
 | `status` | ENUM('ACTIVE','LOCKED') | NOT NULL, mặc định `ACTIVE` | |
+| `credential_version` | INT | NOT NULL, mặc định 0 | Tăng khi đổi hoặc đặt lại mật khẩu, đổi vai trò hay khoá |
+| `retained_session_hash` | CHAR(64) | NULL | Mã băm phiên hiện tại được giữ khi đổi mật khẩu |
 | `last_login_at` | DATETIME(3) | NULL | |
 | `created_at`, `updated_at` | DATETIME(3) | NOT NULL | |
 
@@ -358,16 +360,29 @@ Truy vấn áp dụng các bộ lọc nhóm và mã biển khi có tham số. N�
 
 | Khoá | Kiểu | TTL | Mục đích |
 | --- | --- | --- | --- |
-| `session:{sha256(token)}` | Hash `userId`, `role`, `client`, `createdAt` | 30 ngày (`MOBILE`), 8 giờ (`WEB`); gia hạn đủ thời hạn mỗi lần dùng | Phiên đăng nhập. Khoá là SHA-256 hex của token, Redis không giữ token thô |
-| `user-sessions:{userId}` | Set `sha256(token)` | Không; mục đã hết hạn được dọn mỗi lần tạo phiên mới | Thu hồi mọi phiên khi đổi mật khẩu, khoá tài khoản, đổi vai trò |
+| `session:{sha256(token)}` | Hash `userId`, `credentialVersion`, `client`, `createdAt` | 30 ngày (`MOBILE`), 8 giờ (`WEB`); gia hạn đủ thời hạn mỗi lần dùng | Phiên đăng nhập. Khoá là SHA-256 hex của token, Redis không giữ token thô |
+| `user-sessions:{userId}` | Set `sha256(token)` | Không; mục đã hết hạn được dọn mỗi lần tạo phiên mới | Dọn các phiên có phiên bản cũ sau commit |
 | `otp:{sha256(email)}` | Hash `codeHash` (HMAC-SHA256 dạng hex), `attempts` | 10 phút, tính từ lần cấp mã gần nhất | FR-13, email đã chuẩn hoá. Xoá khi dùng thành công hoặc nhập sai lần thứ 5 |
 | `rl:otp:{sha256(email)}:{ip}` | Counter | 15 phút, tính từ yêu cầu đầu | Tối đa 3 yêu cầu gửi OTP theo cặp email chuẩn hoá và IP, kể cả email không tồn tại |
-| `rl:login:{email}:{ip}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn đăng nhập: mỗi lần thử `INCR` trước khi so mật khẩu, lần thứ 11 trả `429`; đúng mật khẩu thì xoá |
+| `rl:login:{email}:{ip}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn đăng nhập: dùng email trong bản ghi nếu tìm thấy tài khoản, hoặc email nhập đã chuẩn hoá. Mỗi lần thử `INCR` trước BCrypt, lần thứ 11 trả `429`; đúng mật khẩu thì xoá |
 | `rl:password:{userId}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn nhập mật khẩu hiện tại khi đổi mật khẩu, cùng cách đếm với `rl:login` |
 | `rl:recognize:{userId hoặc ip}` | Counter | 1 phút | Giới hạn nhận diện ảnh |
 | `cache:sign-types:{generation}` | String JSON, ETag tính từ nội dung | Phiên bản tăng trong cùng giao dịch đổi loại biển, khoá cũ hết hạn theo TTL | FR-08 |
 | `stream:submissions` | Stream, group `clustering` | Xoá mục sau khi xử lý và xác nhận | Hàng đợi gom cụm ([ADR-0007](adr/0007-gom-cum-tuan-tu-qua-redis-stream.md)) |
 | `{stream:submissions}:queued` | Hash từ ID đề xuất đến ID mục stream | Ghi nguyên tử khi đưa vào stream, xoá cùng `XACK` và `XDEL` | Chống nhân bản khi quét bù |
+
+Mỗi request có phiên Redis đọc phiên bản, trạng thái và vai trò hiện hành từ
+MySQL theo khoá chính. Đọc trực tiếp giúp thu hồi có hiệu lực ngay khi MySQL
+commit, trên mọi instance backend. Quyền được tra từ bảng quyền của vai trò
+hiện hành đã nạp khi khởi động. Sau BCrypt, đăng nhập đọc lại và khoá dòng
+người dùng trong giao dịch cấp phiên. Nếu phiên bản đã đổi, client phải
+đăng nhập lại.
+
+Dọn Redis chạy sau commit và thử tối đa ba lần, chỉ xoá phiên cũ hơn phiên
+bản đã commit. Đổi mật khẩu ghi cùng giao dịch mã băm của phiên được giữ.
+Nếu Redis chưa cập nhật kịp, request tiếp theo của chính phiên đó có thể
+chuyển phiên sang phiên bản mới. Phiên Redis cũ thiếu trường phiên bản phải
+đăng nhập lại sau khi nâng cấp.
 
 Khi Redis mất dữ liệu, người dùng đăng nhập lại. Worker quét các đề xuất còn `RECEIVED` khi khởi động và định kỳ để đưa chúng trở lại stream.
 

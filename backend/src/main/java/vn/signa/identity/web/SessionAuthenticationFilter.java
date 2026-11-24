@@ -21,10 +21,10 @@ import vn.signa.identity.internal.SessionService.ActiveSession;
 import vn.signa.shared.error.ErrorCode;
 
 /**
- * Đọc {@code Authorization: Bearer}, tra phiên trong Redis rồi đặt principal có danh sách quyền
- * (docs/03 §6.6). Token thiếu, sai hoặc đã thu hồi thì request đi tiếp như khách; đường dẫn cần
- * đăng nhập sẽ nhận {@code 401} từ entry point. Không phải bean, để Spring Boot không đăng ký nó
- * thêm một lần ngoài chuỗi Security.
+ * Đọc {@code Authorization: Bearer}, tra phiên Redis và trạng thái MySQL rồi đặt principal có danh
+ * sách quyền (docs/03 §6.6). Token thiếu, sai hoặc đã thu hồi thì request đi tiếp như khách; đường
+ * dẫn cần đăng nhập sẽ nhận {@code 401} từ entry point. Không phải bean, để Spring Boot không đăng
+ * ký nó thêm một lần ngoài chuỗi Security.
  */
 final class SessionAuthenticationFilter extends OncePerRequestFilter {
 

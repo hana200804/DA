@@ -84,7 +84,8 @@ class AuthIT extends IntegrationTest {
     String userId = redis.<String, String>opsForHash().get("session:" + hash, "userId");
     assertThat(userId).isNotNull();
     assertThat(redis.opsForHash().entries("session:" + hash))
-        .containsKeys("userId", "role", "client", "createdAt");
+        .containsKeys("userId", "client", "createdAt")
+        .containsEntry("credentialVersion", "0");
     assertThat(redis.getExpire("session:" + hash)).isPositive();
     assertThat(redis.opsForSet().members("user-sessions:" + userId)).contains(hash);
     assertThat(redis.hasKey("session:" + token)).isFalse();
@@ -150,6 +151,21 @@ class AuthIT extends IntegrationTest {
     Reply limited = login(email, PASSWORD, "MOBILE").reply();
     assertThat(limited.status()).isEqualTo(429);
     assertThat(limited.raw().headers().firstValue("Retry-After")).isPresent();
+  }
+
+  @Test
+  void mysqlEquivalentEmailsShareTheLoginLimit() throws Exception {
+    String suffix = UUID.randomUUID() + "@signa.vn";
+    String email = "rate-" + suffix;
+    String alias = "ráté-" + suffix;
+    assertThat(register(email, PASSWORD).status()).isEqualTo(201);
+    assertThat(jdbc.queryForObject("SELECT email FROM users WHERE email = ?", String.class, alias))
+        .isEqualTo(email);
+
+    for (int i = 0; i < 10; i++) {
+      assertThat(login(email, "sai-mat-khau", "MOBILE").reply().status()).isEqualTo(401);
+    }
+    assertThat(login(alias, PASSWORD, "MOBILE").reply().status()).isEqualTo(429);
   }
 
   @Test

@@ -11,6 +11,8 @@ import java.util.TreeSet;
 import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -33,7 +35,18 @@ class SchemaIT extends IntegrationTest {
   void migrationsApplied() {
     var info = flyway.info();
     assertThat(info.pending()).isEmpty();
-    assertThat(info.current().getVersion().getVersion()).isEqualTo("3");
+    assertThat(info.applied())
+        .extracting(MigrationInfo::getVersion)
+        .contains(
+            MigrationVersion.fromVersion("1"),
+            MigrationVersion.fromVersion("2"),
+            MigrationVersion.fromVersion("3"),
+            MigrationVersion.fromVersion("20"),
+            MigrationVersion.fromVersion("50"),
+            MigrationVersion.fromVersion("51"),
+            MigrationVersion.fromVersion("70"),
+            MigrationVersion.fromVersion("90"),
+            MigrationVersion.fromVersion("100"));
   }
 
   @Test

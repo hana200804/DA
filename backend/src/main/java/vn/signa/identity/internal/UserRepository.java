@@ -3,6 +3,7 @@ package vn.signa.identity.internal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -16,7 +17,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 class UserRepository {
 
-  private static final String COLUMNS = "id, email, password_hash, display_name, role_code, status";
+  private static final String COLUMNS =
+      "id, email, password_hash, display_name, role_code, status, credential_version";
 
   private final JdbcClient jdbc;
 
@@ -38,7 +40,22 @@ class UserRepository {
         .optional();
   }
 
-  /** Khoá dòng đích tới hết giao dịch; dùng sau {@link #lockActiveAdmins()}. */
+  record AuthState(String role, UserStatus status, int credentialVersion, String retainedSession) {}
+
+  Optional<AuthState> findAuthState(String id) {
+    return jdbc.sql(
+            "SELECT role_code, status, credential_version, retained_session_hash FROM users WHERE id = :id")
+        .param("id", id)
+        .query((rs, row) ->
+            new AuthState(
+                rs.getString(1),
+                UserStatus.valueOf(rs.getString(2)),
+                rs.getInt(3),
+                rs.getString(4)))
+        .optional();
+  }
+
+  /** Đọc trạng thái mới nhất và khoá dòng tới hết giao dịch. */
   Optional<UserRecord> findByIdForUpdate(String id) {
     return jdbc.sql("SELECT " + COLUMNS + " FROM users WHERE id = :id FOR UPDATE")
         .param("id", id)
@@ -59,14 +76,18 @@ class UserRepository {
         .list();
   }
 
-  boolean updateRoleAndStatus(String id, String role, UserStatus status, Instant now) {
+  boolean updateRoleAndStatus(
+      String id, String role, UserStatus status, boolean revoke, Instant now) {
     return jdbc.sql(
                 """
-                UPDATE users SET role_code = :role, status = :status, updated_at = :now
+                UPDATE users SET role_code = :role, status = :status, updated_at = :now,
+                                 credential_version = credential_version + :increment,
+                                 retained_session_hash = IF(:increment = 1, NULL, retained_session_hash)
                 WHERE id = :id
                 """)
             .param("role", role)
             .param("status", status.name())
+            .param("increment", revoke ? 1 : 0)
             .param("now", Timestamp.from(now))
             .param("id", id)
             .update()
@@ -163,42 +184,28 @@ class UserRepository {
         == 1;
   }
 
-  boolean updatePasswordHash(String id, String previousHash, String hash, Instant now) {
+  boolean updateActivePasswordHash(
+      String id, int previousVersion, String hash, String retainedSession, Instant now) {
     return jdbc.sql(
                 """
-                UPDATE users SET password_hash = :hash, updated_at = :now
-                WHERE id = :id AND CAST(password_hash AS BINARY) = CAST(:previousHash AS BINARY)
+                UPDATE users SET password_hash = :hash, updated_at = :now,
+                                 credential_version = credential_version + 1, retained_session_hash = :retainedSession
+                WHERE id = :id AND status = 'ACTIVE' AND credential_version = :previousVersion
                 """)
             .param("hash", hash)
-            .param("previousHash", previousHash)
+            .param("previousVersion", previousVersion)
+            .param("retainedSession", retainedSession, Types.CHAR)
             .param("now", Timestamp.from(now))
             .param("id", id)
             .update()
         == 1;
   }
 
-  boolean updateActivePasswordHash(String id, String hash, Instant now) {
-    return jdbc.sql(
-                "UPDATE users SET password_hash = :hash, updated_at = :now WHERE id = :id AND status = 'ACTIVE'")
-            .param("hash", hash)
-            .param("now", Timestamp.from(now))
-            .param("id", id)
-            .update()
-        == 1;
-  }
-
-  boolean touchLastLogin(String id, String checkedHash, Instant now) {
-    return jdbc.sql(
-                """
-                UPDATE users SET last_login_at = :now
-                WHERE id = :id AND status = 'ACTIVE'
-                  AND CAST(password_hash AS BINARY) = CAST(:checkedHash AS BINARY)
-                """)
-            .param("now", Timestamp.from(now))
-            .param("id", id)
-            .param("checkedHash", checkedHash)
-            .update()
-        == 1;
+  void touchLastLogin(String id, Instant now) {
+    jdbc.sql("UPDATE users SET last_login_at = :now WHERE id = :id")
+        .param("now", Timestamp.from(now))
+        .param("id", id)
+        .update();
   }
 
   private static UserRecord map(ResultSet rs, int row) throws SQLException {
@@ -208,6 +215,7 @@ class UserRepository {
         rs.getString("password_hash"),
         rs.getString("display_name"),
         rs.getString("role_code"),
-        UserStatus.valueOf(rs.getString("status")));
+        UserStatus.valueOf(rs.getString("status")),
+        rs.getInt("credential_version"));
   }
 }

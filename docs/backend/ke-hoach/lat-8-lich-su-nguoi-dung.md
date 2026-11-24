@@ -1,5 +1,8 @@
 # Lát 8 · Lịch sử xử lý và quản lý người dùng
 
+Tài liệu ghi lại triển khai ban đầu của lát này. Cơ chế xác thực và thu hồi phiên
+hiện hành được cập nhật ở [CSDL §10](../../06-co-so-du-lieu.md#10-redis).
+
 > Kế hoạch thực thi theo [thiết kế triển khai](../thiet-ke-trien-khai.md) §6 hàng "8 · Lịch sử và người dùng". Đánh dấu `- [x]` khi xong từng bước để người khác (hoặc Codex) làm tiếp được.
 
 **Mục tiêu:** kiểm duyệt viên xem lịch sử xử lý có lọc và phân trang; quản trị viên tìm người dùng, đổi vai trò, khoá và mở khoá; khoá hoặc đổi vai trò thì mọi phiên cũ của người đó mất hiệu lực.

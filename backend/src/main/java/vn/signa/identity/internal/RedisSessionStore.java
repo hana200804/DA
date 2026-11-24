@@ -11,17 +11,47 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 /**
- * {@code session:{hash}} là hash {@code userId, role, client, createdAt} có TTL; {@code
- * user-sessions:{userId}} là set các mã phiên, không TTL, dọn mục hết hạn mỗi lần tạo phiên mới.
+ * {@code session:{hash}} là hash {@code userId, credentialVersion, client, createdAt} có TTL;
+ * {@code user-sessions:{userId}} là set các mã phiên, không TTL, dọn mục hết hạn mỗi lần tạo phiên
+ * mới.
  */
 @Component
 class RedisSessionStore implements SessionStore {
 
   static final String SESSION_PREFIX = "session:";
   static final String USER_SESSIONS_PREFIX = "user-sessions:";
+
+  private static final RedisScript<Long> PROMOTE =
+      RedisScript.of(
+          """
+          local user = redis.call('HGET', KEYS[1], 'userId')
+          local version = tonumber(redis.call('HGET', KEYS[1], 'credentialVersion') or '')
+          if user == ARGV[1] and version == tonumber(ARGV[2]) - 1 then
+            return redis.call('HSET', KEYS[1], 'credentialVersion', ARGV[2])
+          end
+          return 0
+          """,
+          Long.class);
+
+  private static final RedisScript<Long> DELETE_OLDER =
+      RedisScript.of(
+          """
+          local user = redis.call('HGET', KEYS[1], 'userId')
+          local version = tonumber(redis.call('HGET', KEYS[1], 'credentialVersion') or '')
+          if user == ARGV[1] and (not version or version < tonumber(ARGV[2])) then
+            redis.call('DEL', KEYS[1])
+            user = false
+          end
+          if not user then
+            return redis.call('SREM', KEYS[2], ARGV[3])
+          end
+          return 0
+          """,
+          Long.class);
 
   private static final Logger log = LoggerFactory.getLogger(RedisSessionStore.class);
 
@@ -38,7 +68,7 @@ class RedisSessionStore implements SessionStore {
     Map<String, String> fields =
         Map.of(
             "userId", session.userId(),
-            "role", session.role(),
+            "credentialVersion", Integer.toString(session.credentialVersion()),
             "client", session.client().name(),
             "createdAt", session.createdAt().toString());
     redis.execute(
@@ -59,7 +89,7 @@ class RedisSessionStore implements SessionStore {
   }
 
   @Override
-  public Optional<Session> findAndTouch(String sessionId) {
+  public Optional<Session> find(String sessionId) {
     String key = SESSION_PREFIX + sessionId;
     Map<Object, Object> fields = redis.opsForHash().entries(key);
     if (fields.isEmpty()) {
@@ -70,7 +100,7 @@ class RedisSessionStore implements SessionStore {
       session =
           new Session(
               (String) fields.get("userId"),
-              (String) fields.get("role"),
+              Integer.parseInt((String) fields.get("credentialVersion")),
               Client.valueOf((String) fields.get("client")),
               Instant.parse((String) fields.get("createdAt")));
     } catch (RuntimeException e) {
@@ -78,15 +108,16 @@ class RedisSessionStore implements SessionStore {
       redis.delete(key);
       return Optional.empty();
     }
-    if (session.userId() == null || session.role() == null) {
+    if (session.userId() == null || session.credentialVersion() < 0) {
       redis.delete(key);
       return Optional.empty();
     }
-    // Phiên có thể vừa hết hạn giữa hai lệnh; expire trả false thì coi như không có.
-    if (!Boolean.TRUE.equals(redis.expire(key, session.client().ttl()))) {
-      return Optional.empty();
-    }
     return Optional.of(session);
+  }
+
+  @Override
+  public boolean touch(String sessionId, Client client) {
+    return Boolean.TRUE.equals(redis.expire(SESSION_PREFIX + sessionId, client.ttl()));
   }
 
   @Override
@@ -100,18 +131,25 @@ class RedisSessionStore implements SessionStore {
   }
 
   @Override
-  public void deleteAllOf(String userId, String keepSessionId) {
+  public void promote(String userId, String sessionId, int credentialVersion) {
+    redis.execute(
+        PROMOTE, List.of(SESSION_PREFIX + sessionId), userId, Integer.toString(credentialVersion));
+  }
+
+  @Override
+  public void deleteOlder(String userId, int credentialVersion) {
     String userSessions = USER_SESSIONS_PREFIX + userId;
     Set<String> members = redis.opsForSet().members(userSessions);
     if (members == null) {
       return;
     }
     for (String sessionId : members) {
-      if (sessionId.equals(keepSessionId)) {
-        continue;
-      }
-      redis.delete(SESSION_PREFIX + sessionId);
-      redis.opsForSet().remove(userSessions, sessionId);
+      redis.execute(
+          DELETE_OLDER,
+          List.of(SESSION_PREFIX + sessionId, userSessions),
+          userId,
+          Integer.toString(credentialVersion),
+          sessionId);
     }
   }
 

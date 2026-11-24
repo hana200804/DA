@@ -1,5 +1,8 @@
 # Lát 1 · Tài khoản, phiên, phân quyền
 
+Tài liệu ghi lại triển khai ban đầu của lát này. Cơ chế xác thực và thu hồi phiên
+hiện hành được cập nhật ở [CSDL §10](../../06-co-so-du-lieu.md#10-redis).
+
 > Kế hoạch thực thi theo [thiết kế triển khai](../thiet-ke-trien-khai.md) §5.3 và §6 hàng "1 · Tài khoản". Đánh dấu `- [x]` khi xong từng bước để người khác (hoặc Codex) làm tiếp được.
 
 **Mục tiêu:** người dùng đăng ký, đăng nhập, đăng xuất, xem và sửa tài khoản, đổi mật khẩu; mọi request đi qua filter phiên Redis và kiểm tra theo quyền; web quản trị gọi được API thật qua backend chạy trong Compose.
