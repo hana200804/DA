@@ -53,6 +53,7 @@ import vn.signa.identity.internal.AccountService.Profile;
 import vn.signa.identity.internal.PasswordResetService;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
+import vn.signa.recognition.internal.CompareResult;
 import vn.signa.recognition.internal.DetectResult;
 import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
@@ -71,6 +72,7 @@ import vn.signa.sign.internal.review.ReviewService;
 import vn.signa.sign.internal.review.ReviewViews.Created;
 import vn.signa.sign.internal.review.ReviewViews.QueuePage;
 import vn.signa.sign.internal.stats.StatisticsService;
+import vn.signa.sign.internal.stats.StatisticsView;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -307,6 +309,15 @@ class PermissionMatrixTest {
               "/api/v1/admin/reports/r-1/dismiss",
               "{\"note\":\"Đã kiểm tra\"}",
               Access.permission("report:resolve")),
+          // Lát 9 · thống kê, so sánh mô hình và tìm địa điểm.
+          Endpoint.of(HttpMethod.GET, "/api/v1/admin/stats", null, Access.permission("stats:read")),
+          Endpoint.withFile(
+              HttpMethod.POST,
+              "/api/v1/admin/recognition/compare",
+              new MockMultipartFile(
+                  "image", "a.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
+              Access.permission("recognition:compare")),
+          Endpoint.of(HttpMethod.GET, "/api/v1/places/search?q=Hanoi", null, Access.PUBLIC),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -373,6 +384,17 @@ class PermissionMatrixTest {
         .thenReturn(new LoginResult("tok", Instant.parse("2026-12-01T00:00:00Z"), profile));
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
+    when(statistics.statistics(null, null))
+        .thenReturn(
+            new StatisticsView(
+                List.of(),
+                new StatisticsView.Decisions(0, 0),
+                new StatisticsView.ProcessingTime(null, 0),
+                List.of(),
+                List.of()));
+    when(recognition.compare(any(), anyString()))
+        .thenReturn(new CompareResult(new DetectResult.ImageSize(8, 8), List.of()));
+    when(places.search("Hanoi")).thenReturn(new PlaceSearch.Result(List.of()));
     when(recognition.models()).thenReturn(new ModelList("yolov8", List.of()));
     when(recognition.detect(any(), any(), any()))
         .thenReturn(

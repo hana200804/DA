@@ -2,7 +2,7 @@
 
 > Kế hoạch theo [thiết kế triển khai](../thiet-ke-trien-khai.md) §5.3 và §6. Đánh dấu từng bước khi hoàn thành.
 
-**Mục tiêu:** hoàn thành quên mật khẩu bằng OTP qua email (FR-13, NFR-10) trong phần A. Phần B chờ các lát cung cấp dữ liệu và hợp đồng cần thiết.
+**Mục tiêu** gồm quên mật khẩu bằng OTP qua email (FR-13, NFR-10) trong phần A và các hạng mục P1 còn lại trong phần B.
 
 ## Ràng buộc chung
 
@@ -26,13 +26,14 @@
 - [x] Kiểm thử OTP, giới hạn, tài khoản không tồn tại, API và ma trận quyền. Biên dịch IT cho luồng đầy đủ, phiên cũ, giới hạn gửi và TTL.
 - [x] Chạy Gradle, markdownlint và commit phần A.
 
-### Phần B · Các hạng mục làm sau
+### Phần B · Các hạng mục P1 còn lại
 
-- [ ] FR-11 `GET /me/submissions` sau lát 5.
-- [ ] FR-25 tự duyệt sau lát 5.
-- [ ] FR-37 so sánh mô hình sau lát 3.
-- [ ] FR-38 thống kê sau lát 5 và lát 6.
-- [ ] FR-14 định nghĩa interface tìm địa điểm.
+- [x] Ghép lát 2–7 vào `backend/9-p1` và kiểm tra Gradle trước khi triển khai. FR-11 `GET /me/submissions` đã có từ lát 5.
+- [x] FR-37 so sánh ba mô hình, quy đổi box theo ảnh gốc, trả lỗi riêng theo mô hình và giới hạn 10 lượt/phút mỗi tài khoản.
+- [x] FR-38 thống kê ngày UTC, quyết định, thời gian xử lý, nhóm biển và mật độ zoom 12. Thêm chỉ mục theo thời gian bằng migration `V90`.
+- [x] FR-25 xác nhận worker đọc cấu hình tự duyệt mặc định tắt, cập nhật trạng thái thành viên và ghi lịch sử hệ thống. Thêm IT cho UT-B09 và UT-B10.
+- [x] FR-14 hoàn thành khung `PlaceSearch` và API công khai với `NoopPlaceSearch`, kiểm tra `q` và giới hạn 30 lượt/phút mỗi IP. Bản cài đặt có kết quả thực tế sẽ được bổ sung sau khi chốt Q6.
+- [x] Thêm ba quy tắc URL vào Security và ba endpoint vào ma trận quyền. Cập nhật hợp đồng tại [API §6](../../07-api.md#6-biển-đề-xuất-đánh-giá-báo-cáo) và [API §8](../../07-api.md#8-quản-trị).
 
 ## Tiến độ
 
@@ -45,3 +46,12 @@
 - Bí mật OTP bắt buộc khi chạy ứng dụng web ngoài profile `test`. Profile `test` tự sinh bí mật trong bộ nhớ khi thiếu. SMTP local dùng Mailpit `v1.34.0`. Test khởi tạo context `migrate` với Flyway tắt xác nhận chế độ này chạy được khi thiếu `SIGNA_OTP_SECRET`.
 - Điều phối viên đã chấp nhận hai rủi ro. Hàng đợi email trong bộ nhớ có thể mất yêu cầu đã nhận `202` khi đầy, backend khởi động lại hoặc SMTP lỗi. Người dùng có thể xin mã lại. Nếu thu hồi phiên gặp lỗi, giao dịch MySQL rollback và người dùng cần yêu cầu OTP mới.
 - Phần B giữ lại trong kế hoạch để thực hiện sau khi các lát phụ thuộc sẵn sàng.
+
+**2026-11-24 · Phần B.** Đã ghép lát 2–7 và triển khai các nhiệm vụ đã đánh dấu trên `backend/9-p1`.
+
+- `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` đạt. Có 641 ca unit, MVC và kiến trúc đạt, tăng 29 ca so với sau khi ghép. Trong đó có 12 ca mới của ma trận quyền. Markdownlint đạt.
+- So sánh dùng chung bước kiểm tra và chuẩn bị ảnh với nhận diện. Kết quả có thứ tự cố định và mỗi mô hình có thể lỗi riêng. Hai bộ đếm mới dùng cửa sổ 60 giây trong Redis, tách khỏi giới hạn nhận diện thường. Khi Redis lỗi, API vẫn phục vụ và ghi cảnh báo.
+- Thống kê lấy dữ liệu trong cùng một giao dịch chỉ đọc. Khoảng quyết định tính cả hai đầu mút. Các biển duyệt tay chưa có đề xuất vẫn được tính vào số quyết định và bỏ qua khi tính thời gian xử lý. Nhóm và mật độ phản ánh toàn bộ biển đang `APPROVED`.
+- Worker tự duyệt hiện có đã đáp ứng FR-25. Hai ca mới truyền đề xuất qua Redis Stream vào worker thật và kiểm tra trạng thái biển, trạng thái thành viên và lịch sử trong MySQL. Mỗi ca dùng một Redis DB riêng để cách ly luồng trong CI.
+- Bốn ca tích hợp cần Docker trên CI. Chúng gồm so sánh với DETR giả trả `503` trong `RecognitionIT`, thống kê với dữ liệu chèn sẵn trong `StatisticsIT`, cùng `AutoApprovalEnabledIT` và `AutoApprovalDisabledIT`. Máy làm việc đã biên dịch các ca này.
+- Độ trễ của so sánh có thể cộng dồn qua ba lượt gọi tuần tự. Truy vấn mật độ duyệt toàn bộ biển `APPROVED` để gom ô toàn bản đồ. Tìm địa điểm tiếp tục trả danh sách rỗng đến khi có nhà cung cấp sau Q6.

@@ -96,6 +96,12 @@ class SecurityConfig {
                 .hasAuthority("report:create")
                 .requestMatchers(API + "/me/reports")
                 .authenticated()
+                .requestMatchers(API + "/admin/stats/**")
+                .hasAuthority("stats:read")
+                .requestMatchers(API + "/admin/recognition/**")
+                .hasAuthority("recognition:compare")
+                .requestMatchers(API + "/places/**")
+                .permitAll()
                 .anyRequest()
                 .authenticated());
     return http.build();

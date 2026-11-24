@@ -203,6 +203,12 @@ Toạ độ box là số thực theo pixel. `name`, `description`, `iconUrl` là
 
 Chi tiết biển công khai áp dụng cùng trạng thái hiển thị như bản đồ. API trả `404` khi ID không tồn tại hoặc biển chưa công bố, đã bị từ chối hay đã gỡ.
 
+### Tìm địa điểm
+
+`GET /places/search` nhận `q` dài 2–100 ký tự sau khi bỏ khoảng trắng hai đầu. Thiếu `q` hoặc độ dài không hợp lệ trả `400 VALIDATION_ERROR`. Mỗi IP được tối đa 30 truy vấn hợp lệ trong một cửa sổ 60 giây. Khi vượt, API trả `429 RATE_LIMITED` kèm `Retry-After`.
+
+Với cấu hình mặc định `signa.places.provider=none`, API trả `200` và `{ "items": [] }`. Khi có nhà cung cấp, mỗi mục có dạng `{ name, location: { lat, lng } }`. Nhà cung cấp thực tế sẽ được bổ sung sau khi chốt Q6.
+
 ### Biển trong vùng
 
 ```json
@@ -483,7 +489,9 @@ ghi trong cùng giao dịch. Các báo cáo khác đang chờ của biển đó 
 
 Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorType, actorId, actorName, beforeValue, afterValue, reason, requestId, createdAt }`. `actorId` và `actorName` là `null` khi `actorType = SYSTEM`. `from` và `to` là thời điểm ISO-8601.
 
-`/admin/stats` trả:
+`/admin/stats` nhận `from` và `to` là thời điểm ISO-8601 có độ lệch UTC. Cả hai đầu mút đều được tính. Mặc định `to` là thời điểm hiện tại và `from` là 30 ngày trước `to`. API trả `400 VALIDATION_ERROR` nếu thời điểm không hợp lệ, `from` sau `to` hoặc khoảng dài hơn 366 ngày.
+
+API trả đối tượng sau.
 
 ```json
 {
@@ -495,25 +503,42 @@ Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorTyp
 }
 ```
 
-`processingTime` đo từ đề xuất đầu tiên của biển tới quyết định duyệt hoặc từ chối. `densityCells` dùng cùng ô lưới với bản đồ ở mức zoom 12.
+- `submissionsByDay` đếm đề xuất theo `received_at` và ngày UTC. Danh sách theo thứ tự ngày tăng dần, gồm cả ngày có số đếm 0.
+- `decisions` đếm biển ở trạng thái `APPROVED` hoặc `REJECTED` có `reviewed_at` trong khoảng.
+- `processingTime` đo mili-giây từ đề xuất đầu tiên của biển tới `reviewed_at` cho các biển được đếm trong `decisions`. Chỉ biển đã có đề xuất tại thời điểm quyết định mới góp mẫu. `averageMs` là `null` khi `samples` bằng 0.
+- `signsByCategory` đếm toàn bộ biển `APPROVED` theo nhóm và trả tên nhóm từ danh mục. `densityCells` gom cùng tập biển theo ô lưới của bản đồ ở zoom 12. Hai trường này phản ánh độ phủ tại thời điểm truy vấn.
 
-`/admin/recognition/compare` nhận multipart `image` như `/recognition/detect`, rồi gọi lần lượt ba mô hình:
+`/admin/recognition/compare` nhận multipart `image` và dùng cùng quy tắc kiểm tra ảnh với `/recognition/detect`. Mỗi tài khoản được tối đa 10 lượt so sánh trong một cửa sổ 60 giây, với bộ đếm riêng. Khi vượt, API trả `429 RATE_LIMITED` kèm `Retry-After`.
+
+Kết quả theo thứ tự `yolov5`, `yolov8`, `detr`. Kích thước `image` và toạ độ `box` tính theo ảnh gốc. `name` lấy từ danh mục biển và có thể là `null` khi chưa có mã.
 
 ```json
 {
   "image": { "width": 1280, "height": 960 },
   "results": [
     {
+      "model": { "name": "yolov5", "version": "yolov5s-v1.0", "labelMapVersion": 1 },
+      "inferenceMs": 155,
+      "detections": []
+    },
+    {
       "model": { "name": "yolov8", "version": "yolov8s-v1.0", "labelMapVersion": 1 },
       "inferenceMs": 142,
-      "detections": [{ "box": { "x": 812, "y": 233, "width": 64, "height": 66 }, "signTypeCode": "P.123a", "confidence": 0.93 }]
+      "detections": [
+        {
+          "box": { "x": 812, "y": 233, "width": 64, "height": 66 },
+          "signTypeCode": "P.123a",
+          "confidence": 0.93,
+          "name": "Cấm rẽ trái"
+        }
+      ]
     },
-    { "model": { "name": "detr" }, "error": { "message": "Dịch vụ nhận diện quá tải" } }
+    { "model": { "name": "detr" }, "error": { "message": "Dịch vụ nhận diện tạm thời không phản hồi" } }
   ]
 }
 ```
 
-Một mô hình lỗi không làm hỏng cả request; kết quả của mô hình đó mang `error`.
+Với ảnh hợp lệ và yêu cầu trong hạn mức, API trả `200` kể cả khi dịch vụ nhận diện lỗi. Mỗi mô hình lỗi trả `model.name` và `error.message`.
 
 ### Danh mục và người dùng
 
