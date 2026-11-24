@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.AopTestUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import vn.signa.audit.api.AuditRecorder;
@@ -214,8 +215,10 @@ class CatalogAdminIT extends IntegrationTest {
 
     assertStatus(upload(admin, code, "one.png", "image/png", PNG), 204);
     String original = currentIconKey(code);
+    // Stub trên spy đích: gọi qua proxy @Transactional(MANDATORY) ngoài giao dịch sẽ ném lỗi.
+    AuditRecorder spy = AopTestUtils.getUltimateTargetObject(audit);
     doThrow(new IllegalStateException("Lỗi ghi lịch sử thử nghiệm"))
-        .when(audit)
+        .when(spy)
         .record(argThat(entry -> entry.entityId().equals(code)));
 
     assertStatus(upload(admin, code, "replacement.png", "image/png", PNG), 500);
