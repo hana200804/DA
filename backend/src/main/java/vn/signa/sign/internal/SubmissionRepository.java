@@ -1,12 +1,23 @@
 package vn.signa.sign.internal;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
+import vn.signa.sign.clustering.ClusteringOutcome;
+import vn.signa.sign.clustering.GeoPoint;
+import vn.signa.sign.clustering.MemberSubmission;
+import vn.signa.sign.clustering.MemberUpdate;
+import vn.signa.sign.clustering.SubmissionFlag;
+import vn.signa.sign.clustering.SubmissionInput;
 import vn.signa.sign.clustering.SubmissionStatus;
 import vn.signa.sign.internal.SubmissionService.Item;
 import vn.signa.sign.internal.SubmissionService.Receipt;
@@ -96,5 +107,128 @@ class SubmissionRepository {
         .param("user", user)
         .query(Long.class)
         .single();
+  }
+
+  Optional<WorkItem> lock(String id) {
+    return jdbc.sql(
+            """
+            SELECT id, user_id, sign_type_code, confidence, heading_deg, flags, received_at, crop_key,
+                   status, ST_Latitude(location) AS lat, ST_Longitude(location) AS lng
+            FROM submissions WHERE id = :id FOR UPDATE
+            """)
+        .param("id", id)
+        .query((rs, row) ->
+            new WorkItem(
+                rs.getString("id"),
+                rs.getString("user_id"),
+                rs.getString("sign_type_code"),
+                rs.getBigDecimal("confidence"),
+                SignSql.location(rs),
+                rs.getObject("heading_deg", Integer.class),
+                SignSql.flags(json, rs.getString("flags"), SubmissionFlag.class),
+                SignSql.instant(rs, "received_at"),
+                rs.getString("crop_key"),
+                SubmissionStatus.valueOf(rs.getString("status"))))
+        .optional();
+  }
+
+  Map<String, List<MemberSubmission>> forSigns(List<String> ids) {
+    Map<String, List<MemberSubmission>> members = new HashMap<>();
+    jdbc.sql(
+            """
+            SELECT id, sign_id, user_id, sign_type_code, weight, received_at, status,
+                   ST_Latitude(location) AS lat, ST_Longitude(location) AS lng
+            FROM submissions WHERE sign_id IN (:ids) AND weight IS NOT NULL
+            """)
+        .param("ids", ids)
+        .query(rs -> {
+          while (rs.next()) {
+            members
+                .computeIfAbsent(rs.getString("sign_id"), id -> new ArrayList<>())
+                .add(
+                    new MemberSubmission(
+                        rs.getString("id"),
+                        rs.getString("user_id"),
+                        rs.getString("sign_type_code"),
+                        rs.getBigDecimal("weight"),
+                        SignSql.location(rs),
+                        SignSql.instant(rs, "received_at"),
+                        SubmissionStatus.valueOf(rs.getString("status"))));
+          }
+          return members;
+        });
+    return members;
+  }
+
+  String bestCrop(String signId, String submissionId, String code) {
+    return jdbc.sql(
+            """
+            SELECT crop_key FROM submissions
+            WHERE sign_type_code = :code AND (sign_id = :sign OR id = :submission)
+            ORDER BY confidence DESC, received_at, id LIMIT 1
+            """)
+        .param("code", code)
+        .param("sign", signId)
+        .param("submission", submissionId)
+        .query(String.class)
+        .optional()
+        .orElse(null);
+  }
+
+  void finish(String submissionId, ClusteringOutcome result) {
+    jdbc.sql(
+            """
+            UPDATE submissions SET status = :status, weight = :weight, sign_id = :sign,
+              reject_reason = :reason WHERE id = :id
+            """)
+        .param("status", result.submissionStatus().name())
+        .param("weight", result.submissionWeight())
+        .param("sign", result.sign().id())
+        .param("reason", result.rejectReason())
+        .param("id", submissionId)
+        .update();
+  }
+
+  void updateMember(MemberUpdate member) {
+    jdbc.sql("UPDATE submissions SET status = :status, reject_reason = :reason WHERE id = :id")
+        .param("status", member.status().name())
+        .param("reason", member.rejectReason())
+        .param("id", member.submissionId())
+        .update();
+  }
+
+  List<Received> receivedBefore(Instant cutoff, Received cursor, int batch) {
+    return jdbc.sql(
+            """
+            SELECT id, received_at FROM submissions
+            WHERE status = 'RECEIVED' AND received_at < :cutoff
+              AND (received_at > :from OR (received_at = :from AND id > :id))
+            ORDER BY received_at, id LIMIT :batch
+            """)
+        .param("cutoff", SignSql.utc(cutoff))
+        .param("from", SignSql.utc(cursor.receivedAt()))
+        .param("id", cursor.id())
+        .param("batch", batch)
+        .query((rs, row) -> new Received(rs.getString("id"), SignSql.instant(rs, "received_at")))
+        .list();
+  }
+
+  record Received(String id, Instant receivedAt) {}
+
+  record WorkItem(
+      String id,
+      String userId,
+      String signTypeCode,
+      BigDecimal confidence,
+      GeoPoint location,
+      Integer heading,
+      Set<SubmissionFlag> flags,
+      Instant receivedAt,
+      String cropKey,
+      SubmissionStatus status) {
+    SubmissionInput input(String category) {
+      return new SubmissionInput(
+          id, userId, signTypeCode, category, confidence, location, heading, flags, receivedAt);
+    }
   }
 }

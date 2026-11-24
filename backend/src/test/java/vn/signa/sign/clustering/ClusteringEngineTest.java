@@ -389,10 +389,9 @@ class ClusteringEngineTest {
           assertThat(e.type()).isEqualTo(SignEventType.LOCATION_RECOMPUTED);
           assertThat(e.actorType()).isEqualTo("SYSTEM");
           assertThat(e.before())
-              .containsExactlyEntriesOf(java.util.Map.of("lat", ORIGIN.lat(), "lng", ORIGIN.lng()));
+              .isEqualTo(java.util.Map.of("lat", ORIGIN.lat(), "lng", ORIGIN.lng()));
           assertThat(e.before().keySet()).containsExactly("lat", "lng");
-          assertThat(e.after())
-              .containsExactlyEntriesOf(java.util.Map.of("lat", mid.lat(), "lng", mid.lng()));
+          assertThat(e.after()).isEqualTo(java.util.Map.of("lat", mid.lat(), "lng", mid.lng()));
           assertThat(e.reason()).isNull();
         });
   }
