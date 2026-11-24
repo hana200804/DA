@@ -46,7 +46,9 @@ class SchemaIT extends IntegrationTest {
             MigrationVersion.fromVersion("51"),
             MigrationVersion.fromVersion("70"),
             MigrationVersion.fromVersion("90"),
-            MigrationVersion.fromVersion("100"));
+            MigrationVersion.fromVersion("100"),
+            MigrationVersion.fromVersion("110"),
+            MigrationVersion.fromVersion("111"));
   }
 
   @Test
