@@ -284,6 +284,11 @@ class PermissionMatrixTest {
               HttpMethod.GET, "/api/v1/admin/reports", null, Access.permission("report:resolve")),
           Endpoint.of(
               HttpMethod.POST,
+              "/api/v1/admin/reports/r-1/accept",
+              "{\"action\":\"REMOVE\",\"version\":1}",
+              Access.permission("report:resolve")),
+          Endpoint.of(
+              HttpMethod.POST,
               "/api/v1/admin/reports/r-1/dismiss",
               "{\"note\":\"Đã kiểm tra\"}",
               Access.permission("report:resolve")),
