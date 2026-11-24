@@ -1,5 +1,6 @@
 package vn.signa.sign.internal.review;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -32,20 +33,32 @@ class ReviewSignRepository {
     this.jdbc = jdbc;
   }
 
-  /** Đọc biển bằng {@code SELECT … FOR UPDATE}, kèm trọng số và đề xuất thành viên. */
+  /**
+   * Đọc biển bằng {@code SELECT … FOR UPDATE}, kèm trọng số, đề xuất thành viên, và bằng chứng phản
+   * đối sau {@code reviewed_at} tính bằng SQL như worker gom cụm.
+   */
   Optional<SignState> lock(String id) {
     return jdbc.sql(
             """
             SELECT id, status, sign_type_code, category_code, heading_deg, location_locked,
-                   distinct_submitters, confirm_count, deny_count, deny_since_review,
-                   moderator_boost, confidence, suggestion, related_sign_id, reviewed_at, version,
+                   distinct_submitters, confirm_count, deny_count, moderator_boost, confidence,
+                   suggestion, related_sign_id, reviewed_at, version,
+                   (SELECT COUNT(*) FROM sign_ratings r
+                    WHERE r.sign_id = signs.id AND r.value = 'DENY'
+                      AND (signs.reviewed_at IS NULL OR r.updated_at > signs.reviewed_at))
+                     AS deny_since_review,
                    ST_Latitude(location) AS lat, ST_Longitude(location) AS lng
             FROM signs WHERE id = :id FOR UPDATE
             """)
         .param("id", id)
         .query(ReviewSignRepository::read)
         .optional()
-        .map(sign -> sign.toBuilder().codeWeights(weights(id)).members(members(id)).build());
+        .map(sign ->
+            sign.toBuilder()
+                .codeWeights(weights(id))
+                .members(members(id))
+                .weightsSinceReview(weightsSinceReview(id))
+                .build());
   }
 
   /**
@@ -90,21 +103,6 @@ class ReviewSignRepository {
         .update();
   }
 
-  void saveWeights(String signId, Map<String, CodeWeight> weights) {
-    weights.forEach((code, weight) ->
-        jdbc.sql(
-                """
-                INSERT INTO sign_code_weights (sign_id, sign_type_code, weight, submitter_count)
-                VALUES (:sign, :code, :weight, :submitters) AS incoming
-                ON DUPLICATE KEY UPDATE weight = incoming.weight
-                """)
-            .param("sign", signId)
-            .param("code", code)
-            .param("weight", weight.weight())
-            .param("submitters", weight.submitterCount())
-            .update());
-  }
-
   void updateMembers(String signId, List<MemberUpdate> members) {
     for (MemberUpdate member : members) {
       jdbc.sql(
@@ -130,6 +128,24 @@ class ReviewSignRepository {
           weights.put(
               rs.getString("sign_type_code"),
               new CodeWeight(rs.getBigDecimal("weight"), rs.getInt("submitter_count")));
+        });
+    return weights;
+  }
+
+  /** Tổng {@code weight} theo mã của đề xuất có {@code received_at > reviewed_at}. */
+  private Map<String, BigDecimal> weightsSinceReview(String id) {
+    Map<String, BigDecimal> weights = new HashMap<>();
+    jdbc.sql(
+            """
+            SELECT s.sign_type_code, SUM(s.weight) AS weight
+            FROM submissions s JOIN signs g ON g.id = s.sign_id
+            WHERE s.sign_id = :id AND s.weight IS NOT NULL
+              AND g.reviewed_at IS NOT NULL AND s.received_at > g.reviewed_at
+            GROUP BY s.sign_type_code
+            """)
+        .param("id", id)
+        .query(rs -> {
+          weights.put(rs.getString("sign_type_code"), rs.getBigDecimal("weight"));
         });
     return weights;
   }

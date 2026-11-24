@@ -18,7 +18,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,7 +77,6 @@ class ReviewServiceTest {
     assertThat(written.getValue().status()).isEqualTo(SignStatus.APPROVED);
     assertThat(written.getValue().signTypeCode()).isEqualTo("P.123b");
     assertThat(written.getValue().reviewedAt()).isEqualTo(NOW);
-    verify(signs).saveWeights(ID, Map.of("P.123a", new CodeWeight(new BigDecimal("0.0000"), 1)));
     verify(signs)
         .updateMembers(
             ID,

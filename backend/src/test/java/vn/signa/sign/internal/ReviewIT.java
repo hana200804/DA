@@ -190,7 +190,8 @@ class ReviewIT extends IntegrationTest {
         .containsEntry("suggestion", null);
     assertThat((BigDecimal) row.get("confidence")).isGreaterThanOrEqualTo(new BigDecimal("0.5"));
     assertThat((BigDecimal) row.get("moderator_boost")).isEqualByComparingTo("2");
-    assertThat(it.weight(sign, codeA)).isEqualByComparingTo("0");
+    // sign_code_weights giữ nguyên; W_A có trước lần duyệt nên không vào β.
+    assertThat(it.weight(sign, codeA)).isEqualByComparingTo("2.7");
     assertThat(it.weight(sign, codeB)).isEqualByComparingTo("0.9");
     assertThat(leading)
         .allSatisfy(id ->

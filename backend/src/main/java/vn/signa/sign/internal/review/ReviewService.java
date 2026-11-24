@@ -28,7 +28,7 @@ import vn.signa.sign.internal.review.ReviewViews.Created;
 /**
  * Thao tác ghi của kiểm duyệt viên (FR-31, FR-33). Mỗi thao tác là một giao dịch: khoá biển, kiểm
  * {@code version} và trạng thái, ghi biển bằng {@code UPDATE … WHERE id = ? AND version = ?}, cập
- * nhật trọng số, đề xuất thành viên và lịch sử (NFR-11).
+ * nhật đề xuất thành viên và lịch sử (NFR-11). Không đổi {@code sign_code_weights}.
  */
 @Service
 public class ReviewService {
@@ -111,7 +111,6 @@ public class ReviewService {
     if (!signs.update(outcome.sign(), sign.version(), outcome.reviewed() ? actor : null, now)) {
       throw new ApiException(ErrorCode.SIGN_ALREADY_PROCESSED);
     }
-    signs.saveWeights(id, outcome.weights());
     signs.updateMembers(id, outcome.members());
     record(actor, outcome);
   }

@@ -55,7 +55,7 @@ class ReviewRulesTest {
     // α = 0,5 + 1,78 + 2 = 4,28; β = 0,5 → 4,28 / 4,78.
     assertThat(approved.confidence()).isEqualByComparingTo("0.8954");
     assertThat(outcome.reviewed()).isTrue();
-    assertThat(outcome.weights()).isEmpty();
+    assertThat(approved.codeWeights()).isEqualTo(sign.codeWeights());
     assertThat(outcome.members())
         .containsExactly(
             new MemberUpdate("s1", SubmissionStatus.ACCEPTED, null),
@@ -82,12 +82,14 @@ class ReviewRulesTest {
 
     SignState approved = outcome.sign();
     assertThat(approved.signTypeCode()).isEqualTo(B);
-    // Mã khác về 0 nên β = 0,5: α = 0,5 + 0,9 + 2 = 3,4 → 3,4 / 3,9.
+    // W_A = 2,7 có trước lần duyệt nên không vào β: α = 0,5 + 0,9 + 2 = 3,4; β = 0,5.
     assertThat(approved.confidence()).isEqualByComparingTo("0.8718");
     assertThat(approved.confidence()).isGreaterThanOrEqualTo(new BigDecimal("0.5"));
-    assertThat(outcome.weights())
-        .containsOnly(entry(A, new CodeWeight(new BigDecimal("0.0000"), 3)));
-    assertThat(approved.codeWeights().get(B).weight()).isEqualByComparingTo("0.9");
+    assertThat(approved.reviewedAt()).isEqualTo(NOW);
+    assertThat(approved.weightsSinceReview()).isEmpty();
+    // sign_code_weights giữ nguyên: bằng chứng không mất.
+    assertThat(approved.codeWeights()).isEqualTo(sign.codeWeights());
+    assertThat(approved.codeWeights().get(A).weight()).isEqualByComparingTo("2.7");
     assertThat(outcome.members())
         .containsExactlyInAnyOrder(
             new MemberUpdate("s1", SubmissionStatus.REJECTED, ReviewRules.REASON_OTHER_CODE),
@@ -129,18 +131,26 @@ class ReviewRulesTest {
   }
 
   @Test
-  void approveRestoresWeightOfPreviouslyZeroedCode() {
+  void keepWithFiveOldDeniesScoresAtLeastHalf() {
     SignState sign =
-        pending(member("s1", "u1", A, "0.9000"), member("s2", "u2", B, "0.8000")).toBuilder()
-            .codeWeight(B, new CodeWeight(new BigDecimal("0.0000"), 1))
+        underReview(member("s1", "u1", A, "0.9000", SubmissionStatus.ACCEPTED)).toBuilder()
+            .codeWeight(B, new CodeWeight(new BigDecimal("1.5000"), 2))
+            .weightsSinceReview(Map.of(B, new BigDecimal("1.5000")))
+            .denyCount(5)
+            .denySinceReview(5)
             .build();
+    // Trước khi giữ: α = 0,5 + 0,9 + 2 = 3,4; β = 0,5 + 1,5 + 5 = 7.
+    assertThat(vn.signa.sign.clustering.Scoring.score(sign, A)).isEqualByComparingTo("0.3269");
 
-    Outcome outcome = ReviewRules.approve(sign, 3, TARGET_B, null, NOW);
+    Outcome outcome = ReviewRules.keep(sign, 3, SignChange.NONE, null, NOW);
 
-    assertThat(outcome.weights())
-        .containsOnly(
-            entry(A, new CodeWeight(new BigDecimal("0.0000"), 1)),
-            entry(B, new CodeWeight(new BigDecimal("0.8000"), 1)));
+    SignState kept = outcome.sign();
+    // Bằng chứng phản đối trước lúc giữ coi như đã xem xét: β = 0,5.
+    assertThat(kept.confidence()).isEqualByComparingTo("0.8718");
+    assertThat(kept.denyCount()).isEqualTo(5);
+    assertThat(kept.denySinceReview()).isZero();
+    assertThat(kept.weightsSinceReview()).isEmpty();
+    assertThat(kept.codeWeights()).isEqualTo(sign.codeWeights());
   }
 
   @Test
@@ -282,7 +292,6 @@ class ReviewRulesTest {
     assertThat(outcome.sign().confidence()).isEqualByComparingTo(sign.confidence());
     assertThat(outcome.reviewed()).isFalse();
     assertThat(outcome.members()).isEmpty();
-    assertThat(outcome.weights()).isEmpty();
     assertThat(outcome.events()).extracting(Event::action).containsExactly("EDITED");
   }
 
@@ -323,7 +332,7 @@ class ReviewRulesTest {
         .containsExactlyInAnyOrder(
             new MemberUpdate("s1", SubmissionStatus.REJECTED, ReviewRules.REASON_OTHER_CODE),
             new MemberUpdate("s2", SubmissionStatus.ACCEPTED, null));
-    assertThat(outcome.weights()).containsKey(A);
+    assertThat(outcome.sign().codeWeights()).isEqualTo(sign.codeWeights());
     // α = 0,5 + 0,8 + 2 = 3,3; β = 0,5.
     assertThat(outcome.sign().confidence()).isEqualByComparingTo("0.8684");
     assertThat(outcome.events().getFirst().after())

@@ -4,19 +4,16 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
 import vn.signa.sign.clustering.ClusteringEngine;
-import vn.signa.sign.clustering.CodeWeight;
 import vn.signa.sign.clustering.GeoPoint;
 import vn.signa.sign.clustering.MemberSubmission;
 import vn.signa.sign.clustering.MemberUpdate;
@@ -24,7 +21,6 @@ import vn.signa.sign.clustering.Scoring;
 import vn.signa.sign.clustering.SignState;
 import vn.signa.sign.clustering.SignStatus;
 import vn.signa.sign.clustering.SubmissionStatus;
-import vn.signa.sign.clustering.Weights;
 
 /**
  * Luật thuần của các thao tác phê duyệt và sửa biển (FR-31, FR-33). Không đọc hay ghi CSDL: nhận
@@ -42,8 +38,6 @@ final class ReviewRules {
   static final String REASON_OTHER_CODE = "Biển được duyệt với mã khác";
   static final String REASON_REMOVED = "Biển đã bị gỡ";
 
-  private static final BigDecimal ZERO_WEIGHT = BigDecimal.ZERO.setScale(Weights.SCALE);
-
   private ReviewRules() {}
 
   /** Loại biển đã kiểm qua danh mục: đang dùng, kèm nhóm của nó. */
@@ -58,15 +52,10 @@ final class ReviewRules {
    *
    * @param sign trạng thái mới, {@code version} đã tăng (biển mới có {@code version = 0})
    * @param reviewed thao tác là một quyết định: ghi {@code reviewed_by}
-   * @param weights các mã có {@code W_c} thay đổi
    * @param members đề xuất thành viên đổi trạng thái
    */
   record Outcome(
-      SignState sign,
-      boolean reviewed,
-      Map<String, CodeWeight> weights,
-      List<MemberUpdate> members,
-      List<Event> events) {}
+      SignState sign, boolean reviewed, List<MemberUpdate> members, List<Event> events) {}
 
   static Outcome approve(
       SignState sign, int version, Target target, GeoPoint location, Instant now) {
@@ -76,7 +65,6 @@ final class ReviewRules {
     return new Outcome(
         settled.sign(),
         true,
-        settled.weights(),
         settled.members(),
         List.of(event("APPROVED", sign, settled.sign(), null)));
   }
@@ -86,7 +74,7 @@ final class ReviewRules {
     SignState rejected =
         sign.toBuilder()
             .status(SignStatus.REJECTED)
-            .reviewedAt(now)
+            .reviewed(now)
             .suggestion(null)
             .version(sign.version() + 1)
             .build();
@@ -98,7 +86,6 @@ final class ReviewRules {
     return new Outcome(
         withMembers(rejected, members),
         true,
-        Map.of(),
         members,
         List.of(event("REJECTED", sign, rejected, reason)));
   }
@@ -110,7 +97,7 @@ final class ReviewRules {
     if (changed(sign, edited)) events.add(event("EDITED", sign, edited, null));
     Settled settled = settle(decided(edited, SignStatus.APPROVED, now), true);
     events.add(event("KEPT", edited, settled.sign(), null));
-    return new Outcome(settled.sign(), true, settled.weights(), settled.members(), events);
+    return new Outcome(settled.sign(), true, settled.members(), events);
   }
 
   static Outcome remove(SignState sign, int version, String reason, Instant now) {
@@ -124,13 +111,12 @@ final class ReviewRules {
         withMembers(
             sign.toBuilder()
                 .status(SignStatus.REMOVED)
-                .reviewedAt(now)
+                .reviewed(now)
                 .suggestion(null)
                 .version(sign.version() + 1)
                 .build(),
             members);
-    return new Outcome(
-        removed, true, Map.of(), members, List.of(event("REMOVED", sign, removed, reason)));
+    return new Outcome(removed, true, members, List.of(event("REMOVED", sign, removed, reason)));
   }
 
   static Outcome edit(SignState sign, int version, SignChange change, Target target) {
@@ -153,11 +139,10 @@ final class ReviewRules {
     Settled settled =
         codeChanged
             ? settle(edited, sign.status() == SignStatus.APPROVED)
-            : new Settled(edited, Map.of(), List.of());
+            : new Settled(edited, List.of());
     return new Outcome(
         settled.sign(),
         false,
-        settled.weights(),
         settled.members(),
         List.of(event("EDITED", sign, settled.sign(), null)));
   }
@@ -174,17 +159,13 @@ final class ReviewRules {
             .headingDeg(headingDeg)
             .locationLocked(true)
             .moderatorBoost(MODERATOR_BOOST)
-            .reviewedAt(now)
+            .reviewed(now)
             .version(0)
             .build();
     SignState scored =
         sign.toBuilder().confidence(Scoring.score(sign, sign.signTypeCode())).build();
     return new Outcome(
-        scored,
-        true,
-        Map.of(),
-        List.of(),
-        List.of(new Event("CREATED", null, snapshot(scored), null)));
+        scored, true, List.of(), List.of(new Event("CREATED", null, snapshot(scored), null)));
   }
 
   /** {@code version} lệch hoặc trạng thái không cho phép thao tác: {@code 409}. */
@@ -211,69 +192,43 @@ final class ReviewRules {
     return b.build();
   }
 
-  /** Biển được kiểm duyệt viên quyết định: {@code M = 2}, mốc rà soát mới. */
+  /**
+   * Biển được kiểm duyệt viên quyết định: {@code M = 2}, mốc rà soát mới. Bằng chứng phản đối có
+   * trước mốc này coi như đã xem xét, nên không còn vào {@code β} (docs/04 §6).
+   */
   private static SignState decided(SignState sign, SignStatus status, Instant now) {
     return sign.toBuilder()
         .status(status)
         .moderatorBoost(MODERATOR_BOOST)
-        .reviewedAt(now)
-        .denySinceReview(0)
+        .reviewed(now)
         .suggestion(null)
         .version(sign.version() + 1)
         .build();
   }
 
-  private record Settled(
-      SignState sign, Map<String, CodeWeight> weights, List<MemberUpdate> members) {}
+  private record Settled(SignState sign, List<MemberUpdate> members) {}
 
   /**
-   * Chốt mã {@code c} = {@code signTypeCode} của biển. Mã khác có {@code W} về 0 (giữ {@code
-   * submitter_count}) vì đề xuất của chúng bị từ chối, như đề xuất bị từ chối ở bước 4 của lát 5.
-   * {@code W_c} bằng tổng {@code w} của đề xuất mang mã {@code c}, để chọn lại một mã đã bị loại
-   * lấy lại bằng chứng của nó. Sau đó tính lại điểm.
+   * Chốt mã {@code c} = {@code signTypeCode} của biển: cập nhật đề xuất thành viên rồi tính lại
+   * điểm bằng {@link Scoring#score}. Không đổi {@code sign_code_weights}.
    *
-   * @param accept biển chuyển {@code APPROVED}: đề xuất cùng mã {@code ACCEPTED} theo {@link
-   *     ClusteringEngine#memberUpdates}. {@code false} (sửa mã biển {@code UNDER_REVIEW}): chỉ từ
-   *     chối đề xuất khác mã, đề xuất cùng mã chờ tới khi giữ hoặc gỡ
+   * @param accept biển chuyển {@code APPROVED}: đề xuất cùng mã {@code ACCEPTED}, khác mã {@code
+   *     REJECTED} theo {@link ClusteringEngine#memberUpdates}. {@code false} (sửa mã biển {@code
+   *     UNDER_REVIEW}): chỉ từ chối đề xuất khác mã, đề xuất cùng mã chờ tới khi giữ hoặc gỡ
    */
   private static Settled settle(SignState sign, boolean accept) {
     String code = sign.signTypeCode();
-    Map<String, CodeWeight> changed = new TreeMap<>();
-    sign.codeWeights()
-        .forEach((c, w) -> {
-          if (!c.equals(code) && w.weight().signum() != 0) {
-            changed.put(c, new CodeWeight(ZERO_WEIGHT, w.submitterCount()));
-          }
-        });
-    List<MemberSubmission> own =
-        sign.members().stream().filter(m -> m.signTypeCode().equals(code)).toList();
-    if (!own.isEmpty()) {
-      BigDecimal total =
-          own.stream().map(MemberSubmission::weight).reduce(ZERO_WEIGHT, BigDecimal::add);
-      CodeWeight current = sign.codeWeights().get(code);
-      if (current == null || current.weight().compareTo(total) != 0) {
-        int submitters =
-            current != null
-                ? current.submitterCount()
-                : (int) own.stream().map(MemberSubmission::userId).distinct().count();
-        changed.put(code, new CodeWeight(total, submitters));
-      }
-    }
-    Map<String, CodeWeight> weights = new HashMap<>(sign.codeWeights());
-    weights.putAll(changed);
-    SignState weighted = sign.toBuilder().codeWeights(weights).build();
-
     List<MemberUpdate> members =
         accept
-            ? ClusteringEngine.memberUpdates(weighted)
-            : weighted.members().stream()
+            ? ClusteringEngine.memberUpdates(sign)
+            : sign.members().stream()
                 .filter(m -> !m.signTypeCode().equals(code))
                 .filter(m -> m.status() != SubmissionStatus.REJECTED)
                 .map(m -> new MemberUpdate(m.id(), SubmissionStatus.REJECTED, REASON_OTHER_CODE))
                 .toList();
-    SignState updated = withMembers(weighted, members);
+    SignState updated = withMembers(sign, members);
     SignState scored = updated.toBuilder().confidence(Scoring.score(updated, code)).build();
-    return new Settled(scored, changed, members);
+    return new Settled(scored, members);
   }
 
   private static SignState withMembers(SignState sign, List<MemberUpdate> updates) {
