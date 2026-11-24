@@ -3,7 +3,9 @@ package vn.signa.sign.internal.feedback;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import vn.signa.sign.clustering.SignStatus;
@@ -138,6 +140,21 @@ class ReportRepository {
             .param("now", FeedbackSql.utc(now))
             .update()
         == 1;
+  }
+
+  Map<String, Boolean> photoReferences(List<String> keys, Instant retiredBefore) {
+    return jdbc.sql(
+            """
+            SELECT photo_key, status <> 'PENDING' AND resolved_at <= :retiredBefore AS expired
+            FROM sign_reports WHERE photo_key IN (:keys)
+            """)
+        .param("keys", keys)
+        .param("retiredBefore", FeedbackSql.utc(retiredBefore))
+        .query(rs -> {
+          Map<String, Boolean> references = new HashMap<>();
+          while (rs.next()) references.put(rs.getString("photo_key"), rs.getBoolean("expired"));
+          return references;
+        });
   }
 
   private JdbcClient.StatementSpec filtered(String sql, Status status, Reason reason) {
