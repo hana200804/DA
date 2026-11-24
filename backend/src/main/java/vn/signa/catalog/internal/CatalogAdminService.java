@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -166,9 +167,9 @@ public class CatalogAdminService {
   public void uploadIcon(String actorId, String code, byte[] bytes) {
     CatalogIcon format = CatalogIcon.detect(bytes);
     TypeRow row = lockType(code).type();
-    String key = row.code() + "." + format.extension;
-    storage.put(SIGN_ICONS, key, bytes, format.contentType);
+    String key = row.code() + "-" + UUID.randomUUID() + "." + format.extension;
     scheduleIconCleanup(row.code(), row.iconKey(), key);
+    storage.put(SIGN_ICONS, key, bytes, format.contentType);
     repository.updateIcon(row.code(), key, now());
     Map<String, Object> before = new LinkedHashMap<>();
     before.put("iconKey", row.iconKey());
@@ -215,7 +216,6 @@ public class CatalogAdminService {
   }
 
   private void scheduleIconCleanup(String code, String oldKey, String newKey) {
-    if (newKey.equals(oldKey)) return;
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override

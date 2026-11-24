@@ -165,31 +165,44 @@ class CatalogAdminIT extends IntegrationTest {
     String fake =
         assertStatus(upload(admin, code, "fake.png", "image/png", "fake".getBytes(UTF_8)), 415);
     assertThat(json.readTree(fake).get("code").asString()).isEqualTo("UNSUPPORTED_MEDIA_TYPE");
-    assertThat(storage.exists(SIGN_ICONS, code + ".png")).isFalse();
+    assertThat(storage.list(SIGN_ICONS, code)).isEmpty();
 
     redis.opsForValue().set(CACHE_KEY, "{}");
     assertStatus(upload(admin, code, "one.png", "image/png", PNG), 204);
     assertThat(redis.hasKey(CACHE_KEY)).isFalse();
-    assertThat(storage.exists(SIGN_ICONS, code + ".png")).isTrue();
+    String firstKey = currentIconKey(code);
+    assertThat(firstKey).startsWith(code + "-").endsWith(".png");
+    assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
+
+    assertStatus(upload(admin, code, "another.png", "image/png", PNG), 204);
+    String secondKey = currentIconKey(code);
+    assertThat(secondKey).startsWith(code + "-").endsWith(".png").isNotEqualTo(firstKey);
+    assertThat(storage.exists(SIGN_ICONS, firstKey)).isFalse();
 
     var jpeg = new ByteArrayOutputStream();
     assertThat(ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "jpeg", jpeg))
         .isTrue();
     assertStatus(upload(admin, code, "two.jpg", "image/jpeg", jpeg.toByteArray()), 204);
-    assertThat(storage.exists(SIGN_ICONS, code + ".jpg")).isTrue();
-    assertThat(storage.exists(SIGN_ICONS, code + ".png")).isFalse();
+    String jpegKey = currentIconKey(code);
+    assertThat(jpegKey).startsWith(code + "-").endsWith(".jpg");
+    assertThat(storage.exists(SIGN_ICONS, jpegKey)).isTrue();
+    assertThat(storage.exists(SIGN_ICONS, secondKey)).isFalse();
     String detail = assertStatus(call("GET", PUBLIC_TYPES + "/" + code, null, null), 200);
     assertThat(json.readTree(detail).get("iconUrl").asString())
-        .isEqualTo("/icons/" + code + ".jpg");
+        .isEqualTo("/icons/" + jpegKey);
 
     List<Map<String, Object>> history = history("SIGN_TYPE", code, admin.userId());
     assertThat(history)
         .extracting(row -> row.get("action"))
-        .containsExactly("CREATED", "UPDATED", "UPDATED");
+        .containsExactly("CREATED", "UPDATED", "UPDATED", "UPDATED");
     assertThat(value(history.getLast(), "before_value").get("iconKey").asString())
-        .isEqualTo(code + ".png");
+        .isEqualTo(secondKey);
     assertThat(value(history.getLast(), "after_value").get("iconKey").asString())
-        .isEqualTo(code + ".jpg");
+        .isEqualTo(jpegKey);
+  }
+
+  private String currentIconKey(String code) {
+    return jdbc.queryForObject("SELECT icon_key FROM sign_types WHERE code = ?", String.class, code);
   }
 
   private Session signIn(String role) throws Exception {
