@@ -70,6 +70,14 @@ class SecurityConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, API + "/submissions")
                 .hasAuthority("submission:create")
+                .requestMatchers(API + "/admin/reports/**")
+                .hasAuthority("report:resolve")
+                .requestMatchers(HttpMethod.PUT, API + "/signs/*/rating")
+                .hasAuthority("sign:rate")
+                .requestMatchers(HttpMethod.POST, API + "/signs/*/reports")
+                .hasAuthority("report:create")
+                .requestMatchers(API + "/me/reports")
+                .authenticated()
                 .anyRequest()
                 .authenticated());
     return http.build();

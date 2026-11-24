@@ -233,6 +233,25 @@ class PermissionMatrixTest {
               Access.permission("submission:create"),
               true),
           Endpoint.of(HttpMethod.GET, "/api/v1/me/submissions", null, Access.AUTHENTICATED),
+          // Lát 7 · đánh giá và báo cáo (docs/07 §6, §8)
+          Endpoint.of(
+              HttpMethod.PUT,
+              "/api/v1/signs/s-1/rating",
+              "{\"value\":\"DENY\"}",
+              Access.permission("sign:rate")),
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/signs/s-1/reports",
+              "{\"reason\":\"NOT_EXIST\"}",
+              Access.permission("report:create")),
+          Endpoint.of(HttpMethod.GET, "/api/v1/me/reports", null, Access.AUTHENTICATED),
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/admin/reports", null, Access.permission("report:resolve")),
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/admin/reports/r-1/dismiss",
+              "{\"note\":\"Đã kiểm tra\"}",
+              Access.permission("report:resolve")),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
