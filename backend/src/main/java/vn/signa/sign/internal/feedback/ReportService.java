@@ -29,6 +29,9 @@ import vn.signa.sign.clustering.SignStatus;
 import vn.signa.sign.internal.feedback.ReportRepository.ReportRow;
 import vn.signa.sign.internal.feedback.ReportRepository.SignRow;
 import vn.signa.sign.internal.map.MapResult.LatLng;
+import vn.signa.sign.internal.review.ReviewRequests.Edit;
+import vn.signa.sign.internal.review.ReviewRequests.Reasoned;
+import vn.signa.sign.internal.review.ReviewService;
 
 @Service
 public class ReportService {
@@ -41,6 +44,7 @@ public class ReportService {
   private final ObjectStorage storage;
   private final UserDirectory users;
   private final SignCatalog catalog;
+  private final ReviewService reviews;
   private final AuditRecorder audit;
   private final Clock clock;
 
@@ -49,12 +53,14 @@ public class ReportService {
       ObjectStorage storage,
       UserDirectory users,
       SignCatalog catalog,
+      ReviewService reviews,
       AuditRecorder audit,
       Clock clock) {
     this.reports = reports;
     this.storage = storage;
     this.users = users;
     this.catalog = catalog;
+    this.reviews = reviews;
     this.audit = audit;
     this.clock = clock;
   }
@@ -126,11 +132,54 @@ public class ReportService {
     return new Page<>(groups, page, size, total);
   }
 
+  @Transactional(isolation = Isolation.READ_COMMITTED)
+  public void accept(String id, String actorId, ReportAcceptance request) {
+    var report = reports.lockPending(id).orElseThrow(ReportService::notPending);
+    Resolution resolution =
+        switch (request.action()) {
+          case EDIT -> {
+            var changes = request.changes();
+            reviews.edit(
+                actorId,
+                report.signId(),
+                new Edit(request.version(), changes.signTypeCode(), changes.location(), null));
+            yield Resolution.EDITED;
+          }
+          case REMOVE -> {
+            reviews.remove(
+                actorId,
+                report.signId(),
+                new Reasoned(request.version(), "Chấp nhận báo cáo " + report.id()));
+            yield Resolution.REMOVED;
+          }
+        };
+
+    Instant now = now();
+    if (!reports.accept(report.id(), actorId, resolution, now)) throw notPending();
+    audit.record(
+        AuditEntry.byUser(
+            actorId,
+            AuditEntityType.REPORT,
+            report.id(),
+            Status.ACCEPTED.name(),
+            Map.of("status", Status.PENDING.name()),
+            Map.of(
+                "status",
+                Status.ACCEPTED.name(),
+                "resolution",
+                resolution.name(),
+                "resolvedBy",
+                actorId,
+                "resolvedAt",
+                now),
+            null));
+  }
+
   @Transactional
   public void dismiss(String id, String actorId, String note) {
     Instant now = now();
     if (!reports.dismiss(id, actorId, note, now)) {
-      throw new ApiException(ErrorCode.CONFLICT, "Báo cáo không còn ở trạng thái đang chờ");
+      throw notPending();
     }
     audit.record(
         AuditEntry.byUser(
@@ -149,6 +198,10 @@ public class ReportService {
                 "resolvedAt",
                 now),
             note));
+  }
+
+  private static ApiException notPending() {
+    return new ApiException(ErrorCode.CONFLICT, "Báo cáo không còn ở trạng thái đang chờ");
   }
 
   private Report toReport(ReportRow row, String name, Instant photoCutoff) {

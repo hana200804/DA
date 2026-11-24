@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import vn.signa.identity.api.AuthenticatedUser;
+import vn.signa.sign.internal.feedback.ReportAcceptance;
 import vn.signa.sign.internal.feedback.ReportService;
 import vn.signa.sign.internal.feedback.ReportService.Group;
 import vn.signa.sign.internal.feedback.ReportService.Page;
@@ -41,6 +42,15 @@ class AdminReportController {
       @RequestParam(defaultValue = "0") @Min(0) int page,
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
     return reports.queue(status, reason, page, size);
+  }
+
+  @PostMapping("/{id}/accept")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  void accept(
+      @PathVariable String id,
+      @AuthenticationPrincipal AuthenticatedUser user,
+      @Valid @RequestBody ReportAcceptance request) {
+    reports.accept(id, user.userId(), request);
   }
 
   @PostMapping("/{id}/dismiss")

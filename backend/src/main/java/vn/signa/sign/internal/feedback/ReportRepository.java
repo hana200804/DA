@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import vn.signa.sign.clustering.SignStatus;
@@ -127,6 +128,32 @@ class ReportRepository {
         .list();
   }
 
+  Optional<PendingReport> lockPending(String id) {
+    return jdbc.sql(
+            """
+            SELECT id, sign_id FROM sign_reports WHERE id = :id AND status = 'PENDING'
+            FOR UPDATE
+            """)
+        .param("id", id)
+        .query((rs, row) -> new PendingReport(rs.getString("id"), rs.getString("sign_id")))
+        .optional();
+  }
+
+  boolean accept(String id, String userId, Resolution resolution, Instant now) {
+    return jdbc.sql(
+                """
+                UPDATE sign_reports
+                SET status = 'ACCEPTED', resolution = :resolution, resolved_by = :user, resolved_at = :now
+                WHERE id = :id AND status = 'PENDING'
+                """)
+            .param("id", id)
+            .param("user", userId)
+            .param("resolution", resolution.name())
+            .param("now", FeedbackSql.utc(now))
+            .update()
+        == 1;
+  }
+
   boolean dismiss(String id, String userId, String note, Instant now) {
     return jdbc.sql(
                 """
@@ -193,4 +220,6 @@ class ReportRepository {
       Instant resolvedAt) {}
 
   record SignRow(String id, String code, LatLng location, SignStatus status, int version) {}
+
+  record PendingReport(String id, String signId) {}
 }
