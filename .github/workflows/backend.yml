@@ -7,7 +7,8 @@ on:
       - 'infra/**'
       - '.github/workflows/backend.yml'
   push:
-    branches: [main]
+    # backend/** để chạy test tích hợp trên chuỗi nhánh lát trước khi mở PR.
+    branches: [main, 'backend/**']
     paths:
       - 'backend/**'
       - 'infra/**'
