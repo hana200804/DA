@@ -21,6 +21,8 @@ import vn.signa.shared.error.FieldIssue;
 public class RecognitionService {
 
   public static final Set<String> MODELS = Set.of("yolov5", "yolov8", "detr");
+  private static final List<String> COMPARISON_MODELS = List.of("yolov5", "yolov8", "detr");
+  private static final int COMPARISONS_PER_MINUTE = 10;
   static final String METRIC = "signa.recognition.duration";
 
   private final RecognitionClient client;
@@ -64,15 +66,66 @@ public class RecognitionService {
         RateLimit.forCaller(
             caller.userId(), clientIp, properties.guestPerMinute(), properties.userPerMinute()));
     String selected = normalizeModel(model);
+    PreparedImage image = prepare(upload);
+    ServiceDetection detection = timed(selected, () -> client.detect(image, selected));
+    return new DetectResult(
+        new DetectResult.ModelRef(
+            detection.modelName(), detection.modelVersion(), detection.labelMapVersion()),
+        new DetectResult.ImageSize(image.width(), image.height()),
+        detection.inferenceMs(),
+        detections(image, detection));
+  }
+
+  public CompareResult compare(MultipartFile upload, String userId) {
+    limiter.acquire(new RateLimit("rl:compare:user:" + userId, COMPARISONS_PER_MINUTE));
+    PreparedImage image = prepare(upload);
+    List<CompareResult.ModelResult> results =
+        COMPARISON_MODELS.stream().map(model -> compareModel(image, model)).toList();
+    return new CompareResult(new DetectResult.ImageSize(image.width(), image.height()), results);
+  }
+
+  private CompareResult.ModelResult compareModel(PreparedImage image, String model) {
+    ServiceDetection response;
+    try {
+      response =
+          timed(
+              model,
+              () -> {
+                ServiceDetection detected = client.detect(image, model);
+                if (!model.equals(detected.modelName())
+                    || (detected.detections() != null
+                        && detected.detections().stream()
+                            .anyMatch(
+                                p -> p == null || p.box() == null || p.signTypeCode() == null))) {
+                  throw RecognitionClient.unavailable();
+                }
+                return detected;
+              });
+    } catch (ApiException e) {
+      return new CompareResult.ModelResult(
+          new CompareResult.ModelRef(model, null, null),
+          null,
+          null,
+          new CompareResult.ModelError(e.getMessage()));
+    }
+    return new CompareResult.ModelResult(
+        new CompareResult.ModelRef(model, response.modelVersion(), response.labelMapVersion()),
+        response.inferenceMs(),
+        detections(image, response).stream()
+            .map(d ->
+                new CompareResult.Detection(d.box(), d.signTypeCode(), d.confidence(), d.name()))
+            .toList(),
+        null);
+  }
+
+  private PreparedImage prepare(MultipartFile upload) {
     if (upload.getSize() > ImageProcessor.MAX_BYTES) {
       throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, "Ảnh nhận diện tối đa 10 MB");
     }
-    PreparedImage image = images.prepare(bytes(upload));
-    ServiceDetection detection = timed(selected, () -> client.detect(image, selected));
-    return toResult(image, detection);
+    return images.prepare(bytes(upload));
   }
 
-  private DetectResult toResult(PreparedImage image, ServiceDetection detection) {
+  private List<DetectResult.Detection> detections(PreparedImage image, ServiceDetection detection) {
     List<ServiceDetection.Prediction> predictions =
         detection.detections() == null ? List.of() : detection.detections();
     Map<String, SignInfoLookup.SignInfo> info =
@@ -80,25 +133,18 @@ public class RecognitionService {
             ? Map.of()
             : signInfo.lookup(
                 predictions.stream().map(ServiceDetection.Prediction::signTypeCode).toList());
-    List<DetectResult.Detection> detections =
-        predictions.stream()
-            .map(p -> {
-              SignInfoLookup.SignInfo sign = info.get(p.signTypeCode());
-              return new DetectResult.Detection(
-                  image.toOriginal(p.box()),
-                  p.signTypeCode(),
-                  p.confidence(),
-                  sign == null ? null : sign.name(),
-                  sign == null ? null : sign.description(),
-                  sign == null ? null : sign.iconUrl());
-            })
-            .toList();
-    return new DetectResult(
-        new DetectResult.ModelRef(
-            detection.modelName(), detection.modelVersion(), detection.labelMapVersion()),
-        new DetectResult.ImageSize(image.width(), image.height()),
-        detection.inferenceMs(),
-        detections);
+    return predictions.stream()
+        .map(p -> {
+          SignInfoLookup.SignInfo sign = info.get(p.signTypeCode());
+          return new DetectResult.Detection(
+              image.toOriginal(p.box()),
+              p.signTypeCode(),
+              p.confidence(),
+              sign == null ? null : sign.name(),
+              sign == null ? null : sign.description(),
+              sign == null ? null : sign.iconUrl());
+        })
+        .toList();
   }
 
   private ServiceDetection timed(String selected, Supplier<ServiceDetection> call) {

@@ -1,5 +1,6 @@
 package vn.signa.recognition;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aMultipart;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -22,6 +23,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,9 +34,11 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
 import vn.signa.catalog.internal.LabelImporter;
 import vn.signa.recognition.internal.TestImages;
 import vn.signa.shared.storage.Bucket;
@@ -66,6 +70,7 @@ class RecognitionIT extends IntegrationTest {
   @LocalServerPort int port;
   @Autowired StringRedisTemplate redis;
   @Autowired LabelImporter labels;
+  @Autowired JdbcTemplate jdbc;
 
   RestClient http;
 
@@ -215,6 +220,57 @@ class RecognitionIT extends IntegrationTest {
   }
 
   @Test
+  void comparisonReturnsPartialResultsWhenDetrIsUnavailable() throws Exception {
+    labels.importFrom(Path.of("..", "ai", "data", "labels.yaml"));
+    for (String model : List.of("yolov5", "yolov8")) {
+      AI.stubFor(
+          post(urlEqualTo("/v1/detect"))
+              .withMultipartRequestBody(aMultipart().withName("model").withBody(equalTo(model)))
+              .willReturn(okJson(DETECT_JSON.replace("yolov8", model).replace("P.123a", "P.102"))));
+    }
+    AI.stubFor(
+        post(urlEqualTo("/v1/detect"))
+            .withMultipartRequestBody(aMultipart().withName("model").withBody(equalTo("detr")))
+            .willReturn(aResponse().withStatus(503)));
+
+    String email = UUID.randomUUID() + "@example.vn";
+    String password = "mat-khau-it-09";
+    JsonNode user =
+        http.post()
+            .uri("/auth/register")
+            .body(Map.of("email", email, "password", password, "displayName", "Kiểm duyệt viên"))
+            .retrieve()
+            .body(JsonNode.class);
+    jdbc.update("UPDATE users SET role_code = 'MODERATOR' WHERE id = ?", user.get("id").asString());
+    JsonNode session =
+        http.post()
+            .uri("/auth/login")
+            .body(Map.of("email", email, "password", password, "client", "WEB"))
+            .retrieve()
+            .body(JsonNode.class);
+
+    var response =
+        http.post()
+            .uri("/admin/recognition/compare")
+            .headers(h -> h.setBearerAuth(session.get("token").asString()))
+            .contentType(MediaType.MULTIPART_FORM_DATA)
+            .body(imageParts("large.png", MediaType.IMAGE_PNG, TestImages.png(2560, 1920)).build())
+            .retrieve()
+            .toEntity(JsonNode.class);
+
+    assertThat(response.getStatusCode().value()).isEqualTo(200);
+    JsonNode body = response.getBody();
+    assertThat(body.at("/image/width").asInt()).isEqualTo(2560);
+    assertThat(body.at("/results/0/model/name").asString()).isEqualTo("yolov5");
+    assertThat(body.at("/results/0/detections/0/name").asString()).isEqualTo("Cấm đi ngược chiều");
+    assertThat(body.at("/results/1/model/name").asString()).isEqualTo("yolov8");
+    assertThat(body.at("/results/1/detections/0/box/x").asDouble()).isEqualTo(200);
+    assertThat(body.at("/results/2/model/name").asString()).isEqualTo("detr");
+    assertThat(body.at("/results/2/error/message").asString()).isNotBlank();
+    AI.verify(3, postRequestedFor(urlEqualTo("/v1/detect")));
+  }
+
+  @Test
   void modelsArePassedThroughWithRequestId() {
     AI.stubFor(
         get(urlEqualTo("/v1/models"))
@@ -241,17 +297,7 @@ class RecognitionIT extends IntegrationTest {
   }
 
   private Response detect(String filename, MediaType type, byte[] data, String model) {
-    MultipartBodyBuilder parts = new MultipartBodyBuilder();
-    parts
-        .part(
-            "image",
-            new ByteArrayResource(data) {
-              @Override
-              public String getFilename() {
-                return filename;
-              }
-            })
-        .contentType(type);
+    MultipartBodyBuilder parts = imageParts(filename, type, data);
     if (model != null) {
       parts.part("model", model);
     }
@@ -264,6 +310,21 @@ class RecognitionIT extends IntegrationTest {
           Map<String, Object> body = response.bodyTo(Map.class);
           return new Response(response.getStatusCode().value(), response.getHeaders(), body);
         });
+  }
+
+  private static MultipartBodyBuilder imageParts(String filename, MediaType type, byte[] data) {
+    MultipartBodyBuilder parts = new MultipartBodyBuilder();
+    parts
+        .part(
+            "image",
+            new ByteArrayResource(data) {
+              @Override
+              public String getFilename() {
+                return filename;
+              }
+            })
+        .contentType(type);
+    return parts;
   }
 
   private static long objectCount() throws Exception {
