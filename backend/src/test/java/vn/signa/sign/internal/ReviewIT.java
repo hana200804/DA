@@ -2,6 +2,7 @@ package vn.signa.sign.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.Mockito.doAnswer;
 import static vn.signa.sign.internal.ReviewItSupport.ADMIN;
 import static vn.signa.sign.internal.ReviewItSupport.assertStatus;
@@ -132,10 +133,12 @@ class ReviewIT extends IntegrationTest {
     JsonNode approvedBefore = it.jsonColumn(history.get(0).get("before_value"));
     JsonNode approvedAfter = it.jsonColumn(history.get(0).get("after_value"));
     assertThat(approvedBefore.get("status").asString()).isEqualTo("PENDING");
-    assertThat(approvedBefore.get("location").get("lat").asDouble()).isEqualTo(at.lat());
+    assertThat(approvedBefore.get("location").get("lat").asDouble())
+        .isCloseTo(at.lat(), within(1e-12));
     assertThat(approvedBefore.get("locationLocked").asBoolean()).isFalse();
     assertThat(approvedAfter.get("status").asString()).isEqualTo("APPROVED");
-    assertThat(approvedAfter.get("location").get("lat").asDouble()).isEqualTo(moved.lat());
+    assertThat(approvedAfter.get("location").get("lat").asDouble())
+        .isCloseTo(moved.lat(), within(1e-12));
     assertThat(approvedAfter.get("locationLocked").asBoolean()).isTrue();
     // α = 0,5 + 0,9 + 2 = 3,4; β = 0,5.
     assertThat(approvedAfter.get("confidence").decimalValue()).isEqualByComparingTo("0.8718");
