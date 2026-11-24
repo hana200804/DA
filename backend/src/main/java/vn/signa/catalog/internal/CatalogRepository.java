@@ -118,6 +118,13 @@ public class CatalogRepository {
         .optional();
   }
 
+  Optional<TypeRow> shareType(String code) {
+    return jdbc.sql("SELECT " + TYPE_COLUMNS + " FROM sign_types WHERE code = :code FOR SHARE")
+        .param("code", code)
+        .query(CatalogRepository::type)
+        .optional();
+  }
+
   List<AdminTypeRow> adminTypes(Boolean active) {
     var query =
         jdbc.sql(

@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.audit.api.AuditEntityType;
 import vn.signa.audit.api.AuditEntry;
 import vn.signa.audit.api.AuditRecorder;
+import vn.signa.catalog.api.SignTypeCategoryChanged;
 import vn.signa.catalog.internal.CatalogAdminRequests.EditCategory;
 import vn.signa.catalog.internal.CatalogAdminRequests.EditType;
 import vn.signa.catalog.internal.CatalogAdminRequests.NewCategory;
@@ -53,6 +55,7 @@ public class CatalogAdminService {
 
   private final CatalogRepository repository;
   private final AuditRecorder audit;
+  private final ApplicationEventPublisher events;
   private final ObjectStorage storage;
   private final TransactionTemplate cleanupTx;
   private final Clock clock;
@@ -60,11 +63,13 @@ public class CatalogAdminService {
   CatalogAdminService(
       CatalogRepository repository,
       AuditRecorder audit,
+      ApplicationEventPublisher events,
       ObjectStorage storage,
       PlatformTransactionManager transactionManager,
       Clock clock) {
     this.repository = repository;
     this.audit = audit;
+    this.events = events;
     this.storage = storage;
     this.cleanupTx = new TransactionTemplate(transactionManager);
     this.cleanupTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -155,6 +160,9 @@ public class CatalogAdminService {
 
     Instant now = now();
     repository.updateAdminFields(row, now);
+    if (!category.equals(old.categoryCode())) {
+      events.publishEvent(new SignTypeCategoryChanged(row.code(), category, now));
+    }
     String action = old.active() && !row.active() ? "DEACTIVATED" : "UPDATED";
     recordUpdate(actorId, SIGN_TYPE, row.code(), action, fields(old), fields(row));
     return AdminSignTypeItem.of(new AdminTypeRow(row, now));

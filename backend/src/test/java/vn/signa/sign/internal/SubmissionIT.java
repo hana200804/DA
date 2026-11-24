@@ -218,6 +218,41 @@ class SubmissionIT extends IntegrationTest {
   }
 
   @Test
+  void categoryChangeKeepsApprovedSignEligibleForMapAndClustering() throws Exception {
+    Session admin = signIn("ADMIN");
+    Session user = signIn();
+    String code = "IT." + uuid().substring(0, 8);
+    jdbc.update(
+        """
+        INSERT INTO sign_types
+          (code, category_code, name, label_id, label_map_version, active, created_at, updated_at)
+        VALUES (?, 'PROHIBITORY', 'Biển đổi nhóm', 30000, 1, TRUE, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))
+        """,
+        code);
+    String signId =
+        body(request("POST", "/api/v1/admin/signs", admin.token(),
+                json.writeValueAsString(Map.of(
+                    "signTypeCode", code, "location", Map.of("lat", 20, "lng", 105),
+                    "headingDeg", 90))), 201).get("id").asString();
+
+    body(request("PATCH", "/api/v1/admin/sign-types/" + code, admin.token(),
+        "{\"categoryCode\":\"WARNING\"}"), 200);
+    String map = "/api/v1/signs?bbox=104.9,19.9,105.1,20.1&signTypeCodes=" + code + "&categories=";
+    assertThat(body(request("GET", map + "WARNING", null, null), 200).toString())
+        .contains(signId, "WARNING");
+    assertThat(body(request("GET", map + "PROHIBITORY", null, null), 200).toString())
+        .doesNotContain(signId);
+
+    String submissionId =
+        body(http.send(upload(user, uuid(), 20, 105, 0.88, 1, code),
+                HttpResponse.BodyHandlers.ofString()), 201).get("id").asString();
+    await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+        assertThat(submission(submissionId))
+            .containsEntry("status", "ACCEPTED")
+            .containsEntry("sign_id", signId));
+  }
+
+  @Test
   void itB14ConcurrentDuplicateDeletesLosingCropAndKeepsWinningCrop() throws Exception {
     Session user = signIn();
     String clientId = uuid();
@@ -343,6 +378,10 @@ class SubmissionIT extends IntegrationTest {
   }
 
   private Session signIn() throws Exception {
+    return signIn("USER");
+  }
+
+  private Session signIn(String role) throws Exception {
     String email = uuid() + "@example.vn";
     String password = "mat-khau-it-05";
     String register =
@@ -350,6 +389,9 @@ class SubmissionIT extends IntegrationTest {
             Map.of("email", email, "password", password, "displayName", "Người gửi đề xuất"));
     String userId =
         body(request("POST", "/api/v1/auth/register", null, register), 201).get("id").asString();
+    if (!role.equals("USER")) {
+      jdbc.update("UPDATE users SET role_code = ? WHERE id = ?", role, userId);
+    }
     String login =
         json.writeValueAsString(Map.of("email", email, "password", password, "client", "MOBILE"));
     String token =
@@ -367,6 +409,12 @@ class SubmissionIT extends IntegrationTest {
 
   private HttpRequest upload(
       Session user, String clientId, double lat, double lng, double confidence, int labelVersion) {
+    return upload(user, clientId, lat, lng, confidence, labelVersion, "P.102");
+  }
+
+  private HttpRequest upload(
+      Session user, String clientId, double lat, double lng, double confidence, int labelVersion,
+      String code) {
     String boundary = uuid();
     String metadata =
         json.writeValueAsString(
@@ -374,7 +422,7 @@ class SubmissionIT extends IntegrationTest {
                 "clientId",
                 clientId,
                 "signTypeCode",
-                "P.102",
+                code,
                 "confidence",
                 confidence,
                 "location",

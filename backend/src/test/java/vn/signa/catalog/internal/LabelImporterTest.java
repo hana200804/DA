@@ -45,6 +45,7 @@ class LabelImporterTest {
         new LabelImporter(
             repository,
             audit::add,
+            event -> {},
             new TransactionTemplate(new NoOpTransactionManager()),
             Clock.fixed(Instant.parse("2026-11-23T00:00:00Z"), ZoneOffset.UTC));
   }

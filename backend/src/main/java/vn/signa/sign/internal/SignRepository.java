@@ -6,9 +6,14 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
+import vn.signa.catalog.api.SignTypeCategoryChanged;
+import vn.signa.sign.api.SignCategoryUpdater;
 import vn.signa.sign.clustering.Geo;
 import vn.signa.sign.clustering.SignFlag;
 import vn.signa.sign.clustering.SignState;
@@ -17,7 +22,7 @@ import vn.signa.sign.clustering.SubmissionInput;
 import vn.signa.sign.clustering.Suggestion;
 
 @Repository
-class SignRepository {
+class SignRepository implements SignCategoryUpdater {
 
   private static final String CANDIDATES =
       """
@@ -80,6 +85,21 @@ class SignRepository {
         .param("point", SignSql.point(input.location()))
         .param("earthRadius", Geo.EARTH_RADIUS_M)
         .param("radius", radius);
+  }
+
+  @Override
+  @EventListener
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void updateCategory(SignTypeCategoryChanged change) {
+    jdbc.sql(
+            """
+            UPDATE signs SET category_code = :category, version = version + 1, updated_at = :now
+            WHERE sign_type_code = :code AND category_code <> :category
+            """)
+        .param("category", change.categoryCode())
+        .param("code", change.signTypeCode())
+        .param("now", SignSql.utc(change.updatedAt()))
+        .update();
   }
 
   void insert(SignState sign, String cover, Instant now) {

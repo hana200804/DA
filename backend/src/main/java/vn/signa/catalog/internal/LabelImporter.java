@@ -13,11 +13,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.audit.api.AuditEntityType;
 import vn.signa.audit.api.AuditEntry;
 import vn.signa.audit.api.AuditRecorder;
+import vn.signa.catalog.api.SignTypeCategoryChanged;
 import vn.signa.catalog.internal.CatalogRepository.CategoryRow;
 import vn.signa.catalog.internal.CatalogRepository.TypeRow;
 
@@ -50,16 +52,19 @@ public class LabelImporter {
 
   private final CatalogRepository repository;
   private final AuditRecorder audit;
+  private final ApplicationEventPublisher events;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   LabelImporter(
       CatalogRepository repository,
       AuditRecorder audit,
+      ApplicationEventPublisher events,
       TransactionTemplate tx,
       Clock clock) {
     this.repository = repository;
     this.audit = audit;
+    this.events = events;
     this.tx = tx;
     this.clock = clock;
   }
@@ -156,6 +161,9 @@ public class LabelImporter {
       before.keySet().removeAll(same);
       after.keySet().removeAll(same);
       repository.updateLabelFields(row, now);
+      if (!categoryCode.equals(old.categoryCode())) {
+        events.publishEvent(new SignTypeCategoryChanged(row.code(), categoryCode, now));
+      }
       audit.record(
           AuditEntry.bySystem(
               AuditEntityType.SIGN_TYPE, row.code(), "UPDATED", before, after, null));

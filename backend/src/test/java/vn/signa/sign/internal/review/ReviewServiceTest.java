@@ -61,8 +61,8 @@ class ReviewServiceTest {
 
   @BeforeEach
   void catalog() {
-    when(catalog.findType("P.123b")).thenReturn(Optional.of(type("P.123b", true)));
-    when(catalog.findType("P.old")).thenReturn(Optional.of(type("P.old", false)));
+    when(catalog.findTypeForSignWrite("P.123b")).thenReturn(Optional.of(type("P.123b", true)));
+    when(catalog.findTypeForSignWrite("P.old")).thenReturn(Optional.of(type("P.old", false)));
     when(signs.update(any(), anyInt(), any(), any())).thenReturn(true);
   }
 

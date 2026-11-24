@@ -134,7 +134,7 @@ public class ReviewService {
     if (code == null) return null;
     SignTypeView type =
         catalog
-            .findType(code)
+            .findTypeForSignWrite(code)
             .filter(SignTypeView::active)
             .orElseThrow(() ->
                 new ApiException(
