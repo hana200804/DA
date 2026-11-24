@@ -54,4 +54,6 @@
 - Thống kê lấy dữ liệu trong cùng một giao dịch chỉ đọc. Khoảng quyết định tính cả hai đầu mút. Các biển duyệt tay chưa có đề xuất vẫn được tính vào số quyết định và bỏ qua khi tính thời gian xử lý. Nhóm và mật độ phản ánh toàn bộ biển đang `APPROVED`.
 - Worker tự duyệt hiện có đã đáp ứng FR-25. Hai ca mới truyền đề xuất qua Redis Stream vào worker thật và kiểm tra trạng thái biển, trạng thái thành viên và lịch sử trong MySQL. Mỗi ca dùng một Redis DB riêng để cách ly luồng trong CI.
 - Bốn ca tích hợp cần Docker trên CI. Chúng gồm so sánh với DETR giả trả `503` trong `RecognitionIT`, thống kê với dữ liệu chèn sẵn trong `StatisticsIT`, cùng `AutoApprovalEnabledIT` và `AutoApprovalDisabledIT`. Máy làm việc đã biên dịch các ca này.
-- Độ trễ của so sánh có thể cộng dồn qua ba lượt gọi tuần tự. Truy vấn mật độ duyệt toàn bộ biển `APPROVED` để gom ô toàn bản đồ. Tìm địa điểm tiếp tục trả danh sách rỗng đến khi có nhà cung cấp sau Q6.
+- Điều phối viên đã chấp nhận các rủi ro phần B. Thời gian chờ có thể cộng dồn qua ba lượt gọi mô hình tuần tự, truy vấn mật độ duyệt toàn bộ biển `APPROVED`, và API tiếp tục phục vụ khi Redis gián đoạn nên giới hạn tần suất tạm thời mất hiệu lực. Tìm địa điểm tiếp tục trả danh sách rỗng đến khi có nhà cung cấp sau Q6.
+
+**2026-11-24 · Ghép lát 8.** Các quy tắc `stats:read` và `recognition:compare` đặt trước quy tắc mặc định `/api/v1/admin/**`. Ca hồi quy MVC xác nhận `MODERATOR` chỉ được cấp `stats:read` nhận `200` ở `GET /api/v1/admin/stats`, còn `USER` nhận `403`.
