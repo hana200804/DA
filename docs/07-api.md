@@ -269,6 +269,8 @@ POST /api/v1/signs/{id}/reports
 
 `PUT /signs/{id}/rating` trả `204`. Người đã gửi đề xuất cho biển tự đánh giá nhận `422 BUSINESS_RULE`.
 Chi tiết biển của người đã đăng nhập có `myRating` là `CONFIRM`, `DENY` hoặc `null`.
+Sau lần duyệt, thành phần bằng chứng phản đối trong điểm chỉ lấy dữ liệu có thời điểm lớn hơn `reviewed_at`.
+Xem [Thiết kế AI §6](04-thiet-ke-ai.md#sau-quyết-định-của-kiểm-duyệt-viên).
 
 Báo cáo có ảnh dùng `multipart/form-data` với part `metadata` chứa cùng JSON và part `photo` chứa ảnh JPEG,
 PNG hoặc WebP tối đa 5 MB. `reason` nhận `NOT_EXIST`, `WRONG_TYPE`, `WRONG_LOCATION` hoặc `OTHER`.
@@ -456,13 +458,16 @@ có hạn 10 phút khi ảnh còn trong thời hạn lưu giữ. Mỗi mục có
 
 | Thao tác | Nội dung |
 | --- | --- |
-| `accept` sửa biển | `{ "action": "EDIT", "version": 7, "changes": { "signTypeCode": "P.123b", "location": { … } } }`, cần ít nhất một thay đổi |
+| `accept` sửa biển | `{ "action": "EDIT", "version": 7, "changes": { "signTypeCode": "P.123b", "location": { … } } }`. Cần ít nhất một trong hai trường `signTypeCode` và `location` |
 | `accept` gỡ biển | `{ "action": "REMOVE", "version": 7 }` |
 | `dismiss` | `{ "note": "…" }`, 1–1000 ký tự |
 
-`dismiss` trả `204` khi thành công và `409 CONFLICT` nếu báo cáo không ở trạng thái `PENDING`.
+`accept` và `dismiss` trả `204` khi thành công, hoặc `409 CONFLICT` nếu báo cáo không ở
+trạng thái `PENDING`. Với `accept`, `version` lệch trả `409 SIGN_ALREADY_PROCESSED`.
 
-Chấp nhận một báo cáo sẽ sửa hoặc gỡ biển và ghi lịch sử trong cùng giao dịch. Các báo cáo khác đang chờ của biển đó vẫn ở trạng thái chờ. `version` lệch thì trả `409 SIGN_ALREADY_PROCESSED`.
+`accept` sửa hoặc gỡ biển, đặt báo cáo thành `ACCEPTED` với `resolution` tương ứng là
+`EDITED` hoặc `REMOVED`, lưu người và thời điểm xử lý. Lịch sử biển và `REPORT/ACCEPTED` được
+ghi trong cùng giao dịch. Các báo cáo khác đang chờ của biển đó vẫn ở trạng thái `PENDING`.
 
 ### Lịch sử, thống kê, so sánh mô hình
 
