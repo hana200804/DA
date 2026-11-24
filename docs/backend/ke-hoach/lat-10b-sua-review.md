@@ -14,9 +14,9 @@ Sửa các phát hiện được giao trên nhánh `backend/10b-review-fixes`, t
 | A3 | Xử lý khung nhìn toàn cầu và phía tây kinh tuyến đổi ngày |
 | A6, A15 | Giới hạn raster giải mã đồng thời và giữ kích thước hợp lệ khi thu nhỏ |
 | A14, B7 | Giới hạn chiều và pixel, xác thực cấu trúc và giải mã icon, crop và ảnh báo cáo |
-| B2, B5 | Đưa đề xuất vào stream nguyên tử theo ID, quét hữu hạn và tính trung vị kinh độ trên vòng tròn |
+| B2, B6 | Đưa đề xuất vào stream nguyên tử theo ID, quét hữu hạn và tính trung vị kinh độ trên vòng tròn |
 | B3, B8 | Đưa upload báo cáo ra ngoài giao dịch và ghi điểm trước đánh giá từ dòng đã khoá |
-| B6, B9 | Chọn lại ảnh đại diện khi đổi mã, đọc hàng đợi và chi tiết từ một snapshot |
+| B5, B9 | Chọn lại ảnh đại diện khi đổi mã, đọc hàng đợi và chi tiết từ một snapshot |
 
 Chạy `spotlessCheck test compileTestJava jacocoTestCoverageVerification` bằng Gradle wrapper và Markdown lint theo README. Ca Testcontainers chạy trên CI khi máy phát triển thiếu Docker.
 
@@ -28,6 +28,7 @@ Chạy `spotlessCheck test compileTestJava jacocoTestCoverageVerification` bằn
 - A10 dùng phiên bản từ MySQL (V110) cho khoá Redis. Lượt đọc bắt đầu trước khi admin commit chỉ có thể ghi vào khoá của phiên bản cũ.
 - A6 dùng ngân sách 25 triệu pixel cho ảnh đang giải mã và giảm mẫu khi đọc ảnh lớn. A15 đệm phần thiếu về phía phải hoặc dưới và cắt phần đệm khỏi box khi quy đổi.
 - B2 quét tối đa 250 đề xuất mỗi lô và đọc stream giữa các lô. Dấu Redis giữ ID mục stream và được đối chiếu với mục khi quét bù.
-- Đã xử lý đủ các phát hiện được giao.
+- Đã xử lý đủ các phát hiện được giao. Commit `54db226` (trung vị kinh độ) và `55cfa40` (ảnh đại diện) ghi nhãn B5, B6 đảo so với báo cáo lát 5–8, bảng trên đã dùng mã đúng.
+- Đã ghép `backend/10-hardening` (lát 10 và sửa review đợt 1) không xung đột văn bản. Migration V100 chạy trước V110, V111; `SchemaIT` kiểm cả ba.
 - Gradle hoàn tất `spotlessCheck test compileTestJava jacocoTestCoverageVerification` với 700 test đạt, 0 test lỗi hoặc bỏ qua. Markdown lint đạt.
 - Các ca Testcontainers đã biên dịch và chờ CI vì worktree thiếu Docker. Phạm vi gồm `CatalogAdminIT`, `CatalogApiIT`, `MapIT`, `SubmissionIT` (gồm biến thể IT-B12 nhiều lô), `ReviewIT` và `FeedbackIT`.
