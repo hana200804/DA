@@ -10,6 +10,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static vn.signa.shared.storage.Bucket.REPORT_PHOTOS;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -130,10 +131,17 @@ class FeedbackIT extends IntegrationTest {
                 "SELECT version, deny_since_review FROM signs WHERE id = ?", sign.id()))
         .containsEntry("version", 5)
         .containsEntry("deny_since_review", 3);
-    assertThat(
-            jdbc.queryForList(
-                "SELECT action FROM audit_logs WHERE entity_id = ?", String.class, sign.id()))
-        .containsExactly("MARKED_UNDER_REVIEW");
+    var audit = jdbc.queryForMap(
+        "SELECT action, before_value, after_value FROM audit_logs WHERE entity_id = ?", sign.id());
+    assertThat(audit.get("action")).isEqualTo("MARKED_UNDER_REVIEW");
+    var before = json.readTree(audit.get("before_value").toString());
+    var after = json.readTree(audit.get("after_value").toString());
+    assertThat(before.get("status").asString()).isEqualTo("APPROVED");
+    assertThat(before.get("confidence").decimalValue()).isEqualByComparingTo("0.7222");
+    assertThat(after.get("status").asString()).isEqualTo("UNDER_REVIEW");
+    assertThat(after.get("confidence").decimalValue()).isEqualByComparingTo("0.6500");
+    assertThat(jdbc.queryForObject("SELECT confidence FROM signs WHERE id = ?",
+        BigDecimal.class, sign.id())).isEqualByComparingTo(after.get("confidence").decimalValue());
   }
 
   @Test

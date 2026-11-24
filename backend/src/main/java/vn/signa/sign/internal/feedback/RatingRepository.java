@@ -26,7 +26,7 @@ class RatingRepository {
     return jdbc.sql(
             """
             SELECT id, status, sign_type_code, category_code, confirm_count, deny_count,
-                   moderator_boost, reviewed_at, version,
+                   moderator_boost, reviewed_at, version, confidence,
                    ST_Latitude(location) AS lat, ST_Longitude(location) AS lng
             FROM signs
             WHERE id = :sign AND status IN ('APPROVED', 'UNDER_REVIEW')
@@ -43,6 +43,7 @@ class RatingRepository {
                 .confirmCount(rs.getInt("confirm_count"))
                 .denyCount(rs.getInt("deny_count"))
                 .moderatorBoost(rs.getBigDecimal("moderator_boost"))
+                .confidence(rs.getBigDecimal("confidence"))
                 .reviewedAt(FeedbackSql.instant(rs, "reviewed_at"))
                 .version(rs.getInt("version"))
                 .build())
