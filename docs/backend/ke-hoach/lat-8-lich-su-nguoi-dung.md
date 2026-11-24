@@ -79,13 +79,14 @@ Lát 7 dùng `UserDirectory` cho `reporterName`. `audit` lấy tên qua cổng `
 
 ### Nhiệm vụ 4 · Test tích hợp
 
-**Tạo:** `src/test/.../identity/AdminUsersIT.java`, `src/test/.../audit/AuditLogsIT.java`.
+**Tạo:** `src/test/.../identity/AdminUsersIT.java`, `src/test/.../audit/AuditLogsIT.java`, `src/test/.../support/ApiClient.java` (đăng ký, đặt vai trò bằng `UPDATE users`, đăng nhập, gọi có token).
 
-- [ ] Khoá người dùng thì phiên cũ của người đó nhận `401`; mở khoá rồi đăng nhập lại được.
-- [ ] Đổi vai trò thì có dòng `USER/ROLE_CHANGED` với before/after đúng, `actorName` đúng; phiên cũ nhận `401`.
-- [ ] `MODERATOR` gọi `/admin/users` nhận `403`; tự khoá nhận `422`.
-- [ ] Lọc lịch sử theo khoảng thời gian (dòng ngoài khoảng không xuất hiện, hai đầu được tính); `from > to` trả `400`.
-- [ ] Chỉ compile trên máy, chạy trên CI. Commit.
+- [x] Khoá người dùng thì phiên cũ của người đó nhận `401`; mở khoá rồi đăng nhập lại được.
+- [x] Đổi vai trò thì có dòng `USER/ROLE_CHANGED` với before/after đúng, `actorName` đúng; phiên cũ nhận `401`.
+- [x] `MODERATOR` gọi `/admin/users` nhận `403`; tự khoá nhận `422`.
+- [x] Lọc lịch sử theo khoảng thời gian (dòng ngoài khoảng không xuất hiện, hai đầu được tính); `from > to` trả `400`.
+- [x] Tìm `q=_`, `q=%` chỉ trả email chứa đúng ký tự đó; `PATCH` id không có trả `404`.
+- [x] Chỉ compile trên máy, chạy trên CI. Luật quản trị viên cuối cùng chỉ có unit test, vì CSDL dùng chung giữa các IT luôn có nhiều `ADMIN`. Commit.
 
 ### Nhiệm vụ 5 · Tài liệu và kiểm tra cuối
 
