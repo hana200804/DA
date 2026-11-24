@@ -1,0 +1,46 @@
+services:
+  mysql:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 1024m
+
+  redis:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 384m
+
+  minio:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 640m
+
+  migrate:
+    mem_limit: 640m
+
+  backend:
+    restart: unless-stopped
+    mem_limit: 1280m
+    environment:
+      SIGNA_MINIO_PUBLIC_ENDPOINT: ${SIGNA_DEMO_PUBLIC_ORIGIN:?Đặt SIGNA_DEMO_PUBLIC_ORIGIN trong infra/.env}
+
+  recognition:
+    restart: unless-stopped
+    mem_limit: 3072m
+
+  web-admin:
+    restart: unless-stopped
+    mem_limit: 128m
+
+  nginx:
+    restart: unless-stopped
+    mem_limit: 128m
+    ports: !override
+      - "443:443"
+    volumes:
+      - ./nginx/tls.conf:/etc/nginx/signa/listen.conf:ro
+      - type: bind
+        source: ./certs
+        target: /etc/nginx/certs
+        read_only: true
+        bind:
+          create_host_path: false

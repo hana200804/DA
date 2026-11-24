@@ -1,13 +1,9 @@
-# Máy dev. Chạy từ gốc repo:
-#   cp infra/.env.example infra/.env                          # rồi đổi mật khẩu
-#   docker compose -f infra/compose.yaml up -d                # chỉ MySQL, Redis, MinIO
-#   docker compose -f infra/compose.yaml --profile migrate up migrate   # chỉ chạy migration
-#   docker compose -f infra/compose.yaml --profile app up -d --build    # thêm migrate và backend
-# Cổng chỉ mở trên 127.0.0.1. Phiên bản ảnh khớp backend/src/test/.../support/Containers.java.
+# Cách chạy HTTP local và bật TLS demo nằm trong infra/README.md.
+# Phiên bản ảnh hạ tầng khớp backend/src/test/.../support/Containers.java.
 #
 # migrate và backend dùng chung image backend/Dockerfile. migrate chạy Flyway bằng signa_migrator
 # rồi thoát; backend chạy lâu dài chỉ nhận SIGNA_DB_APP_* và chỉ khởi động khi migrate thành công.
-# migrate thuộc cả profile app vì Compose không khởi động phụ thuộc nằm ở profile chưa bật.
+# migrate thuộc các profile chạy backend vì Compose chỉ khởi động service đang được bật.
 name: signa
 
 services:
@@ -64,7 +60,7 @@ services:
   migrate:
     build: ../backend
     image: signa-backend:local
-    profiles: ["migrate", "app"]
+    profiles: ["migrate", "app", "dev", "demo"]
     environment:
       SPRING_PROFILES_ACTIVE: migrate
       SIGNA_DB_URL: &db-url "jdbc:mysql://mysql:3306/signa?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
@@ -80,21 +76,21 @@ services:
   backend:
     build: ../backend
     image: signa-backend:local
-    profiles: ["app"]
+    profiles: &app-profiles ["app", "dev", "demo"]
     environment:
       SIGNA_DB_URL: *db-url
       SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
       SIGNA_DB_APP_PASSWORD: ${SIGNA_DB_APP_PASSWORD:?Đặt SIGNA_DB_APP_PASSWORD trong infra/.env}
       SIGNA_REDIS_HOST: redis
       SIGNA_MINIO_ENDPOINT: http://minio:9000
-      SIGNA_MINIO_PUBLIC_ENDPOINT: ${SIGNA_MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      SIGNA_MINIO_PUBLIC_ENDPOINT: ${SIGNA_MINIO_PUBLIC_ENDPOINT:-http://localhost:8080}
       SIGNA_MINIO_ACCESS_KEY: ${SIGNA_MINIO_ACCESS_KEY:?Đặt SIGNA_MINIO_ACCESS_KEY trong infra/.env}
       SIGNA_MINIO_SECRET_KEY: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
+      SIGNA_RECOGNITION_URL: http://recognition:8000
       # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).
       SIGNA_BOOTSTRAP_ADMIN_EMAIL: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
       SIGNA_BOOTSTRAP_ADMIN_PASSWORD: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}
-    ports:
-      - "127.0.0.1:8080:8080"
+    networks: [default, recognition]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -102,6 +98,63 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      recognition:
+        condition: service_started
+
+  recognition:
+    image: signa-recognition:local
+    build:
+      context: ../ai
+      dockerfile: ../infra/recognition/Dockerfile
+    profiles: *app-profiles
+    networks: [recognition]
+    environment:
+      SIGNA_YOLOV5_WEIGHTS: /models/yolov5s/best.pt
+      SIGNA_YOLOV8_WEIGHTS: /models/yolov8s/best.pt
+      SIGNA_DETR_WEIGHTS: /models/detr-r50/best.pt
+      SIGNA_DEFAULT_MODEL: ${SIGNA_DEFAULT_MODEL:-yolov8}
+      SIGNA_QUEUE_TIMEOUT_S: ${SIGNA_QUEUE_TIMEOUT_S:-4}
+    volumes:
+      - type: bind
+        source: ${SIGNA_RECOGNITION_MODELS_DIR:-../ai/models}
+        target: /models
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/healthz', timeout=5).close()"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 90s
+
+  web-admin:
+    image: signa-web-admin:local
+    build:
+      context: ../web-admin
+      # Ghim ảnh nền của Dockerfile web-admin trong bản triển khai Signa.
+      additional_contexts:
+        "node:22-alpine": docker-image://node:22.23.5-alpine3.24
+        "nginx:stable-alpine": docker-image://nginx:1.30.8-alpine3.24
+    profiles: *app-profiles
+
+  nginx:
+    image: nginx:1.30.8-alpine3.24
+    profiles: *app-profiles
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/http.conf:/etc/nginx/signa/listen.conf:ro
+    depends_on:
+      backend:
+        condition: service_started
+      web-admin:
+        condition: service_started
+
+networks:
+  recognition:
+    internal: true
 
 volumes:
   mysql-data:
