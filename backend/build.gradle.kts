@@ -73,6 +73,8 @@ tasks.check { dependsOn(integrationTest) }
 tasks.jacocoTestReport {
     executionData.setFrom(fileTree(layout.buildDirectory).include("jacoco/*.exec"))
     dependsOn(tasks.test)
+    // Gộp cả jacoco/integrationTest.exec khi integrationTest có trong cùng lần chạy.
+    mustRunAfter(integrationTest)
     reports { xml.required = true }
 }
 
