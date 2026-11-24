@@ -1,5 +1,9 @@
 package vn.signa.catalog.api;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import org.springframework.web.util.UriUtils;
+
 /**
  * Một loại biển như module khác thấy.
  *
@@ -20,7 +24,7 @@ public record SignTypeView(
 
   /** Đường dẫn công khai của ảnh minh hoạ, nginx phục vụ {@code /icons/} từ {@code sign-icons}. */
   public static String iconUrl(String iconKey) {
-    return iconKey == null ? null : "/icons/" + iconKey;
+    return iconKey == null ? null : "/icons/" + UriUtils.encodePathSegment(iconKey, UTF_8);
   }
 
   /** Mô hình nhận diện được loại này. */
