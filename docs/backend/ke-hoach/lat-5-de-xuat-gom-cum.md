@@ -139,3 +139,10 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 - Worker và tự duyệt mặc định tắt. Dùng `SIGNA_CLUSTERING_WORKER_ENABLED`, `SIGNA_CLUSTERING_WORKER_CONSUMER` và `SIGNA_CLUSTERING_AUTO_APPROVE` để cấu hình. Chỉ bật một worker trong mỗi môi trường theo ADR-0007. Lỗi liên tục ở mục pending sẽ giữ thứ tự xử lý và tạm dừng hàng đợi trong khi thử lại.
 - Bổ sung `ObjectStorage.list` trong `shared.storage` vì job cần đối chiếu khoá ảnh và thời điểm sửa cuối với MySQL. MinIO liệt kê theo trang, job đối chiếu mỗi lô 250 ảnh. Job chạy lúc 03:00 UTC và tắt được bằng `SIGNA_CLUSTERING_CROP_CLEANUP_ENABLED=false`. Endpoint Prometheus được mở qua Actuator và dùng chính sách xác thực hiện có.
 - Hai migration `V50` và `V51` thêm chỉ mục để quét đề xuất chờ và tìm khoá ảnh. Khung lọc mở biên vừa đủ cho bán kính 20 m và tách qua kinh tuyến đổi ngày. Lõi phần 1 vẫn tính trung vị kinh độ tuyến tính, có thể cho vị trí sai khi hai đề xuất nằm hai phía ±180°.
+
+**2026-11-24 · Ghép lát 3 và 4.** Đã merge `backend/4-map` vào `backend/5-submissions-clustering` ở commit `aa610d6`.
+
+- `backend/build.gradle.kts` giữ WebP và WireMock của lát 3, registry Prometheus và kiểm tra JaCoCo của lát 5.
+- `PermissionMatrixTest` giữ các ca nhận diện, bản đồ và đề xuất. Các dòng đặt sẵn cho hai lát trước được thay bằng ca gọi endpoint thật.
+- Đã đối chiếu `SecurityConfig`, `application.yml`, `docs/07-api.md` và các gói trong module `sign` sau merge.
+- `./gradlew spotlessApply test compileTestJava jacocoTestCoverageVerification` trả exit 0. Cả 426 kiểm thử đơn vị đều đạt. Test tích hợp đã biên dịch và chờ chạy trên CI có Docker.
