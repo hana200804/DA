@@ -1,8 +1,10 @@
 package vn.signa.sign.internal.review;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,7 +16,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 import vn.signa.catalog.api.SignCatalog;
 import vn.signa.catalog.api.SignTypeView;
 import vn.signa.shared.storage.Bucket;
@@ -37,7 +42,15 @@ class ReviewQueryServiceTest {
   private final ReviewQueryRepository repository = mock(ReviewQueryRepository.class);
   private final SignCatalog catalog = mock(SignCatalog.class);
   private final ObjectStorage storage = mock(ObjectStorage.class);
-  private final ReviewQueryService service = new ReviewQueryService(repository, catalog, storage);
+  private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
+  private final SimpleTransactionStatus transaction = new SimpleTransactionStatus();
+  private final ReviewQueryService service =
+      new ReviewQueryService(repository, catalog, storage, transactions);
+
+  @BeforeEach
+  void transaction() {
+    when(transactions.getTransaction(any())).thenReturn(transaction);
+  }
 
   @Test
   void queueAddsSignNamesLookingUpEachCodeOnce() {
@@ -100,6 +113,11 @@ class ReviewQueryServiceTest {
 
     Detail detail = service.detail("a").orElseThrow();
 
+    var order = inOrder(transactions, storage);
+    order.verify(transactions).commit(transaction);
+    order
+        .verify(storage)
+        .presignedGet(Bucket.SIGN_CROPS, "cover.jpg", ReviewQueryService.CROP_URL_TTL);
     assertThat(detail.version()).isEqualTo(7);
     assertThat(detail.coverCropUrl()).isEqualTo("https://minio/cover.jpg");
     assertThat(detail.codeWeights())

@@ -2,6 +2,7 @@ package vn.signa.sign.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doAnswer;
 import static vn.signa.sign.internal.ReviewItSupport.ADMIN;
 import static vn.signa.sign.internal.ReviewItSupport.assertStatus;
 import static vn.signa.sign.internal.ReviewItSupport.north;
@@ -22,8 +23,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.signa.catalog.api.SignCatalog;
 import vn.signa.sign.clustering.GeoPoint;
 import vn.signa.sign.internal.ReviewItSupport.Session;
 import vn.signa.support.IntegrationTest;
@@ -35,6 +38,7 @@ class ReviewIT extends IntegrationTest {
   @Autowired JsonMapper json;
   @Autowired JdbcTemplate jdbc;
   @Autowired ClusteringProcessor processor;
+  @MockitoSpyBean SignCatalog catalog;
 
   private ReviewItSupport it;
   private String category;
@@ -251,6 +255,26 @@ class ReviewIT extends IntegrationTest {
             + (at.lat() + 0.0001);
     JsonNode boxed = it.body(it.send("GET", queue + "&bbox=" + bbox, moderator.token(), null), 200);
     assertThat(ids(boxed)).containsExactly(waitHigh);
+  }
+
+  @Test
+  void queueCountUsesTheSnapshotFromBeforeAConcurrentApproval() throws Exception {
+    Session moderator = it.moderator();
+    String sign = it.sign(codeA, category, somewhere(), "PENDING", "0.7", "WAIT", Instant.now());
+    doAnswer(invocation -> {
+      CompletableFuture.runAsync(() ->
+          jdbc.update("UPDATE signs SET status = 'APPROVED' WHERE id = ?", sign))
+          .get(10, TimeUnit.SECONDS);
+      return invocation.callRealMethod();
+    }).when(catalog).findType(codeA);
+
+    String path = ADMIN + "/review-queue?status=PENDING&categories=" + category;
+    JsonNode before = it.body(it.send("GET", path, moderator.token(), null), 200);
+    assertThat(ids(before)).containsExactly(sign);
+    assertThat(before.get("total").asLong()).isEqualTo(1);
+    JsonNode after = it.body(it.send("GET", path, moderator.token(), null), 200);
+    assertThat(ids(after)).isEmpty();
+    assertThat(after.get("total").asLong()).isZero();
   }
 
   @Test
