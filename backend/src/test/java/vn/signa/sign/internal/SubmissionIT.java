@@ -19,6 +19,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -215,6 +216,49 @@ class SubmissionIT extends IntegrationTest {
     assertThat(history(signId))
         .singleElement()
         .satisfies(event -> assertThat(event).containsEntry("action", "CREATED"));
+  }
+
+  @Test
+  void itB12RecoversMultipleBatchesWithoutDuplicatingQueuedIds() throws Exception {
+    Session user = signIn();
+    drain();
+    worker.stop();
+    try {
+      redis.delete(List.of(SubmissionStream.KEY, SubmissionStream.QUEUED));
+      int count = ClusteringWorker.SWEEP_BATCH_SIZE + 3;
+      List<Object[]> rows = new ArrayList<>();
+      for (int i = 0; i < count; i++) {
+        String id = uuid();
+        rows.add(new Object[] {id, user.id(), uuid(), id + ".jpg"});
+      }
+      jdbc.batchUpdate(
+          """
+          INSERT INTO submissions
+            (id, user_id, client_id, sign_type_code, confidence, location, source, crop_key,
+             model_name, model_version, label_map_version, captured_at, received_at, status)
+          VALUES (?, ?, ?, 'P.102', 0.88, ST_GeomFromText('POINT(105 22)', 4326, 'axis-order=long-lat'),
+                  'CAMERA', ?, 'yolov8n', 'it', 1, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3) - INTERVAL 2 MINUTE, 'RECEIVED')
+          """,
+          rows);
+      Instant cutoff = Instant.now().minusSeconds(60);
+      var start = new SubmissionRepository.Received("", Instant.EPOCH);
+      var next = worker.sweepBatch(cutoff, start);
+      assertThat(stream.length()).isEqualTo(ClusteringWorker.SWEEP_BATCH_SIZE);
+      worker.sweepBatch(cutoff, start);
+      assertThat(stream.length()).isEqualTo(ClusteringWorker.SWEEP_BATCH_SIZE);
+      worker.sweepBatch(cutoff, next);
+      assertThat(stream.length()).isEqualTo(count);
+      // Mất riêng stream cũng phải phục hồi được khi dấu trong Redis còn tồn tại.
+      redis.delete(SubmissionStream.KEY);
+    } finally {
+      worker.start();
+    }
+    await().atMost(Duration.ofSeconds(60)).untilAsserted(() ->
+        assertThat(jdbc.queryForObject(
+            "SELECT COUNT(*) FROM submissions WHERE user_id = ? AND status = 'GROUPED'",
+            Integer.class, user.id())).isEqualTo(ClusteringWorker.SWEEP_BATCH_SIZE + 3));
+    drain();
+    assertThat(redis.hasKey(SubmissionStream.QUEUED)).isFalse();
   }
 
   @Test

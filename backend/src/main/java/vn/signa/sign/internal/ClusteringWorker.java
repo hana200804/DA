@@ -20,7 +20,9 @@ class ClusteringWorker implements SmartLifecycle {
 
   private static final Logger log = LoggerFactory.getLogger(ClusteringWorker.class);
   private static final Duration RECEIVED_AGE = Duration.ofMinutes(1);
-  private static final int SWEEP_BATCH_SIZE = 250;
+  static final int SWEEP_BATCH_SIZE = 250;
+  private static final Received START_OF_SCAN =
+      new Received("", Instant.parse("1000-01-01T00:00:00Z"));
   private static final long MIN_BACKOFF_MS = 250;
   private static final long MAX_BACKOFF_MS = 15_000;
 
@@ -81,10 +83,15 @@ class ClusteringWorker implements SmartLifecycle {
           stream.createGroup();
           recoverPending();
           Instant nextSweep = clock.instant();
+          Instant cutoff = nextSweep.minus(RECEIVED_AGE);
+          Received cursor = START_OF_SCAN;
           while (running) {
             if (!clock.instant().isBefore(nextSweep)) {
-              sweep();
-              nextSweep = clock.instant().plus(config.sweepInterval());
+              if (cursor == START_OF_SCAN) cutoff = clock.instant().minus(RECEIVED_AGE);
+              cursor = sweepBatch(cutoff, cursor);
+              if (cursor == START_OF_SCAN) {
+                nextSweep = clock.instant().plus(config.sweepInterval());
+              }
             }
             process(stream.read(config.consumer()));
             backoff = MIN_BACKOFF_MS;
@@ -111,18 +118,13 @@ class ClusteringWorker implements SmartLifecycle {
     }
   }
 
-  private void sweep() {
-    Instant cutoff = clock.instant().minus(RECEIVED_AGE);
-    Received cursor = new Received("", Instant.parse("1000-01-01T00:00:00Z"));
-    List<Received> batch;
-    do {
-      batch = submissions.receivedBefore(cutoff, cursor, SWEEP_BATCH_SIZE);
-      for (Received entry : batch) {
-        if (!running) return;
-        stream.add(entry.id());
-        cursor = entry;
-      }
-    } while (batch.size() == SWEEP_BATCH_SIZE);
+  Received sweepBatch(Instant cutoff, Received cursor) {
+    List<Received> batch = submissions.receivedBefore(cutoff, cursor, SWEEP_BATCH_SIZE);
+    for (Received entry : batch) {
+      if (Thread.currentThread().isInterrupted()) break;
+      stream.add(entry.id());
+    }
+    return batch.size() == SWEEP_BATCH_SIZE ? batch.getLast() : START_OF_SCAN;
   }
 
   private void process(List<MapRecord<String, String, String>> entries) {
@@ -134,7 +136,7 @@ class ClusteringWorker implements SmartLifecycle {
       } else {
         metrics.record(() -> processor.process(id));
       }
-      stream.complete(entry.getId());
+      stream.complete(entry.getId(), id);
     }
   }
 }
