@@ -48,6 +48,7 @@ class AdminUserControllerTest {
 
   private String admin;
   private String moderator;
+  private String user;
 
   @BeforeEach
   void signIn() {
@@ -55,6 +56,8 @@ class AdminUserControllerTest {
     when(rolePermissions.of("MODERATOR")).thenReturn(Set.of("audit:read", "review:decide"));
     admin = WebTestSessions.signIn(sessions, "ADMIN");
     moderator = WebTestSessions.signIn(sessions, "MODERATOR");
+    when(rolePermissions.of("USER")).thenReturn(Set.of("sign:rate"));
+    user = WebTestSessions.signIn(sessions, "USER");
     when(service.search(any())).thenReturn(new UserPage(List.of(), 0, 20, 0));
   }
 
@@ -129,6 +132,31 @@ class AdminUserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"LOCKED\"}"))
         .andExpect(status().isForbidden());
+    verify(service, never()).search(any());
+    verify(service, never()).update(anyString(), anyString(), any(), any());
+  }
+
+  /** Quy tắc theo URL chặn trước khi kiểm dữ liệu: thiếu quyền là 403 dù dữ liệu sai. */
+  @Test
+  void missingPermissionIs403EvenWithInvalidInput() throws Exception {
+    for (String auth : new String[] {user, moderator}) {
+      for (String body : new String[] {"{\"role\":\"ROOT\"}", "{}", "{khong-phai-json"}) {
+        mvc.perform(
+                patch(URL + "/u-2")
+                    .header(HttpHeaders.AUTHORIZATION, auth)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+      }
+      mvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, auth).param("size", "999"))
+          .andExpect(status().isForbidden());
+    }
+    mvc.perform(
+            patch(URL + "/u-2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"role\":\"ROOT\"}"))
+        .andExpect(status().isUnauthorized());
     verify(service, never()).search(any());
     verify(service, never()).update(anyString(), anyString(), any(), any());
   }

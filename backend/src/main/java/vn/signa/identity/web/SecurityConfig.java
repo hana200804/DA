@@ -17,8 +17,9 @@ import vn.signa.identity.internal.SessionService;
 
 /**
  * Spring Security không trạng thái: phiên nằm trong Redis, kiểm tra quyền bằng
- * {@code @PreAuthorize("hasAuthority('…')")} trên từng endpoint (docs/07 §1). Không bật CORS vì web
- * đi qua proxy cùng origin (docs/backend/thiet-ke-trien-khai.md §5.1).
+ * {@code @PreAuthorize("hasAuthority('…')")} trên từng endpoint (docs/07 §1), cùng quy tắc theo
+ * tiền tố {@code /api/v1/admin/**} để thiếu quyền bị chặn trước khi kiểm dữ liệu. Không bật CORS vì
+ * web đi qua proxy cùng origin (docs/backend/thiet-ke-trien-khai.md §5.1).
  */
 @Configuration
 @EnableWebSecurity
@@ -68,6 +69,14 @@ class SecurityConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, API + "/recognition/detect")
                 .permitAll()
+                // Quyền theo tiền tố /admin, chặn trước khi Spring đọc và kiểm dữ liệu, nên người
+                // thiếu quyền nhận 403 chứ không phải 400. @PreAuthorize trên controller vẫn giữ
+                // làm
+                // lớp thứ hai. Bảng tiền tố → quyền: docs/backend/ke-hoach/lat-1-tai-khoan.md.
+                .requestMatchers(API + "/admin/users/**")
+                .hasAuthority("user:manage")
+                .requestMatchers(API + "/admin/audit-logs/**")
+                .hasAuthority("audit:read")
                 .anyRequest()
                 .authenticated());
     return http.build();

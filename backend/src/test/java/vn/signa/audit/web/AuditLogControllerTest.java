@@ -160,6 +160,21 @@ class AuditLogControllerTest {
   }
 
   @Test
+  void missingPermissionIs403EvenWithInvalidParameters() throws Exception {
+    mvc.perform(
+            get(URL)
+                .header(HttpHeaders.AUTHORIZATION, user)
+                .param("from", "2026-11-02T00:00:00Z")
+                .param("to", "2026-11-01T00:00:00Z"))
+        .andExpect(status().isForbidden());
+    mvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, user).param("size", "999"))
+        .andExpect(status().isForbidden());
+    mvc.perform(delete(URL + "/7").header(HttpHeaders.AUTHORIZATION, user))
+        .andExpect(status().isForbidden());
+    verify(service, never()).search(any());
+  }
+
+  @Test
   void historyCannotBeEditedOrDeleted() throws Exception {
     mvc.perform(delete(URL + "/7").header(HttpHeaders.AUTHORIZATION, moderator))
         .andExpect(status().isNotFound());

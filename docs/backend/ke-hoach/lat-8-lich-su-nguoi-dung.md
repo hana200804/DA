@@ -101,7 +101,7 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 
 **2026-11-24.** NV0–NV5 đã commit trên `backend/8-audit-users`, chưa push.
 
-- Trên máy: `./gradlew clean spotlessCheck test compileTestJava` thành công, 214/214 unit test đạt (thêm 51 so với lát 1: `AuditLogQueryTest` 6, `AuditLogServiceTest` 3, `AuditLogControllerTest` 6, `LikePatternTest` 4, `UserAdminServiceTest` 14, `AdminUserControllerTest` 6, `PermissionMatrixTest` từ 68 lên 80 ca với 3 endpoint mới). `markdownlint` sạch.
+- Trên máy: `./gradlew clean spotlessCheck test compileTestJava` thành công, 214/214 unit test đạt, 216 sau việc bổ sung (thêm 51 so với lát 1: `AuditLogQueryTest` 6, `AuditLogServiceTest` 3, `AuditLogControllerTest` 6, `LikePatternTest` 4, `UserAdminServiceTest` 14, `AdminUserControllerTest` 6, `PermissionMatrixTest` từ 68 lên 80 ca với 3 endpoint mới). `markdownlint` sạch.
 - Chỉ verify được trên CI (máy không có Docker): `AdminUsersIT` (khoá thì phiên cũ `401`, mở khoá đăng nhập lại được, đổi vai trò có lịch sử đúng before/after và `requestId`, `MODERATOR` nhận `403`, tự khoá `422`, escape `LIKE`, `404`), `AuditLogsIT` (lọc theo khoảng thời gian lấy hai đầu, theo người thực hiện và hành động, phân trang, `from > to` trả `400`, `USER` nhận `403`).
 - Quyết định tự đưa ra:
   - `audit` không gọi thẳng `identity.api.UserDirectory` như đề bài, vì `identity` đã phụ thuộc `audit.api` và `ModuleBoundaryTest` cấm chu trình giữa module (quy tắc song song cấm sửa luật). Cổng `audit.api.ActorNames` có cùng chữ ký; `identity.api.UserDirectory` mở rộng cổng này; bean `identity.internal.JdbcUserDirectory` cài đặt cả hai.
@@ -115,7 +115,7 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
   - Test `@WebMvcTest` ở module khác cần Security thật của identity, mà `SecurityConfig` không công khai. Thêm file test mới `identity/web/SecuredWebMvc.java` thay vì sửa file của lát 1.
 - Theo quy tắc làm song song: không sửa `shared/`, `build.gradle.kts`, `application.yml`, không thêm migration. `docs/07` chỉ sửa hai mục của lát 8. `UserRepository` có thêm phương thức; nếu lát khác cũng sửa file này thì có thể xung đột khi ghép.
 - Rủi ro:
-  - `@PreAuthorize` chạy sau khi Spring đọc và kiểm tham số, thân request, nên người thiếu quyền gửi dữ liệu sai nhận `400` thay vì `403`. Không lộ dữ liệu. Muốn đổi thì phải khai báo quyền theo URL trong `SecurityConfig` của lát 1.
+  - Đã xử lý (việc bổ sung): `@PreAuthorize` chạy sau khi Spring đọc và kiểm dữ liệu, nên người thiếu quyền gửi dữ liệu sai từng nhận `400` thay vì `403`. `SecurityConfig` thêm quy tắc theo URL `/api/v1/admin/users/**` → `user:manage` và `/api/v1/admin/audit-logs/**` → `audit:read`; `@PreAuthorize` giữ làm lớp thứ hai. Test `missingPermissionIs403EvenWithInvalid*` (`USER`, `MODERATOR` gửi thân hoặc tham số sai nhận `403`) fail khi bỏ hai dòng này. Bảng tiền tố `/admin/**` → quyền cho các lát sau nằm ở [lát 1](lat-1-tai-khoan.md), mục "Hợp đồng cho lát khác".
   - Thu hồi sau commit lỗi thì phiên tạo trong khoảng giao dịch đang chạy có thể còn sống. Khoảng này chỉ vài mili giây và có log lỗi.
   - `lockActiveAdmins` khoá cả khoảng chỉ mục `role_code = 'ADMIN'`, nên việc tạo hoặc nâng quyền quản trị viên đồng thời phải chờ. Thao tác này hiếm nên chấp nhận được.
   - Rủi ro "tài khoản bị khoá vẫn giữ phiên cũ" của lát 1 đã xử lý ở lát này.

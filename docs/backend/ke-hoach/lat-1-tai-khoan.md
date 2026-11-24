@@ -39,6 +39,23 @@ public record AuditEntry(
 
 Phân quyền cho phần 2 của các lát: `@PreAuthorize("hasAuthority('<mã quyền>')")`; lấy người dùng bằng `@AuthenticationPrincipal vn.signa.identity.api.AuthenticatedUser user` (`userId()`, `role()`, `permissions()`, `has(...)`). Thu hồi phiên: `vn.signa.identity.api.SessionRevoker.revokeAll(userId)`.
 
+Quyền theo tiền tố `/api/v1/admin/**` trong `SecurityConfig.apiSecurity` (thêm ở lát 8, việc bổ sung). `@PreAuthorize` chỉ chạy sau khi Spring đọc và kiểm tham số, thân request, nên người thiếu quyền gửi dữ liệu sai nhận `400` thay vì `403`. Quy tắc theo URL chặn trước bước đó; `@PreAuthorize` trên controller vẫn giữ làm lớp thứ hai. Mỗi lát **thêm dòng** `requestMatchers(…).hasAuthority(…)` cho tiền tố của mình, đặt trước `anyRequest()`, không sửa dòng có sẵn:
+
+| Tiền tố | Method | Quyền | Lát | Trạng thái |
+| --- | --- | --- | --- | --- |
+| `/api/v1/admin/users/**` | mọi method | `user:manage` | 8 | Đã có |
+| `/api/v1/admin/audit-logs/**` | mọi method | `audit:read` | 8 | Đã có |
+| `/api/v1/admin/sign-types/**`, `/api/v1/admin/sign-categories/**` | mọi method | `catalog:manage` | 2 | Đề xuất |
+| `/api/v1/admin/review-queue/**` | `GET` | `review:decide` | 6 | Đề xuất |
+| `/api/v1/admin/signs/*/approve`, `/reject`, `/keep`; `GET /api/v1/admin/signs/**` | `GET`, `POST` | `review:decide` | 6 | Đề xuất |
+| `/api/v1/admin/signs`, `/api/v1/admin/signs/*`, `/api/v1/admin/signs/*/remove` | `POST`, `PATCH` | `sign:edit` | 6 | Đề xuất |
+| `/api/v1/admin/reports/**` | mọi method | `report:resolve` | 7 | Đề xuất |
+| `/api/v1/admin/stats/**` | mọi method | `stats:read` | 9 | Đề xuất |
+| `/api/v1/admin/recognition/compare` | `POST` | `recognition:compare` | 9 | Đề xuất |
+| `/api/v1/admin/**` còn lại | mọi method | `review:decide` (tối thiểu) | Lát ghép cuối | Đề xuất |
+
+Dòng mặc định chỉ thêm khi mọi tiền tố ở trên đã có dòng riêng, đặt sau chúng và trước `anyRequest()`. Mọi quyền quản trị chỉ thuộc `MODERATOR`, `ADMIN`, và cả hai đều có `review:decide`, nên dòng này không chặn người đủ quyền. Lưu ý khi thêm: test `@WebMvcTest` phải cấp `review:decide` cho vai trò giả, và dòng `Endpoint.reserved(GET, "/api/v1/admin/signs", AUTHENTICATED)` của `PermissionMatrixTest` phải đổi sang `Access.permission("review:decide")`. Ở `signs`, dòng `POST /api/v1/admin/signs/*/approve|reject|keep` phải đặt trước dòng `sign:edit`, vì quy tắc nào khớp trước thì được dùng.
+
 Thêm dòng vào `PermissionMatrixTest` (UT-B11) ở phần 2 của mỗi lát:
 
 1. Mỗi endpoint mới là một dòng `Endpoint.of(method, path, body, access)` trong `ENDPOINTS`. `access` là `Access.PUBLIC`, `Access.AUTHENTICATED` hoặc `Access.permission("<mã quyền>")`, khớp cột **Quyền** ở `docs/07`. `body` là thân request hợp lệ (hoặc `null`), để vai trò đủ quyền đi tới controller.
