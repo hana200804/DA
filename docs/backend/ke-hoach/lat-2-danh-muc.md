@@ -113,18 +113,17 @@ public record SignTypeView(
 
 ## Phần 2 · Sau khi merge lát 1
 
-Chưa làm. Cần `SecurityConfig`, quyền `catalog:manage` và `audit.api.AuditRecorder` của lát 1.
-
-- [ ] Thay `LoggingCatalogAuditPort` bằng adapter gọi `AuditRecorder.record(AuditEntry.bySystem(...))` (và `byUser` cho thao tác quản trị), trong giao dịch của catalog.
-- [ ] `GET /api/v1/admin/sign-types?active=`: mọi loại biển, kể cả loại đã ngừng dùng, dạng `{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable, active, updatedAt }`.
-- [ ] `POST /api/v1/admin/sign-categories`, `PATCH /api/v1/admin/sign-categories/{code}`: mã chuẩn hoá chữ hoa, mẫu `^[A-Z][A-Z0-9_]{0,19}$`, tên 1–100 ký tự, `sortOrder` trong `SMALLINT` (khớp `web-admin/src/catalogTypes.ts`).
-- [ ] `POST /api/v1/admin/sign-types`: luôn tạo loại `recognizable = false`. Mã đã có trong danh mục nhãn hiện hành thì trả `409 CONFLICT` **(đề xuất)**, vì loại đó do lệnh nạp nhãn quản lý (FR-35).
-- [ ] `PATCH /api/v1/admin/sign-types/{code}`: sửa `name`, `description`, `categoryCode`, `speedKmh`, `active`. Không có endpoint xoá; ngừng dùng bằng `active = false`.
-- [ ] `PUT /api/v1/admin/sign-types/{code}/icon`: multipart part `icon`, PNG/JPEG/WebP ≤ 1 MB, kiểm tra magic byte, lưu `sign-icons/{code}.{ext}`, cập nhật `icon_key`, xoá ảnh cũ nếu khác khoá.
-- [ ] Mỗi thay đổi ghi lịch sử `actor_type = USER` và xoá `cache:sign-types` sau commit.
-- [ ] Thêm dòng vào `PermissionMatrixTest`; IT cho `403` khi thiếu `catalog:manage`.
-- [ ] Spring Security của lát 1 mặc định thêm `Cache-Control: no-store`, làm hỏng ETag. Phần 1 đã đặt `Cache-Control: no-cache` tường minh cho `GET /sign-types` (Security không ghi đè header đã có). Sau khi ghép lát 1, đặt `Cache-Control` tường minh cho cả `GET /sign-categories` và `GET /sign-types/{code}`, rồi thêm test kiểm cả ba endpoint có `no-cache` chứ không phải `no-store`.
-- [ ] Web trang danh mục chạy với API thật.
+- [x] Ghép `backend/1-identity` và chạy `./gradlew spotlessApply test compileTestJava`.
+- [x] Nạp nhãn gọi trực tiếp `AuditRecorder.record(AuditEntry.bySystem(...))` trong giao dịch của catalog. Xoá cổng tạm. Thao tác quản trị dùng `AuditEntry.byUser(...)`.
+- [x] `GET /api/v1/admin/sign-types?active=`: trả `{ items: [...] }` gồm mọi loại biển khi bỏ tham số, kể cả loại đã ngừng dùng. Mỗi loại có `code`, `categoryCode`, `name`, `description`, `speedKmh`, `iconUrl`, `recognizable`, `active`, `updatedAt`.
+- [x] `POST /api/v1/admin/sign-categories`, `PATCH /api/v1/admin/sign-categories/{code}`: mã chuẩn hoá chữ hoa, mẫu `^[A-Z][A-Z0-9_]{0,19}$`, tên 1–100 ký tự, `sortOrder` trong `SMALLINT` (khớp `web-admin/src/catalogTypes.ts`).
+- [x] `POST /api/v1/admin/sign-types`: mã dài 1–30 ký tự và luôn tạo loại `recognizable = false` (`label_id` rỗng). Tạo nhóm hoặc loại trùng mã trả `409 CONFLICT`.
+- [x] `PATCH /api/v1/admin/sign-types/{code}`: sửa `name`, `description`, `categoryCode`, `speedKmh`, `active`. Ngừng dùng bằng `active = false`.
+- [x] `PUT /api/v1/admin/sign-types/{code}/icon`: multipart part `icon`, PNG/JPEG/WebP ≤ 1 MB, kiểm tra chữ ký tệp, lưu `sign-icons/{code}.{ext}`, cập nhật `icon_key` và dọn ảnh cũ khi khoá đổi.
+- [x] Ghi lịch sử `actor_type = USER` với giá trị trước, sau trong cùng giao dịch. Xoá `cache:sign-types` sau commit.
+- [x] Thêm sáu endpoint quản trị vào `PermissionMatrixTest`. Bổ sung `@WebMvcTest` và `CatalogAdminIT` cho luồng thay đổi, lịch sử, `403` của `MODERATOR` và `415` khi ảnh giả mạo.
+- [x] Đặt `Cache-Control: no-cache` tường minh ở cả ba GET công khai. Kiểm thử qua chuỗi Spring Security thật, gồm cả phản hồi `304` khi ETag khớp.
+- [ ] Web trang danh mục dùng danh sách quản trị để tải cả loại đã ngừng dùng. Trang hiện tải danh sách công khai.
 
 ## Tiến độ
 
@@ -141,3 +140,9 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 - Quyết định: thêm cột `sign_types.label_name` (V20) để biết quản trị viên đã sửa `name` hay chưa. Lệnh nạp không sửa nhóm đã có, không đụng `active`. ETag là 128 bit đầu của SHA-256 của body. Cache Redis có TTL 24 giờ, Redis lỗi thì đọc MySQL. Dữ liệu mẫu tự chèn nhóm và 14 loại biển giống `labels.yaml` v1.
 - Còn chờ phần 2: nối `CatalogAuditPort` vào `audit.api.AuditRecorder`. Sau khi ghép lát 1, đặt `Cache-Control` tường minh cho mọi GET danh mục.
 - Rủi ro: chưa chạy IT nào trên máy. `R__demo_data.sql` ghi vào bảng `signs` của module `sign`, chỉ ở profile `demo`, và cột của bảng này có thể đổi khi ghép lát 3.
+
+**2026-11-24, kết thúc phần backend của phần 2.** Đã ghép lát 1, nối bộ ghi lịch sử, thêm header cache ở API công khai và triển khai sáu endpoint quản trị FR-35.
+
+- Xung đột Git duy nhất ở `application.yml`. Kết quả ghép giữ cả cấu hình `identity` và `catalog`.
+- `./gradlew spotlessApply test compileTestJava` đạt 235 ca, gồm 96 ca của ma trận quyền. `CatalogAdminIT` có ba ca đã biên dịch. Lần chạy tại máy này dừng ở bước khởi tạo Testcontainers do thiếu Docker.
+- Việc còn lại là chạy `CatalogAdminIT` trên CI có Docker và nối danh sách quản trị vào web.
