@@ -12,17 +12,17 @@ cách tính điểm ở [docs/04 §6](../../04-thiet-ke-ai.md#6-gom-cụm-và-đ
 
 ## Phần 1 · Đánh giá, gửi báo cáo và từ chối báo cáo
 
-- [ ] Khoá dòng biển khi đánh giá, cấm tự đánh giá biển đã đề xuất. Ghi đè theo người dùng,
+- [x] Khoá dòng biển khi đánh giá, cấm tự đánh giá biển đã đề xuất. Ghi đè theo người dùng,
   đếm lại DENY từ lần duyệt gần nhất và dùng `ClusteringEngine.applyRating` để tính điểm,
   nâng phiên bản và ghi sự kiện chuyển sang rà soát.
-- [ ] Trả `myRating` cho người đã đăng nhập trên chi tiết biển, giữ `Cache-Control: no-store`.
-- [ ] Nhận báo cáo JSON hoặc multipart. Kiểm tra lý do, mô tả và ảnh. Xử lý báo cáo chờ trùng
+- [x] Trả `myRating` cho người đã đăng nhập trên chi tiết biển, giữ `Cache-Control: no-store`.
+- [x] Nhận báo cáo JSON hoặc multipart. Kiểm tra lý do, mô tả và ảnh. Xử lý báo cáo chờ trùng
   bằng ràng buộc duy nhất và xoá ảnh khi giao dịch rollback.
-- [ ] Phân trang báo cáo cá nhân theo người gọi và hàng đợi quản trị theo biển. Tra tên người
+- [x] Phân trang báo cáo cá nhân theo người gọi và hàng đợi quản trị theo biển. Tra tên người
   báo cáo qua `identity.api` và ký URL ảnh 10 phút.
-- [ ] Từ chối báo cáo đang chờ và ghi lịch sử cùng giao dịch. Dọn ảnh sau 90 ngày kể từ khi xử lý.
-- [ ] Bổ sung quy tắc URL, kiểm thử phân quyền, UT-B08 và IT-B11 cùng các ca API liên quan.
-- [ ] Chạy kiểm tra Gradle và Markdown.
+- [x] Từ chối báo cáo đang chờ và ghi lịch sử cùng giao dịch. Dọn ảnh sau 90 ngày kể từ khi xử lý.
+- [x] Bổ sung quy tắc URL, kiểm thử phân quyền, UT-B08 và IT-B11 cùng các ca API liên quan.
+- [x] Chạy kiểm tra Gradle và Markdown.
 
 ## Phần 2 · Chấp nhận báo cáo sau khi ghép lát 6
 
@@ -36,4 +36,18 @@ cách tính điểm ở [docs/04 §6](../../04-thiet-ke-ai.md#6-gom-cụm-và-đ
 
 ## Tiến độ
 
-- Nền lát 1–5 đã có trên nhánh `backend/7-ratings-reports`.
+### 2026-11-24
+
+- Nền lát 1–5 đã có trên nhánh `backend/7-ratings-reports`. Phần 1 dùng lược đồ hiện có và thêm hai
+  chỉ mục V70 cho phân trang cá nhân và tra khoá ảnh.
+- Dùng mốc `updated_at >= reviewed_at` cho DENY theo luật lát 5. Nếu biển chưa có mốc duyệt, đếm
+  tất cả DENY hiện hành. Đếm lại từ bảng trong lúc giữ khoá biển và để `applyRating` áp dụng
+  chênh lệch của đánh giá đang ghi.
+- Thêm `identity.api.UserDirectory.displayNames(Collection<String>)` để tra tên một lần cho cả
+  trang. Dùng cùng cài đặt JDBC của lát 8. Khi ghép lát 8, dùng khai báo interface của lát 8
+  để nối với `audit.api.ActorNames`.
+- Job dọn ảnh chạy lúc 03:15 UTC. Ảnh hết hạn là ảnh của báo cáo đã xử lý đủ 90 ngày. Job cũng
+  dọn ảnh mồ côi quá một giờ nếu việc xoá lúc rollback bị gián đoạn.
+- 464 unit test đạt. Cả `spotlessApply test compileTestJava` và
+  `spotlessCheck test compileTestJava jacocoTestCoverageVerification` đã qua. 7 ca trong
+  `FeedbackIT` đã biên dịch và sẽ chạy trên CI với Docker.

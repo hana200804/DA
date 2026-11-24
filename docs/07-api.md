@@ -267,9 +267,16 @@ POST /api/v1/signs/{id}/reports
 { "reason": "WRONG_TYPE", "description": "Biển là cấm rẽ phải" }
 ```
 
-Báo cáo có ảnh dùng `multipart/form-data` với part `metadata` chứa cùng JSON và part `photo` chứa ảnh.
+`PUT /signs/{id}/rating` trả `204`. Người đã gửi đề xuất cho biển tự đánh giá nhận `422 BUSINESS_RULE`.
+Chi tiết biển của người đã đăng nhập có `myRating` là `CONFIRM`, `DENY` hoặc `null`.
 
-Đã có báo cáo đang chờ cho biển đó: `409 CONFLICT`. Người đã gửi đề xuất cho biển tự đánh giá: `422 BUSINESS_RULE`.
+Báo cáo có ảnh dùng `multipart/form-data` với part `metadata` chứa cùng JSON và part `photo` chứa ảnh JPEG,
+PNG hoặc WebP tối đa 5 MB. `reason` nhận `NOT_EXIST`, `WRONG_TYPE`, `WRONG_LOCATION` hoặc `OTHER`.
+Mô tả tối đa 1000 ký tự, bắt buộc khi chọn `OTHER`. Tạo thành công trả `201` với `{ id, status }`.
+Cả hai thao tác trả `404` nếu biển chưa hiển thị hoặc đã gỡ. Báo cáo đang chờ trùng trả `409 CONFLICT`.
+
+`GET /me/reports` phân trang theo báo cáo của người gọi. Mỗi mục có `id`, `signId`, `reason`,
+`description`, `status`, `resolution`, `resolutionNote`, `createdAt` và `resolvedAt`.
 
 ## 7. Dịch vụ nhận diện nội bộ
 
@@ -391,7 +398,8 @@ Các thao tác ghi khác trả `204`.
 | POST | `/admin/reports/{id}/accept` | `report:resolve` | Chấp nhận kèm `action`: `EDIT` (với thay đổi) hoặc `REMOVE` | FR-32 |
 | POST | `/admin/reports/{id}/dismiss` | `report:resolve` | Từ chối, bắt buộc `note` | FR-32 |
 
-`GET /admin/reports` trả trang theo biển. `status` mặc định là `PENDING`. Mỗi mục có dạng:
+`GET /admin/reports` trả trang theo biển. `status` mặc định là `PENDING`. `photoUrl` là URL ký
+có hạn 10 phút khi ảnh còn trong thời hạn lưu giữ. Mỗi mục có dạng:
 
 ```json
 {
@@ -424,6 +432,8 @@ Các thao tác ghi khác trả `204`.
 | `accept` sửa biển | `{ "action": "EDIT", "version": 7, "changes": { "signTypeCode": "P.123b", "location": { … } } }`, cần ít nhất một thay đổi |
 | `accept` gỡ biển | `{ "action": "REMOVE", "version": 7 }` |
 | `dismiss` | `{ "note": "…" }`, 1–1000 ký tự |
+
+`dismiss` trả `204` khi thành công và `409 CONFLICT` nếu báo cáo không ở trạng thái `PENDING`.
 
 Chấp nhận một báo cáo sẽ sửa hoặc gỡ biển và ghi lịch sử trong cùng giao dịch. Các báo cáo khác đang chờ của biển đó vẫn ở trạng thái chờ. `version` lệch thì trả `409 SIGN_ALREADY_PROCESSED`.
 
