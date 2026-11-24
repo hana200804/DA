@@ -54,7 +54,9 @@ import vn.signa.identity.internal.SessionService;
 import vn.signa.recognition.internal.DetectResult;
 import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
+import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
+import vn.signa.sign.internal.map.SignDetail;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -207,8 +209,10 @@ class PermissionMatrixTest {
               new MockMultipartFile(
                   "image", "a.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
               Access.PUBLIC),
-          // Quy tắc công khai đặt sẵn cho lát 4. Lát có controller đổi dòng sang Endpoint.of.
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/signs", Access.PUBLIC),
+          // Lát 4 · bản đồ (docs/07 §6)
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/signs?bbox=105.8,21.02,105.81,21.03", null, Access.PUBLIC),
+          Endpoint.of(HttpMethod.GET, "/api/v1/signs/s-1", null, Access.PUBLIC),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -272,6 +276,22 @@ class PermissionMatrixTest {
                 new DetectResult.ImageSize(8, 8),
                 1,
                 List.of()));
+    when(map.find(any())).thenReturn(new MapResult.Signs(List.of()));
+    when(map.detail("s-1"))
+        .thenReturn(
+            Optional.of(
+                new SignDetail(
+                    "s-1",
+                    "P.102",
+                    "PROHIBITORY",
+                    new MapResult.LatLng(21.0285, 105.8048),
+                    null,
+                    "APPROVED",
+                    0.9,
+                    0,
+                    0,
+                    Instant.parse("2026-01-15T08:30:12.345Z"),
+                    null)));
     when(catalog.categories()).thenReturn(new SignCategoryList(List.of()));
     when(catalogAdmin.types(false)).thenReturn(new AdminSignTypeList(List.of()));
     when(catalog.signTypes())
