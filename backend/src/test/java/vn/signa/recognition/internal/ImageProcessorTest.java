@@ -1,0 +1,98 @@
+package vn.signa.recognition.internal;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
+
+import java.awt.image.BufferedImage;
+import java.util.Arrays;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import vn.signa.shared.error.ApiException;
+import vn.signa.shared.error.ErrorCode;
+
+class ImageProcessorTest {
+
+  private final ImageProcessor processor = new ImageProcessor();
+
+  @Test
+  void largeImageIsShrunkToLongEdge1280AsJpeg() throws Exception {
+    PreparedImage prepared = processor.prepare(TestImages.png(2560, 1920));
+
+    assertThat(prepared.width()).isEqualTo(2560);
+    assertThat(prepared.height()).isEqualTo(1920);
+    assertThat(prepared.sentWidth()).isEqualTo(1280);
+    assertThat(prepared.sentHeight()).isEqualTo(960);
+    assertThat(prepared.mediaType()).isEqualTo(MediaType.IMAGE_JPEG);
+    assertThat(ImageFormat.detect(prepared.payload())).isEqualTo(ImageFormat.JPEG);
+    BufferedImage sent = TestImages.decode(prepared.payload());
+    assertThat(sent.getWidth()).isEqualTo(1280);
+    assertThat(sent.getHeight()).isEqualTo(960);
+  }
+
+  @Test
+  void portraitImageShrinksByHeight() throws Exception {
+    PreparedImage prepared = processor.prepare(TestImages.jpeg(1000, 3000));
+
+    assertThat(prepared.sentWidth()).isEqualTo(427);
+    assertThat(prepared.sentHeight()).isEqualTo(1280);
+  }
+
+  @Test
+  void smallImageIsSentUnchanged() throws Exception {
+    byte[] png = TestImages.png(1280, 720);
+
+    PreparedImage prepared = processor.prepare(png);
+
+    assertThat(prepared.payload()).isSameAs(png);
+    assertThat(prepared.mediaType()).isEqualTo(MediaType.IMAGE_PNG);
+    assertThat(prepared.sentWidth()).isEqualTo(1280);
+    assertThat(prepared.sentHeight()).isEqualTo(720);
+  }
+
+  @Test
+  void boxIsScaledBackToOriginalCoordinates() throws Exception {
+    PreparedImage prepared = processor.prepare(TestImages.png(2560, 1920));
+
+    Box original = prepared.toOriginal(new Box(100, 50, 64, 66));
+
+    assertThat(original.x()).isCloseTo(200, within(1e-9));
+    assertThat(original.y()).isCloseTo(100, within(1e-9));
+    assertThat(original.width()).isCloseTo(128, within(1e-9));
+    assertThat(original.height()).isCloseTo(132, within(1e-9));
+  }
+
+  @Test
+  void boxScaleUsesEachAxisSeparately() {
+    Box scaled = new Box(10, 20, 30, 40).scale(2.0, 0.5);
+
+    assertThat(scaled).isEqualTo(new Box(20, 10, 60, 20));
+  }
+
+  @Test
+  void decompressionBombIsRejectedBeforeDecoding() throws Exception {
+    byte[] bomb = TestImages.pngDeclaring(6000, 6000);
+
+    assertThatThrownBy(() -> processor.prepare(bomb))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.PAYLOAD_TOO_LARGE));
+  }
+
+  @Test
+  void corruptDataWithValidMagicIsUnsupported() throws Exception {
+    byte[] png = TestImages.png(2000, 2000);
+    byte[] truncated = Arrays.copyOf(png, 40);
+
+    assertThatThrownBy(() -> processor.prepare(truncated))
+        .isInstanceOfSatisfying(
+            ApiException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.UNSUPPORTED_MEDIA_TYPE));
+  }
+
+  @Test
+  void toStringNeverContainsImageBytes() throws Exception {
+    PreparedImage prepared = processor.prepare(TestImages.png(8, 8));
+
+    assertThat(prepared.toString()).contains("8x8").doesNotContain("[B@");
+  }
+}

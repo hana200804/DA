@@ -52,8 +52,14 @@ import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
+import vn.signa.recognition.internal.DetectResult;
+import vn.signa.recognition.internal.ModelList;
+import vn.signa.recognition.internal.RecognitionService;
 import vn.signa.sign.clustering.SubmissionStatus;
 import vn.signa.sign.internal.SubmissionService;
+import vn.signa.sign.internal.map.MapResult;
+import vn.signa.sign.internal.map.MapService;
+import vn.signa.sign.internal.map.SignDetail;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -198,6 +204,18 @@ class PermissionMatrixTest {
               new MockMultipartFile(
                   "icon", "T.1.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
               MANAGE_CATALOG),
+          // Lát 3 · nhận diện (docs/07 §5)
+          Endpoint.of(HttpMethod.GET, "/api/v1/recognition/models", null, Access.PUBLIC),
+          Endpoint.withFile(
+              HttpMethod.POST,
+              "/api/v1/recognition/detect",
+              new MockMultipartFile(
+                  "image", "a.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
+              Access.PUBLIC),
+          // Lát 4 · bản đồ (docs/07 §6)
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/signs?bbox=105.8,21.02,105.81,21.03", null, Access.PUBLIC),
+          Endpoint.of(HttpMethod.GET, "/api/v1/signs/s-1", null, Access.PUBLIC),
           // Lát 5 · đề xuất (docs/07 §6)
           new Endpoint(
               HttpMethod.POST,
@@ -213,10 +231,6 @@ class PermissionMatrixTest {
               Access.permission("submission:create"),
               true),
           Endpoint.of(HttpMethod.GET, "/api/v1/me/submissions", null, Access.AUTHENTICATED),
-          // Quy tắc công khai đặt sẵn cho lát 3–4. Lát có controller đổi dòng sang Endpoint.of.
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/signs", Access.PUBLIC),
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/recognition/models", Access.PUBLIC),
-          Endpoint.reserved(HttpMethod.POST, "/api/v1/recognition/detect", Access.PUBLIC),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -256,6 +270,10 @@ class PermissionMatrixTest {
   @MockitoBean SessionService sessions;
   @MockitoBean SubmissionService submissions;
   @MockitoBean RolePermissions rolePermissions;
+  // Lát 3 · nhận diện
+  @MockitoBean RecognitionService recognition;
+  // Lát 4 · bản đồ
+  @MockitoBean MapService map;
 
   @BeforeEach
   void stubs() {
@@ -269,6 +287,30 @@ class PermissionMatrixTest {
         .thenReturn(new LoginResult("tok", Instant.parse("2026-12-01T00:00:00Z"), profile));
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
+    when(recognition.models()).thenReturn(new ModelList("yolov8", List.of()));
+    when(recognition.detect(any(), any(), any()))
+        .thenReturn(
+            new DetectResult(
+                new DetectResult.ModelRef("yolov8", "yolov8s-v1.0", 1),
+                new DetectResult.ImageSize(8, 8),
+                1,
+                List.of()));
+    when(map.find(any())).thenReturn(new MapResult.Signs(List.of()));
+    when(map.detail("s-1"))
+        .thenReturn(
+            Optional.of(
+                new SignDetail(
+                    "s-1",
+                    "P.102",
+                    "PROHIBITORY",
+                    new MapResult.LatLng(21.0285, 105.8048),
+                    null,
+                    "APPROVED",
+                    0.9,
+                    0,
+                    0,
+                    Instant.parse("2026-01-15T08:30:12.345Z"),
+                    null)));
     when(submissions.submit(anyString(), any(), any()))
         .thenReturn(
             new SubmissionService.Result(
