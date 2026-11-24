@@ -21,7 +21,7 @@ Các luật dưới đây là lựa chọn của lát này, cần cả nhóm xem
 
 | Chủ đề | Tài liệu | Cách làm |
 | --- | --- | --- |
-| Chốt mã | `docs/04 §6`: duyệt thì đề xuất khác mã `REJECTED`. Đề bài yêu cầu điểm không dưới 0,5 ngay sau khi duyệt bằng mã không dẫn đầu | Khi kiểm duyệt viên chốt mã `c` (duyệt, giữ, sửa mã biển đã công bố), đề xuất khác mã chuyển `REJECTED` và trọng số `w` về 0. `W` của các mã khác trong `sign_code_weights` cũng về 0, giữ `submitter_count`. Lát 5 cũng cho đề xuất bị từ chối ở bước 4 `w = 0`. Nhờ vậy `β = 0,5 + R−`, biển `PENDING` vừa duyệt có điểm ≥ 2,5 / 3 ≈ 0,83. Lát 5 và lát 7 tính lại điểm bằng chính bảng này nên kết quả nhất quán |
+| Chốt mã | `docs/04 §6`: duyệt thì đề xuất khác mã `REJECTED`. Đề bài yêu cầu điểm không dưới 0,5 ngay sau khi duyệt bằng mã không dẫn đầu | Khi kiểm duyệt viên chốt mã `c` (duyệt, giữ, sửa mã biển đã công bố), đề xuất khác mã chuyển `REJECTED`, và `W` của các mã khác trong `sign_code_weights` về 0, giữ `submitter_count`. `W_c` đặt bằng tổng `w` của đề xuất mang mã `c`, nên chọn lại một mã từng bị loại sẽ lấy lại bằng chứng của nó. `w` của từng đề xuất giữ nguyên để còn dấu vết. Nhờ vậy `β = 0,5 + R−`, biển `PENDING` vừa duyệt có điểm ≥ 2,5 / 3 ≈ 0,83. Lát 5 và lát 7 tính lại điểm từ chính bảng này nên kết quả nhất quán |
 | Điểm khi duyệt | `Scoring.score` | Tính bằng `Scoring.score(biển đã chốt, c)` với `M = 2`. Thao tác của kiểm duyệt viên không tự chuyển biển sang `UNDER_REVIEW`, kể cả khi điểm < 0,5 (luật FR-22 chỉ chạy khi có xác nhận hoặc đánh giá mới) |
 | Mã không hợp lệ | "Mã mới phải là loại đang dùng" | Mã không có hoặc đã ngừng dùng trả `422 BUSINESS_RULE`. Lỗi cú pháp trả `400 VALIDATION_ERROR` |
 | Sửa mã biển `PENDING` | `PATCH` áp dụng cho `PENDING` | Chỉ sửa được vị trí và hướng. Đổi mã trả `422 BUSINESS_RULE` vì worker tính lại mã dẫn đầu theo trọng số nên sẽ ghi đè mã đã sửa. Đổi mã khi duyệt dùng `approve` |
@@ -53,13 +53,13 @@ Thứ tự khoá không tạo chu trình: worker khoá đề xuất mới (chưa
 
 ### Nhiệm vụ 1 · Luật thuần
 
-**Tạo trong** `sign/internal/review/`: `ReviewRules`, `ReviewRequests`, `SignChange`.
+**Tạo trong** `sign/internal/review/`: `ReviewRules`, `ReviewRequests`, `ReviewQueries`, `SignChange`.
 
-- [ ] Kiểm đầu vào: `version` ≥ 0, `signTypeCode` 1–30 ký tự sau khi trim, `location` trong miền, `headingDeg` 0–359 hoặc `null`, `reason` 1–1000 ký tự sau khi trim. `PATCH` cần ít nhất một thay đổi, phân biệt `headingDeg` bỏ qua với `headingDeg: null`.
-- [ ] Luật chuyển trạng thái: `approve`, `reject` cho `PENDING`; `keep` cho `UNDER_REVIEW`; `remove` cho `APPROVED`, `UNDER_REVIEW`; `PATCH` cho `PENDING`, `APPROVED`, `UNDER_REVIEW`.
-- [ ] Chốt mã (đề xuất, trọng số), điểm `Scoring`, cập nhật đề xuất thành viên bằng `ClusteringEngine.memberUpdates`, before/after của lịch sử.
-- [ ] Unit test cho từng luật, gồm ca duyệt bằng mã không dẫn đầu có điểm ≥ 0,5.
-- [ ] Commit.
+- [x] Kiểm đầu vào: `version` ≥ 0, `signTypeCode` 1–30 ký tự sau khi trim, `location` trong miền, `headingDeg` 0–359 hoặc `null`, `reason` 1–1000 ký tự sau khi trim. `PATCH` cần ít nhất một thay đổi, phân biệt `headingDeg` bỏ qua với `headingDeg: null`.
+- [x] Luật chuyển trạng thái: `approve`, `reject` cho `PENDING`; `keep` cho `UNDER_REVIEW`; `remove` cho `APPROVED`, `UNDER_REVIEW`; `PATCH` cho `PENDING`, `APPROVED`, `UNDER_REVIEW`.
+- [x] Chốt mã (đề xuất, trọng số), điểm `Scoring`, cập nhật đề xuất thành viên bằng `ClusteringEngine.memberUpdates`, before/after của lịch sử.
+- [x] Unit test cho từng luật, gồm ca duyệt bằng mã không dẫn đầu có điểm ≥ 0,5.
+- [x] Commit.
 
 ### Nhiệm vụ 2 · Repository và dịch vụ
 
