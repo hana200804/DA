@@ -5,20 +5,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import vn.signa.support.IntegrationTest;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
+import vn.signa.support.Containers;
 
 /**
  * Quản trị viên đầu tiên được tạo khi khởi động và ghi lịch sử {@code USER/ROLE_CHANGED} bằng
- * {@code SYSTEM}. Thuộc tính riêng nên lớp này có context riêng.
+ * {@code SYSTEM}. MySQL riêng đảm bảo lúc khởi động chưa có quản trị viên.
  */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Testcontainers
 @TestPropertySource(
     properties = {
       "signa.identity.bootstrap-admin.email=Bootstrap-Admin@Signa.VN",
       "signa.identity.bootstrap-admin.password=bootstrap-it-secret"
     })
-class BootstrapAdminIT extends IntegrationTest {
+class BootstrapAdminIT {
+
+  @Container static final MySQLContainer MYSQL = Containers.newMysql();
+
+  @DynamicPropertySource
+  static void containers(DynamicPropertyRegistry registry) {
+    Containers.register(registry, MYSQL);
+  }
 
   @Autowired JdbcTemplate jdbc;
 
