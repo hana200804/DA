@@ -79,8 +79,9 @@
 
 ## Phần 2 · Sau khi merge lát 1 và lát 2
 
-- [ ] Nối `CallerIdentity` với principal của lát 1 (người dùng đăng nhập dùng giới hạn 10 lần mỗi phút). Thêm dòng cho hai endpoint công khai vào `PermissionMatrixTest`.
-- [ ] Nối `SignInfoLookup` với `catalog.api.SignCatalog` của lát 2, xoá `NoSignInfoLookup`.
+- [x] Merge `backend/2-catalog` (gồm lát 1 và lát 2); xung đột chỉ ở `build.gradle.kts`, giữ cả hai bên.
+- [x] Nối `CallerIdentity` với principal của lát 1 (người dùng đăng nhập dùng giới hạn 10 lần mỗi phút): `PrincipalCallerIdentity`, xoá `AnonymousCallerIdentity`. Thêm dòng cho hai endpoint công khai vào `PermissionMatrixTest`.
+- [x] Nối `SignInfoLookup` với `catalog.api.SignCatalog` của lát 2: `CatalogSignInfoLookup`, xoá `NoSignInfoLookup`.
 - [ ] `POST /admin/recognition/compare` (FR-37, quyền `recognition:compare`) làm ở lát 9.
 
 ## Tiến độ
@@ -100,10 +101,22 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
   - Box trả số thực, không làm tròn.
   - Redis lỗi thì cho qua (fail-open).
   - Cấu hình riêng nằm ở `RecognitionProperties` với giá trị mặc định trong mã. `application.yml` chỉ thêm `file-size-threshold` theo cho phép của người điều phối.
-- Nối ở phần 2: `AnonymousCallerIdentity` (luôn khách) thay bằng principal của lát 1; `NoSignInfoLookup` (`name`, `description`, `iconUrl` luôn `null`) thay bằng `catalog.api.SignCatalog` của lát 2.
+- Nối ở phần 2 (đã xong 2026-11-24): `AnonymousCallerIdentity` (luôn khách) thay bằng principal của lát 1; `NoSignInfoLookup` (`name`, `description`, `iconUrl` luôn `null`) thay bằng `catalog.api.SignCatalog` của lát 2.
 - Đã xử lý theo cho phép của người điều phối: thêm `spring.servlet.multipart.file-size-threshold: 11MB` vào `application.yml`. Ngưỡng không nhỏ hơn `max-file-size` và `max-request-size`, nên Tomcat giữ ảnh nhận diện trong bộ nhớ, không ghi file tạm (NFR-09). `UploadConfigTest` chứng minh cấu hình này.
 - Rủi ro người điều phối đã chấp nhận:
   - Redis lỗi thì cho qua (fail-open).
   - Ảnh thu nhỏ bị bỏ thẻ EXIF Orientation. Ứng dụng chuẩn hoá hướng ảnh trước khi tải lên theo docs/07 §5, nên box và `image` cùng một hệ toạ độ.
   - JPEG CMYK lớn hơn 1280 px có thể trả `415`; khi cần thì thêm `imageio-jpeg` của TwelveMonkeys.
-- Rủi ro còn mở cho lát 10: `forward-headers-strategy: framework` lấy IP từ giá trị đầu của `X-Forwarded-For`, nên khách tự đặt header này để vượt giới hạn 30 lần mỗi phút. nginx phải ghi đè `X-Forwarded-For $remote_addr`, và cổng backend không được mở ra ngoài.
+- Rủi ro `X-Forwarded-For` giả mạo: lát 1 đã đổi sang `forward-headers-strategy: native` với `server.tomcat.remoteip.internal-proxies`, nên chỉ proxy nội bộ đặt được IP khách (xem mục 2026-11-24).
+
+**2026-11-24.** Phần 2 đã commit trên `backend/3-recognition`, chưa push.
+
+- Merge `backend/2-catalog` vào lát 3 (`ed9d1ae`). Xung đột chỉ ở `build.gradle.kts`, giữ cả dòng lát 1 và lát 3. Sau merge, `RecognitionControllerTest` dùng `@WithApiSecurity` của lát 1, `PermissionMatrixTest` có `@MockitoBean RecognitionService`.
+- `.gitignore` của `backend/` bỏ qua `.project`, `.classpath`, `.settings/`, `bin/` do IDE sinh ra.
+- `PrincipalCallerIdentity` đọc `AuthenticatedUser` trong `SecurityContext`: đã đăng nhập thì khoá `rl:recognize:user:<userId>`, 10 lần mỗi phút; khách và xác thực ẩn danh thì khoá `rl:recognize:ip:<ip>`, 30 lần mỗi phút. `RecognitionControllerTest` chạy qua chuỗi Security thật với token giả để chứng minh.
+- `CatalogSignInfoLookup` lấy `name`, `description`, `iconUrl` (`/icons/<iconKey>`) qua `SignCatalog.findType`. Mỗi mã khác nhau tra một lần. Mã không có trong danh mục thì ba trường là `null`. Danh mục lỗi CSDL thì kết quả nhận diện vẫn trả, chỉ thiếu ba trường.
+- `PermissionMatrixTest`: hai dòng `reserved` của lát 3 đổi sang `Endpoint.of` và `Endpoint.withFile`, công khai cho cả 4 vai trò. `SecurityConfig` của lát 1 đã mở `GET /recognition/**` và `POST /recognition/detect`.
+- IP khách: lát 1 đổi `forward-headers-strategy` sang `native` với `server.tomcat.remoteip.internal-proxies` (mặc định các dải IP riêng). `request.getRemoteAddr()` chỉ lấy `X-Forwarded-For` khi request đến từ proxy tin cậy, nên rủi ro giả IP để vượt giới hạn đã được lát 1 xử lý. nginx vẫn phải đặt `X-Forwarded-For $remote_addr`.
+- Trên máy: `./gradlew spotlessApply test compileTestJava` thành công, 286/286 unit test đạt. Gói `recognition` có 51 test, mới thêm `PrincipalCallerIdentityTest` 4 và `CatalogSignInfoLookupTest` 5; ngoài ra có 8 ca nhận diện trong `PermissionMatrixTest`. `markdownlint` sạch.
+- Chỉ verify được trên CI: `RecognitionIT` thêm ca nạp `ai/data/labels.yaml` rồi kiểm `P.102` có tên "Cấm đi ngược chiều", mã lạ có `name = null`.
+- Còn lại: `POST /admin/recognition/compare` (FR-37) ở lát 9. Nếu danh mục lớn hoặc ảnh có nhiều biển, có thể thêm hàm tra theo lô vào `SignCatalog` (lát 2 sở hữu); hiện một ảnh vài biển nên tra từng mã là đủ.

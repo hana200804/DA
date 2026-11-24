@@ -17,6 +17,7 @@ import io.minio.ListObjectsArgs;
 import io.minio.MinioClient;
 import java.awt.image.BufferedImage;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestClient;
+import vn.signa.catalog.internal.LabelImporter;
 import vn.signa.recognition.internal.TestImages;
 import vn.signa.shared.storage.Bucket;
 import vn.signa.shared.web.RequestIdFilter;
@@ -63,6 +65,7 @@ class RecognitionIT extends IntegrationTest {
 
   @LocalServerPort int port;
   @Autowired StringRedisTemplate redis;
+  @Autowired LabelImporter labels;
 
   RestClient http;
 
@@ -170,6 +173,31 @@ class RecognitionIT extends IntegrationTest {
     assertThat(Integer.parseInt(limited.headers().getFirst(HttpHeaders.RETRY_AFTER)))
         .isBetween(1, 60);
     AI.verify(30, postRequestedFor(urlEqualTo("/v1/detect")));
+  }
+
+  /** Phần 2: tên, ý nghĩa, ảnh minh hoạ lấy từ danh mục lát 2 (SignCatalog). */
+  @Test
+  void detectionsCarrySignInfoFromCatalog() throws Exception {
+    labels.importFrom(Path.of("..", "ai", "data", "labels.yaml"));
+    AI.stubFor(
+        post(urlEqualTo("/v1/detect"))
+            .willReturn(
+                okJson(
+                    """
+                    {"modelName":"yolov8","modelVersion":"yolov8s-v1.0","labelMapVersion":1,
+                    "inferenceMs":5,"detections":[
+                    {"box":{"x":1,"y":2,"width":3,"height":4},"signTypeCode":"P.102","confidence":0.9},
+                    {"box":{"x":1,"y":2,"width":3,"height":4},"signTypeCode":"X.999","confidence":0.5}]}
+                    """)));
+
+    Response response = detect("a.png", MediaType.IMAGE_PNG, TestImages.png(64, 48), null);
+
+    assertThat(response.status()).isEqualTo(200);
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> detections =
+        (List<Map<String, Object>>) response.body().get("detections");
+    assertThat(detections.get(0)).containsEntry("name", "Cấm đi ngược chiều");
+    assertThat(detections.get(1).get("name")).isNull();
   }
 
   @Test
