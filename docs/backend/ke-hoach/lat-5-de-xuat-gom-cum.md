@@ -4,7 +4,7 @@
 
 **Mục tiêu:** đề xuất của người dùng được gom thành biển, có trọng số, điểm tin cậy Beta, gợi ý cho kiểm duyệt viên, vị trí trung vị và chuyển trạng thái đúng [Thiết kế AI §6](../../04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy).
 
-**Yêu cầu:** FR-04, FR-20, FR-21; cung cấp hàm thuần cho FR-22 (lát 7), FR-25 (lát 9) và cập nhật đề xuất thành viên khi duyệt (lát 6).
+**Yêu cầu:** FR-04, FR-11, FR-20, FR-21; cung cấp hàm thuần cho FR-22 (lát 7), FR-25 (lát 9) và cập nhật đề xuất thành viên khi duyệt (lát 6).
 
 **Nguồn chuẩn:** `docs/04 §6`, ADR-0004, ADR-0007, `docs/06 §6`, `docs/08 §2.2`, `docs/backend/thiet-ke-trien-khai.md §5.3`.
 
@@ -13,14 +13,14 @@
 | Phần | Nội dung | Phụ thuộc | Khi nào |
 | --- | --- | --- | --- |
 | 1 | Lõi logic thuần trong `vn.signa.sign.clustering`: gán, trọng số, điểm, gợi ý, tự duyệt, rà soát lại, vị trí, chuyển trạng thái đề xuất | Lát 0 | Đợt song song, làm ngay |
-| 2 | `POST /submissions`, repository JDBC, worker Redis Stream, quét lại, dọn ảnh, metric | Lát 1 (đăng nhập), lát 2 (`SignCatalog`) | Sau khi nhánh đã merge lát 1 và lát 2 |
+| 2 | `POST /submissions`, `GET /me/submissions`, repository JDBC, worker Redis Stream, quét lại, dọn ảnh, metric | Lát 1 (đăng nhập), lát 2 (`SignCatalog`) | Sau khi nhánh đã merge lát 1 và lát 2 |
 
 ## Ràng buộc chung
 
 - Phần 1 là Java thuần: không Spring, không JDBC, không I/O. Test `ClusteringPurityTest` (ArchUnit) chặn phụ thuộc vào `org.springframework..`, `java.sql..`, `javax.sql..`, `java.io..`, `java.nio..`, `java.net..`.
 - Mọi unit test chạy không cần Docker.
 - `build.gradle.kts` chỉ thêm khối mới ở cuối file, kèm chú thích `// lát 5`.
-- Không sửa `shared/`, luật test kiến trúc, `SignaProperties`.
+- Giữ luật test kiến trúc và `SignaProperties`. Phần 2 cần bổ sung hợp đồng liệt kê đối tượng cho job dọn ảnh.
 
 ## Luật đã chốt khi tài liệu chưa nói rõ
 
@@ -83,32 +83,34 @@ Các luật dưới đây là lựa chọn của lát này, cần cả nhóm xem
 - [x] `jacocoTestCoverageVerification` ≥ 90% dòng cho `vn.signa.sign.clustering`, khối mới ở cuối `build.gradle.kts`.
 - [x] `./gradlew spotlessCheck test compileTestJava jacocoTestCoverageVerification` thành công; markdownlint sạch; commit.
 
-## Phần 2 · Tích hợp (chưa làm)
+## Phần 2 · Tích hợp
 
-Cần merge lát 1 (đăng nhập, `submission:create`) và lát 2 (`SignCatalog` để tra `categoryCode`, kiểm `labelMapVersion`).
+Lát 1 cung cấp đăng nhập, `submission:create` và `AuditRecorder`. Lát 2 cung cấp `SignCatalog` để tra `categoryCode` và kiểm `labelMapVersion`.
 
 ### Nhiệm vụ 5 · Repository JDBC
 
 - [ ] `SignRepository`, `SignCodeWeightRepository`, `SubmissionRepository` trong `sign.internal`, dùng `JdbcClient` và SQL viết tay, chỉ trên `signs`, `sign_code_weights`, `submissions`.
-- [ ] Lọc thô ứng viên bằng `MBRContains` quanh điểm, `category_code` cùng nhóm, `status <> 'REMOVED'`; lọc chính xác do `Assignment` làm. Nửa cạnh theo vĩ độ ±0,0002°; theo kinh độ tính `Δlng = 20 / (111 320 · cos(lat))` độ thay vì ±0,0002° cố định, vì ±0,0002° kinh độ chỉ phủ đủ 20 m khi vĩ độ dưới khoảng 25,8°.
+- [ ] Lọc thô ứng viên bằng `MBRContains` quanh điểm, `category_code` cùng nhóm, `status <> 'REMOVED'`; lọc chính xác bằng `ST_Distance_Sphere ≤ 20` với cùng bán kính Trái Đất của lõi. Dùng `Δlat = 20 / 111 320`, `Δlng = 20 / (111 320 · cos(lat))`, mở biên vừa đủ tránh bỏ sót do sai số và xử lý kinh tuyến đổi ngày, hai cực. Giữ biển `REJECTED` trong 30 ngày tính từ lúc nhận đề xuất.
 - [ ] Đọc ứng viên bằng `SELECT … FOR UPDATE` trong giao dịch của worker để không ghi đè quyết định duyệt đồng thời; ghi biển bằng `WHERE id = ? AND version = ?`.
 - [ ] Nạp đề xuất thành viên của ứng viên (cột `user_id`, `sign_type_code`, `weight`, `location`, `received_at`, `status`).
 
-### Nhiệm vụ 6 · `POST /submissions`
+### Nhiệm vụ 6 · API đề xuất
 
-- [ ] Multipart `metadata` + `crop` (≤ 200 KB, JPEG), kiểm `labelMapVersion`, ghi `sign-crops/{newId}.jpg`, `INSERT` `RECEIVED`.
+- [ ] Multipart `metadata` + `crop` (≤ 200 KB, JPEG), kiểm chi tiết trường và `labelMapVersion` qua `SignCatalog`, ghi `sign-crops/{newId}.jpg`, `INSERT` `RECEIVED`.
 - [ ] Trùng `UNIQUE(user_id, client_id)`: đọc bản ghi thắng, xoá ảnh vừa ghi, trả `200` cùng ID (IT-B01, IT-B14).
 - [ ] Commit xong mới `XADD stream:submissions`; Redis lỗi vẫn trả `201`.
-- [ ] Thêm dòng vào `PermissionMatrixTest`; cập nhật mục endpoint trong `docs/07`.
+- [ ] `GET /me/submissions` phân trang riêng theo người đăng nhập, thứ tự nhận mới nhất trước.
+- [ ] Bổ sung quyền URL, dòng `PermissionMatrixTest` và hợp đồng hai endpoint trong `docs/07`.
 
 ### Nhiệm vụ 7 · Worker và vận hành
 
-- [ ] Consumer group `clustering`, `XREADGROUP`; mỗi mục khoá đề xuất `FOR UPDATE`, bỏ qua nếu khác `RECEIVED`, gọi `ClusteringEngine.process`, ghi biển, trọng số, đề xuất, lịch sử (`audit.api`, `actor_type = SYSTEM`) trong một giao dịch, rồi `XACK`, `XDEL`. Bật bằng `signa.sign.clustering.worker.enabled`.
-- [ ] Khởi động đọc lại mục chưa `XACK`; quét định kỳ đề xuất `RECEIVED` cũ hơn 1 phút; thử lại có khoảng nghỉ.
-- [ ] Ngưỡng `ClusteringConfig` và cờ tự duyệt (mặc định tắt) đọc từ khối `signa.sign:` ở cuối `application.yml`.
-- [ ] Job dọn ảnh `sign-crops`: biển `REJECTED` sau 90 ngày; ảnh không có bản ghi MySQL cũ hơn 1 giờ.
-- [ ] Metric: độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED`, tuổi đề xuất chờ lâu nhất.
-- [ ] IT-B01, IT-B02, IT-B03, IT-B12, IT-B14 (chạy trên CI).
+- [ ] Consumer group `clustering`, `XREADGROUP`; mỗi mục khoá đề xuất `FOR UPDATE`, bỏ qua nếu khác `RECEIVED`, gọi `ClusteringEngine.process`, ghi biển, trọng số, đề xuất, lịch sử (`audit.api`, `actor_type = SYSTEM`) trong một giao dịch, rồi `XACK`, `XDEL`. Bật bằng `signa.clustering.worker.enabled`; cấu hình tên consumer.
+- [ ] Tạo nhóm với `MKSTREAM`; khởi động lấy lại mục pending; quét mỗi phút đề xuất `RECEIVED` cũ hơn 1 phút; thử lại với backoff tăng dần.
+- [ ] Dùng ngưỡng đã chốt của `ClusteringConfig`; đọc cờ FR-25 từ `signa.clustering.auto-approve`, mặc định tắt.
+- [ ] Job dọn ảnh `sign-crops`: biển `REJECTED` sau 90 ngày; ảnh không có bản ghi MySQL cũ hơn 1 giờ. Job chạy mỗi ngày, bật bằng cấu hình, và dùng `ObjectStorage.list` để đọc khoá cùng thời điểm sửa cuối.
+- [ ] Metric: độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED`, tuổi đề xuất chờ lâu nhất, cùng timer xử lý. Thêm registry Prometheus.
+- [ ] Kiểm thử đơn vị cho metadata, khung lọc và tham số cập nhật biển.
+- [ ] IT-B01, IT-B02, IT-B03, IT-B12, IT-B14, cách ly danh sách theo người gọi và phiên bản nhãn lạ (chạy trên CI).
 
 ### Ghi chú cho lát 6
 
@@ -127,3 +129,5 @@ Ghi ở đây trạng thái cuối và việc còn dở khi dừng giữa chừn
 - `jacocoTestCoverageVerification` chưa nằm trong `check` và workflow CI. Thêm vào `backend.yml` là việc của người điều phối, vì file này dùng chung.
 - Người điều phối đã đồng ý các luật trong mục "Luật đã chốt khi tài liệu chưa nói rõ" (R = 6 370 986 m, biên bao gồm, bước 4 trước bước 5, luật hoà, so trên điểm đã làm tròn) và yêu cầu thêm `LOCATION_RECOMPUTED`. Còn chờ cả nhóm review: `M` khi tự duyệt, hướng của biển.
 - Rủi ro cho lát 6: xem mục "Ghi chú cho lát 6".
+
+**2026-11-24.** Đã ghép lát 1 và lát 2. Kiểm tra Gradle sau merge thành công. Bắt đầu triển khai phần 2 theo kế hoạch trên.
