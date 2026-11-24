@@ -22,8 +22,12 @@ class SignRepository {
   private static final String CANDIDATES =
       """
       SELECT id, status, sign_type_code, category_code, heading_deg, location_locked,
-             distinct_submitters, confirm_count, deny_count, deny_since_review, moderator_boost,
+             distinct_submitters, confirm_count, deny_count, moderator_boost,
              confidence, suggestion, flags, related_sign_id, reviewed_at, version,
+             (SELECT COUNT(*) FROM sign_ratings r
+              WHERE r.sign_id = signs.id AND r.value = 'DENY'
+                AND (signs.reviewed_at IS NULL OR r.updated_at > signs.reviewed_at))
+               AS deny_since_review,
              ST_Latitude(location) AS lat, ST_Longitude(location) AS lng
       FROM signs
       WHERE category_code = :category AND status <> 'REMOVED'

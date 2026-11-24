@@ -89,11 +89,13 @@ class ClusteringProcessor {
     List<String> ids = candidates.stream().map(SignState::id).toList();
     var bySign = weights.forSigns(ids);
     var membersBySign = submissions.forSigns(ids);
+    var sinceReview = submissions.weightsSinceReview(ids);
     return candidates.stream()
         .map(sign ->
             sign.toBuilder()
                 .codeWeights(bySign.getOrDefault(sign.id(), Map.of()))
                 .members(membersBySign.getOrDefault(sign.id(), List.of()))
+                .weightsSinceReview(sinceReview.getOrDefault(sign.id(), Map.of()))
                 .build())
         .toList();
   }

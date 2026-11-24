@@ -61,6 +61,11 @@ public final class Scoring {
   /**
    * Điểm {@code α / (α + β)}, làm tròn 4 chữ số, với {@code α = 0,5 + W_c* + R+ + M} và {@code β =
    * 0,5 + Σ_{c≠c*} W_c + R−}.
+   *
+   * <p>Sau quyết định của kiểm duyệt viên ({@code reviewedAt} khác {@code null}), bằng chứng phản
+   * đối có từ trước {@code reviewedAt} coi như đã xem xét: {@code β = 0,5 + Σ_{c≠c*} W_c(sau
+   * reviewedAt) + R−(sau reviewedAt)}, lấy từ {@link SignState#weightsSinceReview()} và {@link
+   * SignState#denySinceReview()}. {@code α} vẫn tính toàn bộ bằng chứng ủng hộ.
    */
   public static BigDecimal score(SignState sign, String leading) {
     BigDecimal leadingWeight = sign.weightOf(leading);
@@ -70,9 +75,23 @@ public final class Scoring {
             .add(BigDecimal.valueOf(sign.confirmCount()))
             .add(sign.moderatorBoost());
     BigDecimal beta =
-        PRIOR
-            .add(sign.totalWeight().subtract(leadingWeight))
-            .add(BigDecimal.valueOf(sign.denyCount()));
+        PRIOR.add(opposingWeight(sign, leading)).add(BigDecimal.valueOf(denies(sign)));
     return alpha.divide(alpha.add(beta), SCALE, RoundingMode.HALF_UP);
+  }
+
+  /** {@code Σ_{c≠c*} W_c} tính vào {@code β}: toàn bộ, hoặc chỉ phần sau {@code reviewedAt}. */
+  public static BigDecimal opposingWeight(SignState sign, String leading) {
+    if (sign.reviewedAt() == null) {
+      return sign.totalWeight().subtract(sign.weightOf(leading));
+    }
+    return sign.weightsSinceReview().entrySet().stream()
+        .filter(e -> !e.getKey().equals(leading))
+        .map(Map.Entry::getValue)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+  }
+
+  /** {@code R−} tính vào {@code β}: toàn bộ, hoặc chỉ phần sau {@code reviewedAt}. */
+  public static int denies(SignState sign) {
+    return sign.reviewedAt() == null ? sign.denyCount() : sign.denySinceReview();
   }
 }

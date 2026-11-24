@@ -160,6 +160,29 @@ class SubmissionRepository {
     return members;
   }
 
+  /**
+   * {@code W_c} sau quyết định gần nhất: tổng {@code weight} theo mã của đề xuất có {@code
+   * received_at > reviewed_at} (docs/04 §6). Biển chưa duyệt không có dòng nào.
+   */
+  Map<String, Map<String, BigDecimal>> weightsSinceReview(List<String> ids) {
+    Map<String, Map<String, BigDecimal>> weights = new HashMap<>();
+    jdbc.sql(
+            """
+            SELECT s.sign_id, s.sign_type_code, SUM(s.weight) AS weight
+            FROM submissions s JOIN signs g ON g.id = s.sign_id
+            WHERE s.sign_id IN (:ids) AND s.weight IS NOT NULL
+              AND g.reviewed_at IS NOT NULL AND s.received_at > g.reviewed_at
+            GROUP BY s.sign_id, s.sign_type_code
+            """)
+        .param("ids", ids)
+        .query(rs -> {
+          weights
+              .computeIfAbsent(rs.getString("sign_id"), id -> new HashMap<>())
+              .put(rs.getString("sign_type_code"), rs.getBigDecimal("weight"));
+        });
+    return weights;
+  }
+
   String bestCrop(String signId, String submissionId, String code) {
     return jdbc.sql(
             """
