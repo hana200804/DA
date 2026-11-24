@@ -42,6 +42,6 @@
 
 - `PasswordResetIT` có 5 ca đã biên dịch: đổi mật khẩu và thu hồi phiên, giới hạn gửi với email có hoặc không có tài khoản, TTL Redis, gửi lại và xoá ở lần sai thứ 5, hai yêu cầu dùng cùng mã. Máy làm việc thiếu Docker nên các ca này chạy trên CI. Compose đã parse YAML và xác nhận tag Mailpit có trên Docker Hub. Chưa chạy Compose.
 - Redis cập nhật TTL và bộ đếm nguyên tử. Hai lần gửi liên tiếp không cấp lại mã còn hiệu lực. BCrypt giữ cost 12. Đăng nhập kiểm tra lại hash mật khẩu đồng thời khoá hàng người dùng khi cấp phiên, để yêu cầu đang xác thực bằng mật khẩu cũ không cấp được phiên sau khi reset. Đổi mật khẩu theo FR-01 cũng kiểm tra lại hash trước khi ghi.
-- Bí mật OTP bắt buộc cả ở profile `migrate`. Profile `test` tự sinh bí mật trong bộ nhớ khi thiếu. SMTP local dùng Mailpit `v1.34.0`.
-- Hàng đợi email nằm trong bộ nhớ và có giới hạn. Khi hàng đợi đầy, ứng dụng khởi động lại hoặc SMTP lỗi, yêu cầu có thể đã nhận `202` nhưng thư chưa tới. Nếu bước thu hồi phiên gặp lỗi, giao dịch MySQL rollback và người dùng cần yêu cầu OTP mới.
+- Bí mật OTP bắt buộc khi chạy ứng dụng web ngoài profile `test`. Profile `test` tự sinh bí mật trong bộ nhớ khi thiếu. SMTP local dùng Mailpit `v1.34.0`. Test khởi tạo context `migrate` với Flyway tắt xác nhận chế độ này chạy được khi thiếu `SIGNA_OTP_SECRET`.
+- Điều phối viên đã chấp nhận hai rủi ro. Hàng đợi email trong bộ nhớ có thể mất yêu cầu đã nhận `202` khi đầy, backend khởi động lại hoặc SMTP lỗi. Người dùng có thể xin mã lại. Nếu thu hồi phiên gặp lỗi, giao dịch MySQL rollback và người dùng cần yêu cầu OTP mới.
 - Phần B giữ lại trong kế hoạch để thực hiện sau khi các lát phụ thuộc sẵn sàng.

@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.mail.SimpleMailMessage;
@@ -19,6 +20,7 @@ import vn.signa.shared.error.ErrorCode;
 
 /** Quản lý yêu cầu đặt lại mật khẩu bằng OTP qua email (FR-13). */
 @Service
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class PasswordResetService {
 
   static final String INVALID_CODE = "Mã đặt lại mật khẩu không hợp lệ hoặc đã hết hạn";

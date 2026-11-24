@@ -2,12 +2,14 @@ package vn.signa.identity.internal;
 
 import java.time.Duration;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 class RedisOtpStore {
 
   static final Duration OTP_TTL = Duration.ofMinutes(10);

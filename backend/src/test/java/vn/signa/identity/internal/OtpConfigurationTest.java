@@ -3,24 +3,21 @@ package vn.signa.identity.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 class OtpConfigurationTest {
 
-  private final ApplicationContextRunner context =
-      new ApplicationContextRunner()
+  private final WebApplicationContextRunner context =
+      new WebApplicationContextRunner()
           .withUserConfiguration(OtpConfiguration.class, PropertiesConfiguration.class);
 
-  @ParameterizedTest
-  @ValueSource(strings = {"local", "migrate"})
-  void contextFailsWithoutSecretOutsideTest(String profile) {
+  @Test
+  void webContextFailsWithoutSecretOutsideTest() {
     context
-        .withPropertyValues("spring.profiles.active=" + profile)
+        .withPropertyValues("spring.profiles.active=local")
         .run(application ->
             assertThat(application.getStartupFailure())
                 .hasStackTraceContaining("Phải đặt SIGNA_OTP_SECRET"));

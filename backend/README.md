@@ -44,7 +44,7 @@ Chạy trong thư mục `backend/`:
 Từ gốc repo, dựng MySQL, Redis, MinIO và Mailpit:
 
 ```sh
-cp infra/.env.example infra/.env   # rồi đổi mọi mật khẩu và đặt SIGNA_OTP_SECRET
+cp infra/.env.example infra/.env   # rồi đổi mọi mật khẩu
 docker compose -f infra/compose.yaml up -d
 ```
 
@@ -100,7 +100,7 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
 | `SIGNA_TRUSTED_PROXIES` | dải IP riêng | Biểu thức chính quy các proxy được tin `X-Forwarded-For`, ví dụ `172\.18\.0\.5` |
 | `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |
-| `SIGNA_OTP_SECRET` | (bắt buộc ngoài profile `test`) | Bí mật HMAC của OTP, tạo bằng `openssl rand -hex 32`; các bản sao backend dùng cùng giá trị |
+| `SIGNA_OTP_SECRET` | (bắt buộc khi chạy web ngoài profile `test`) | Bí mật HMAC của OTP, tạo bằng `openssl rand -hex 32`; các bản sao backend dùng cùng giá trị |
 | `SIGNA_SMTP_HOST`, `SIGNA_SMTP_PORT` | `localhost` (Gradle) hoặc `mailpit` (Compose), `1025` | Máy chủ SMTP |
 | `SIGNA_SMTP_FROM` | `no-reply@signa.local` | Địa chỉ gửi OTP |
 
@@ -116,7 +116,7 @@ Quyền theo vai trò nạp từ `role_permissions` khi khởi động. Endpoint
 
 **Quên mật khẩu.** `POST /api/v1/auth/password/forgot` nhận email, trả `202` rỗng và gửi mã cho tài khoản hoạt động qua SMTP bất đồng bộ. Lần thứ 4 trong 15 phút theo cùng email và IP trả `429`. Khi chạy local, xem thư ở hộp thư Mailpit tại `http://127.0.0.1:8025`. Mã hợp lệ 10 phút hoặc đến lần nhập sai thứ 5. `POST /api/v1/auth/password/reset` đặt mật khẩu mới bằng mã và thu hồi mọi phiên.
 
-Đặt `SIGNA_OTP_SECRET` trước khi chạy backend hoặc chế độ `migrate`. Thay bí mật làm mất hiệu lực các mã đã cấp. Profile kiểm thử tự tạo bí mật trong bộ nhớ nếu thiếu.
+Đặt `SIGNA_OTP_SECRET` trước khi chạy backend web. Thay bí mật làm mất hiệu lực các mã đã cấp. Profile kiểm thử tự tạo bí mật trong bộ nhớ nếu thiếu.
 
 Giới hạn: sai mật khẩu quá 10 lần trong 15 phút theo `rl:login:{email}:{ip}` thì `429` kèm `Retry-After`; nhập sai mật khẩu hiện tại khi đổi mật khẩu giới hạn tương tự theo `rl:password:{userId}`. IP của client do `RemoteIpValve` của Tomcat xác định (`server.forward-headers-strategy: native`). Valve chỉ đọc `X-Forwarded-For` khi kết nối đến từ proxy khớp `SIGNA_TRUSTED_PROXIES`, mặc định là các dải IP riêng 10/8, 172.16/12, 192.168/16, 127/8 và `::1`. Client bên ngoài gửi header giả thì vẫn bị tính theo IP thật (`TrustedProxyForwardedForTest`, `UntrustedForwardedForTest`).
 

@@ -78,7 +78,6 @@ services:
       SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
       SIGNA_DB_MIGRATOR_USER: ${SIGNA_DB_MIGRATOR_USER:-signa_migrator}
       SIGNA_DB_MIGRATOR_PASSWORD: ${SIGNA_DB_MIGRATOR_PASSWORD:?Đặt SIGNA_DB_MIGRATOR_PASSWORD trong infra/.env}
-      SIGNA_OTP_SECRET: ${SIGNA_OTP_SECRET:-}
     depends_on:
       mysql:
         condition: service_healthy
