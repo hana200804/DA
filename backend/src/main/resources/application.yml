@@ -92,3 +92,6 @@ signa:
       consumer: ${SIGNA_CLUSTERING_WORKER_CONSUMER:signa-backend}
     crop-cleanup:
       enabled: ${SIGNA_CLUSTERING_CROP_CLEANUP_ENABLED:true}
+  # Lát 9 · khung tìm địa điểm; bổ sung nhà cung cấp thật sau Q6.
+  places:
+    provider: ${SIGNA_PLACES_PROVIDER:none}

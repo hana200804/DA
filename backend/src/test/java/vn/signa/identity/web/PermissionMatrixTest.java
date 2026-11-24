@@ -63,6 +63,8 @@ import vn.signa.sign.internal.feedback.ReportService;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
 import vn.signa.sign.internal.map.SignDetail;
+import vn.signa.sign.internal.places.PlaceSearch;
+import vn.signa.sign.internal.places.PlacesRateLimiter;
 import vn.signa.sign.internal.review.ReviewDetails;
 import vn.signa.sign.internal.review.ReviewQueryService;
 import vn.signa.sign.internal.review.ReviewService;
@@ -356,6 +358,8 @@ class PermissionMatrixTest {
   @MockitoBean RatingService ratings;
   @MockitoBean ReportService reports;
   @MockitoBean StatisticsService statistics;
+  @MockitoBean PlaceSearch places;
+  @MockitoBean PlacesRateLimiter placesLimiter;
 
   @BeforeEach
   void stubs() {
