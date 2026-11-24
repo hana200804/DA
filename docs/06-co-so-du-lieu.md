@@ -267,7 +267,7 @@ Chỉ mục: `SPATIAL(location)`; `(status, suggestion, confidence)` cho hàng �
 | `status` | ENUM('RECEIVED','GROUPED','ACCEPTED','REJECTED') | NOT NULL | |
 | `reject_reason` | VARCHAR(500) | NULL | |
 
-Chỉ mục: `(sign_id, user_id, received_at)` cho luật chống lặp 12 giờ; `(user_id, received_at)` cho FR-11; `(status, received_at)` cho quét lại đề xuất chờ.
+Chỉ mục: `(sign_id, user_id, received_at)` cho luật chống lặp 12 giờ; `(user_id, received_at)` cho FR-11; `(status, received_at)` cho quét lại đề xuất chờ; `(crop_key)` cho đối chiếu ảnh trong MinIO.
 
 ## 7. Đánh giá và báo cáo
 

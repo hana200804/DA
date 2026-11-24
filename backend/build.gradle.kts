@@ -44,6 +44,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     implementation("org.springframework.boot:spring-boot-starter-security") // lát 1
     testImplementation("org.springframework.boot:spring-boot-starter-security-test") // lát 1
+    implementation("io.micrometer:micrometer-registry-prometheus") // lát 5
 }
 
 tasks.withType<JavaCompile> {

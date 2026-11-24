@@ -45,7 +45,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
@@ -82,3 +82,5 @@ signa:
     worker:
       enabled: ${SIGNA_CLUSTERING_WORKER_ENABLED:false}
       consumer: ${SIGNA_CLUSTERING_WORKER_CONSUMER:signa-backend}
+    crop-cleanup:
+      enabled: ${SIGNA_CLUSTERING_CROP_CLEANUP_ENABLED:true}

@@ -213,6 +213,41 @@ class SubmissionRepository {
         .list();
   }
 
+  long countReceived() {
+    return jdbc.sql("SELECT COUNT(*) FROM submissions WHERE status = 'RECEIVED'")
+        .query(Long.class)
+        .single();
+  }
+
+  Optional<Instant> oldestReceived() {
+    return jdbc.sql(
+            """
+            SELECT received_at FROM submissions
+            WHERE status = 'RECEIVED' ORDER BY received_at LIMIT 1
+            """)
+        .query((rs, row) -> SignSql.instant(rs, "received_at"))
+        .optional();
+  }
+
+  Map<String, Boolean> cropReferences(List<String> keys, Instant retiredBefore) {
+    return jdbc.sql(
+            """
+            SELECT sub.crop_key,
+                   MIN(CASE WHEN s.status = 'REJECTED' AND s.reviewed_at < :retiredBefore
+                       THEN 1 ELSE 0 END) AS expired
+            FROM submissions sub LEFT JOIN signs s ON s.id = sub.sign_id
+            WHERE sub.crop_key IN (:keys)
+            GROUP BY sub.crop_key
+            """)
+        .param("keys", keys)
+        .param("retiredBefore", SignSql.utc(retiredBefore))
+        .query(rs -> {
+          Map<String, Boolean> references = new HashMap<>();
+          while (rs.next()) references.put(rs.getString("crop_key"), rs.getBoolean("expired"));
+          return references;
+        });
+  }
+
   record Received(String id, Instant receivedAt) {}
 
   record WorkItem(

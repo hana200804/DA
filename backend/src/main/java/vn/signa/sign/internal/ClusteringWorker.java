@@ -1,7 +1,5 @@
 package vn.signa.sign.internal;
 
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -31,7 +29,7 @@ class ClusteringWorker implements SmartLifecycle {
   private final SubmissionRepository submissions;
   private final Clock clock;
   private final ClusteringProperties.Worker config;
-  private final Timer timer;
+  private final ClusteringMetrics metrics;
 
   private volatile boolean running;
   private Thread thread;
@@ -42,13 +40,13 @@ class ClusteringWorker implements SmartLifecycle {
       SubmissionRepository submissions,
       Clock clock,
       ClusteringProperties properties,
-      MeterRegistry meters) {
+      ClusteringMetrics metrics) {
     this.stream = stream;
     this.processor = processor;
     this.submissions = submissions;
     this.clock = clock;
     this.config = properties.worker();
-    this.timer = meters.timer("signa.clustering.process.duration");
+    this.metrics = metrics;
   }
 
   @Override
@@ -134,7 +132,7 @@ class ClusteringWorker implements SmartLifecycle {
       if (id == null) {
         log.warn("Bỏ mục Redis {} thiếu id đề xuất", entry.getId());
       } else {
-        timer.record(() -> processor.process(id));
+        metrics.record(() -> processor.process(id));
       }
       stream.complete(entry.getId());
     }
