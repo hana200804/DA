@@ -51,6 +51,8 @@ import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
+import vn.signa.recognition.internal.DetectResult;
+import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
 
 /**
@@ -196,10 +198,16 @@ class PermissionMatrixTest {
               new MockMultipartFile(
                   "icon", "T.1.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
               MANAGE_CATALOG),
-          // Quy tắc công khai đặt sẵn cho lát 3–4. Lát có controller đổi dòng sang Endpoint.of.
+          // Lát 3 · nhận diện (docs/07 §5)
+          Endpoint.of(HttpMethod.GET, "/api/v1/recognition/models", null, Access.PUBLIC),
+          Endpoint.withFile(
+              HttpMethod.POST,
+              "/api/v1/recognition/detect",
+              new MockMultipartFile(
+                  "image", "a.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
+              Access.PUBLIC),
+          // Quy tắc công khai đặt sẵn cho lát 4. Lát có controller đổi dòng sang Endpoint.of.
           Endpoint.reserved(HttpMethod.GET, "/api/v1/signs", Access.PUBLIC),
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/recognition/models", Access.PUBLIC),
-          Endpoint.reserved(HttpMethod.POST, "/api/v1/recognition/detect", Access.PUBLIC),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -253,6 +261,14 @@ class PermissionMatrixTest {
         .thenReturn(new LoginResult("tok", Instant.parse("2026-12-01T00:00:00Z"), profile));
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
+    when(recognition.models()).thenReturn(new ModelList("yolov8", List.of()));
+    when(recognition.detect(any(), any(), any()))
+        .thenReturn(
+            new DetectResult(
+                new DetectResult.ModelRef("yolov8", "yolov8s-v1.0", 1),
+                new DetectResult.ImageSize(8, 8),
+                1,
+                List.of()));
     when(catalog.categories()).thenReturn(new SignCategoryList(List.of()));
     when(catalogAdmin.types(false)).thenReturn(new AdminSignTypeList(List.of()));
     when(catalog.signTypes())
