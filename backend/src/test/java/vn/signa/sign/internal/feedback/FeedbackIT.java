@@ -2,6 +2,7 @@ package vn.signa.sign.internal.feedback;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static vn.signa.shared.storage.Bucket.REPORT_PHOTOS;
 
 import java.net.URI;
@@ -211,6 +212,135 @@ class FeedbackIT extends IntegrationTest {
                 id))
         .containsExactly(moderator.id());
     assertThat(report(sign, owner, "NOT_EXIST")).isNotEqualTo(id);
+  }
+
+  @Test
+  void acceptEditChangesTheSignAndLeavesOtherReportsPending() throws Exception {
+    var owner = signIn("Người báo sai loại", "USER");
+    var other = signIn("Người báo biển đã tháo", "USER");
+    var moderator = signIn("Kiểm duyệt báo cáo", "MODERATOR");
+    var sign = sign("APPROVED");
+    String correctedCode = sign("APPROVED").code();
+    String id = report(sign, owner, "WRONG_TYPE");
+    String otherId = report(sign, other, "NOT_EXIST");
+    String data =
+        json.writeValueAsString(
+            Map.of(
+                "action",
+                "EDIT",
+                "version",
+                0,
+                "changes",
+                Map.of(
+                    "signTypeCode",
+                    correctedCode,
+                    "location",
+                    Map.of("lat", 21.01, "lng", 105.02))));
+
+    assertThat(accept(id, moderator, data).statusCode()).isEqualTo(204);
+
+    var detail = body(request("GET", signPath(sign), null, null), 200);
+    assertThat(detail.get("signTypeCode").asString()).isEqualTo(correctedCode);
+    assertThat(detail.get("location").get("lat").asDouble()).isCloseTo(21.01, within(1e-8));
+    assertThat(detail.get("location").get("lng").asDouble()).isCloseTo(105.02, within(1e-8));
+    assertThat(
+            jdbc.queryForObject("SELECT version FROM signs WHERE id = ?", Integer.class, sign.id()))
+        .isEqualTo(1);
+    assertAccepted(id, moderator, "EDITED");
+    assertThat(reportDecision(otherId))
+        .containsEntry("status", "PENDING")
+        .containsEntry("resolution", null)
+        .containsEntry("resolved_by", null)
+        .containsEntry("resolved_at", null);
+    assertThat(body(accept(id, moderator, data), 409).get("code").asString()).isEqualTo("CONFLICT");
+    assertAcceptanceHistory(sign.id(), id, moderator.id(), "EDITED");
+  }
+
+  @Test
+  void acceptRemoveRemovesTheSignAndRecordsBothDecisions() throws Exception {
+    var owner = signIn("Người báo biển đã tháo", "USER");
+    var moderator = signIn("Kiểm duyệt báo cáo gỡ", "MODERATOR");
+    var sign = sign("UNDER_REVIEW");
+    String id = report(sign, owner, "NOT_EXIST");
+
+    assertThat(accept(id, moderator, "{\"action\":\"REMOVE\",\"version\":0}").statusCode())
+        .isEqualTo(204);
+
+    assertThat(jdbc.queryForMap("SELECT status, version FROM signs WHERE id = ?", sign.id()))
+        .containsEntry("status", "REMOVED")
+        .containsEntry("version", 1);
+    assertThat(request("GET", signPath(sign), null, null).statusCode()).isEqualTo(404);
+    assertAccepted(id, moderator, "REMOVED");
+    assertAcceptanceHistory(sign.id(), id, moderator.id(), "REMOVED");
+  }
+
+  @Test
+  void staleSignVersionLeavesTheSignReportAndHistoryUntouched() throws Exception {
+    var owner = signIn("Người báo biển", "USER");
+    var moderator = signIn("Kiểm duyệt báo cáo cũ", "MODERATOR");
+    var sign = sign("APPROVED");
+    String id = report(sign, owner, "NOT_EXIST");
+
+    var response = accept(id, moderator, "{\"action\":\"REMOVE\",\"version\":1}");
+    assertThat(body(response, 409).get("code").asString()).isEqualTo("SIGN_ALREADY_PROCESSED");
+
+    assertThat(jdbc.queryForMap("SELECT status, version FROM signs WHERE id = ?", sign.id()))
+        .containsEntry("status", "APPROVED")
+        .containsEntry("version", 0);
+    assertThat(reportDecision(id))
+        .containsEntry("status", "PENDING")
+        .containsEntry("resolution", null)
+        .containsEntry("resolved_by", null)
+        .containsEntry("resolved_at", null);
+    assertThat(
+            jdbc.queryForList("SELECT id FROM audit_logs WHERE entity_id IN (?, ?)", sign.id(), id))
+        .isEmpty();
+  }
+
+  private HttpResponse<String> accept(String id, Session moderator, String data) throws Exception {
+    return request("POST", ADMIN_REPORTS + "/" + id + "/accept", moderator, data);
+  }
+
+  private void assertAccepted(String id, Session moderator, String resolution) {
+    assertThat(reportDecision(id))
+        .containsEntry("status", "ACCEPTED")
+        .containsEntry("resolution", resolution)
+        .containsEntry("resolved_by", moderator.id())
+        .hasEntrySatisfying("resolved_at", value -> assertThat(value).isNotNull());
+  }
+
+  private Map<String, Object> reportDecision(String id) {
+    return jdbc.queryForMap(
+        "SELECT status, resolution, resolved_by, resolved_at FROM sign_reports WHERE id = ?", id);
+  }
+
+  private void assertAcceptanceHistory(
+      String signId, String reportId, String actor, String action) {
+    var history =
+        jdbc.queryForList(
+            """
+            SELECT entity_type, entity_id, action, actor_id, request_id
+            FROM audit_logs WHERE entity_id IN (?, ?) ORDER BY id
+            """,
+            signId,
+            reportId);
+    assertThat(history)
+        .satisfiesExactly(
+            event ->
+                assertThat(event)
+                    .containsEntry("entity_type", "SIGN")
+                    .containsEntry("entity_id", signId)
+                    .containsEntry("actor_id", actor)
+                    .containsEntry("action", action),
+            event ->
+                assertThat(event)
+                    .containsEntry("entity_type", "REPORT")
+                    .containsEntry("entity_id", reportId)
+                    .containsEntry("actor_id", actor)
+                    .containsEntry("action", "ACCEPTED"));
+    assertThat(history.get(1).get("request_id"))
+        .isNotNull()
+        .isEqualTo(history.get(0).get("request_id"));
   }
 
   private Sign sign(String status) {
