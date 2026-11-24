@@ -25,9 +25,16 @@ public final class Location {
     if (voters.isEmpty()) {
       return sign.location();
     }
-    return new GeoPoint(
-        weightedMedian(voters, m -> m.location().lat()),
-        weightedMedian(voters, m -> m.location().lng()));
+    double reference = sign.location().lng();
+    double longitude = weightedMedian(voters, m -> unwrap(m.location().lng(), reference));
+    return new GeoPoint(weightedMedian(voters, m -> m.location().lat()), unwrap(longitude, 0));
+  }
+
+  private static double unwrap(double longitude, double reference) {
+    double offset = longitude - reference;
+    if (offset > 180) return longitude - 360;
+    if (offset <= -180) return longitude + 360;
+    return longitude;
   }
 
   /**
