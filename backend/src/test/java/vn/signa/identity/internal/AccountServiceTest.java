@@ -21,6 +21,9 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.SessionService.IssuedSession;
 import vn.signa.shared.error.ApiException;
@@ -48,7 +51,18 @@ class AccountServiceTest {
         Map.of(
             "USER", Set.of("submission:create", "sign:rate", "report:create"),
             "MODERATOR", Set.of("submission:create", "review:decide")));
-    accounts = new AccountService(users, encoder, sessions, rolePermissions, limiter, clock);
+    PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+    when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+    when(users.touchLastLogin(anyString(), anyString(), any())).thenReturn(true);
+    accounts =
+        new AccountService(
+            users,
+            encoder,
+            sessions,
+            rolePermissions,
+            limiter,
+            new TransactionTemplate(transactionManager),
+            clock);
   }
 
   private UserRecord user(String role, UserStatus status) {
@@ -89,7 +103,19 @@ class AccountServiceTest {
     assertThat(result.expiresAt()).isEqualTo(Instant.parse("2026-12-23T08:00:00Z"));
     assertThat(result.user().id()).isEqualTo("u-1");
     assertThat(sessions.authenticate(result.token())).isPresent();
-    verify(users).touchLastLogin("u-1", clock.instant());
+    verify(users).touchLastLogin(eq("u-1"), anyString(), eq(clock.instant()));
+  }
+
+  @Test
+  void loginCannotIssueASessionIfPasswordChangedAfterVerification() {
+    UserRecord beforeReset = user("USER", UserStatus.ACTIVE);
+    when(users.findByEmail("a@b.vn")).thenReturn(Optional.of(beforeReset));
+    when(users.touchLastLogin(beforeReset.id(), beforeReset.passwordHash(), clock.instant()))
+        .thenReturn(false);
+
+    assertThat(loginFails("a@b.vn", PASSWORD, Client.MOBILE).code())
+        .isEqualTo(ErrorCode.UNAUTHENTICATED);
+    assertThat(store.size()).isZero();
   }
 
   @Test
@@ -114,7 +140,7 @@ class AccountServiceTest {
         .isEqualTo(ErrorCode.UNAUTHENTICATED);
     assertThat(loginFails("a@b.vn", PASSWORD, Client.MOBILE).code()).isEqualTo(ErrorCode.FORBIDDEN);
     assertThat(store.size()).isZero();
-    verify(users, never()).touchLastLogin(anyString(), any());
+    verify(users, never()).touchLastLogin(anyString(), anyString(), any());
   }
 
   @Test
@@ -168,22 +194,36 @@ class AccountServiceTest {
     assertThatThrownBy(() -> accounts.changePassword("u-1", "s", "sai-mat-khau", "moi-12345"))
         .isInstanceOfSatisfying(
             ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.BUSINESS_RULE));
-    verify(users, never()).updatePasswordHash(anyString(), anyString(), any());
+    verify(users, never()).updatePasswordHash(anyString(), anyString(), anyString(), any());
   }
 
   @Test
   void changePasswordRevokesOtherSessionsOnly() {
-    when(users.findById("u-1")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+    UserRecord user = user("USER", UserStatus.ACTIVE);
+    when(users.findById("u-1")).thenReturn(Optional.of(user));
+    when(users.updatePasswordHash(eq("u-1"), eq(user.passwordHash()), anyString(), any()))
+        .thenReturn(true);
     IssuedSession current = sessions.issue("u-1", "USER", Client.MOBILE);
     IssuedSession other = sessions.issue("u-1", "USER", Client.WEB);
 
     accounts.changePassword("u-1", current.sessionId(), PASSWORD, "mat-khau-moi");
 
     ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
-    verify(users).updatePasswordHash(eq("u-1"), hash.capture(), eq(clock.instant()));
+    verify(users)
+        .updatePasswordHash(
+            eq("u-1"), eq(user.passwordHash()), hash.capture(), eq(clock.instant()));
     assertThat(encoder.matches("mat-khau-moi", hash.getValue())).isTrue();
     assertThat(sessions.authenticate(current.token())).isPresent();
     assertThat(sessions.authenticate(other.token())).isEmpty();
+  }
+
+  @Test
+  void changePasswordCannotReplaceAPasswordResetAfterVerification() {
+    when(users.findById("u-1")).thenReturn(Optional.of(user("USER", UserStatus.ACTIVE)));
+
+    assertThatThrownBy(() -> accounts.changePassword("u-1", "s", PASSWORD, "mat-khau-moi"))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.BUSINESS_RULE));
   }
 
   @Test

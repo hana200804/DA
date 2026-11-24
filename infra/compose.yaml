@@ -57,6 +57,12 @@ services:
       timeout: 3s
       retries: 20
 
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
   migrate:
     build: ../backend
     image: signa-backend:local
@@ -90,6 +96,10 @@ services:
       # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).
       SIGNA_BOOTSTRAP_ADMIN_EMAIL: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
       SIGNA_BOOTSTRAP_ADMIN_PASSWORD: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}
+      SIGNA_OTP_SECRET: ${SIGNA_OTP_SECRET:-}
+      SIGNA_SMTP_HOST: ${SIGNA_SMTP_HOST:-mailpit}
+      SIGNA_SMTP_PORT: ${SIGNA_SMTP_PORT:-1025}
+      SIGNA_SMTP_FROM: ${SIGNA_SMTP_FROM:-no-reply@signa.local}
     networks: [default, recognition]
     depends_on:
       migrate:
@@ -98,6 +108,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mailpit:
+        condition: service_started
       recognition:
         condition: service_started
 

@@ -14,6 +14,10 @@ services:
     restart: unless-stopped
     mem_limit: 640m
 
+  mailpit:
+    ports: !reset []
+    mem_limit: 64m
+
   migrate:
     mem_limit: 640m
 

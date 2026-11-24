@@ -63,7 +63,7 @@
 | POST | `/auth/register` | Công khai | Đăng ký, vai trò `USER` | FR-01 |
 | POST | `/auth/login` | Công khai | Đăng nhập, trả token | FR-01, FR-30 |
 | POST | `/auth/logout` | Đăng nhập | Thu hồi token hiện tại | FR-01 |
-| POST | `/auth/password/forgot` | Công khai | Gửi OTP qua email; luôn trả `202` | FR-13 |
+| POST | `/auth/password/forgot` | Công khai | Yêu cầu OTP qua email; trả `202` trong hạn mức | FR-13 |
 | POST | `/auth/password/reset` | Công khai | Đặt lại mật khẩu bằng OTP | FR-13 |
 | GET | `/me` | Đăng nhập | Thông tin tài khoản và danh sách quyền | FR-01 |
 | PATCH | `/me` | Đăng nhập | Sửa tên hiển thị | FR-01 |
@@ -100,9 +100,13 @@ Ràng buộc đầu vào: email được trim và chuyển chữ thường, ≤ 
 | `POST /auth/register` `{ email, password, displayName }` | `201`, thân như `GET /me` | `409 CONFLICT` khi email đã đăng ký |
 | `POST /auth/login` | `200` | `401` cùng một thông điệp dù email có tồn tại hay không; `403` khi tài khoản `LOCKED` hoặc `WEB` thiếu `review:decide`, chỉ sau khi mật khẩu đúng; `429` kèm `Retry-After` |
 | `POST /auth/logout` | `204` | |
+| `POST /auth/password/forgot` `{ email }` | `202`, thân rỗng, bất kể email có tồn tại | `429 RATE_LIMITED` kèm `Retry-After` sau 3 yêu cầu trong 15 phút theo cặp email và IP |
+| `POST /auth/password/reset` `{ email, code, newPassword }` | `204`; thu hồi mọi phiên | Cùng lỗi `422 BUSINESS_RULE` khi mã sai, hết hạn hoặc đã bị xoá sau 5 lần sai |
 | `GET /me` | `200` | |
 | `PATCH /me` `{ displayName }` | `200`, thân như `GET /me` | |
 | `PUT /me/password` `{ currentPassword, newPassword }` | `204`; phiên đang dùng vẫn hợp lệ | `422 BUSINESS_RULE` khi sai mật khẩu hiện tại; `429` khi sai quá 10 lần trong 15 phút |
+
+OTP chỉ gửi cho tài khoản `ACTIVE`. Mã gồm 6 chữ số, có hiệu lực 10 phút và thay thế mã trước đó. Gửi `code` dưới dạng chuỗi để giữ chữ số 0 ở đầu.
 
 Token thiếu, sai hoặc đã thu hồi ở endpoint cần đăng nhập trả `401` kèm `WWW-Authenticate: Bearer`. Ở endpoint công khai, token như vậy bị bỏ qua và request được xử lý như khách. `expiresAt` tính tại lúc đăng nhập; mỗi lần dùng, phiên được gia hạn thêm một khoảng thời hạn đầy đủ.
 
@@ -132,6 +136,10 @@ Token thiếu, sai hoặc đã thu hồi ở endpoint cần đăng nhập trả 
 ```
 
 Ứng dụng tải danh mục một lần, lưu vào Room và chỉ tải lại khi ETag đổi.
+
+Ba endpoint GET công khai của danh mục trả `Cache-Control: no-cache`. `GET /sign-types` trả thêm `ETag` mạnh (băm nội dung). Gửi `If-None-Match` khớp thì nhận `304` không có body. Danh sách chỉ gồm loại đang dùng. `labelMapVersion` là phiên bản danh mục nhãn lớn nhất trong các loại đó, `null` khi chưa nạp nhãn. `iconUrl` là `/icons/{icon_key}` hoặc `null`; `recognizable` là `true` khi loại có trong danh mục nhãn.
+
+`GET /sign-types/{code}` trả một phần tử cùng dạng, `404 NOT_FOUND` nếu không có mã hoặc loại đã ngừng dùng.
 
 `GET /sign-categories` trả `{ "items": [{ "code", "name", "description", "sortOrder" }] }`, sắp theo `sortOrder`.
 
@@ -170,6 +178,16 @@ model=yolov8        # yolov5 | yolov8 | detr | bỏ trống = mặc định
 
 Ứng dụng chuẩn hóa hướng ảnh trước khi tải lên. `image.width` và `image.height` là kích thước ảnh nhận từ ứng dụng. Nếu thu nhỏ ảnh để suy luận, backend quy đổi box về hệ tọa độ này trước khi trả kết quả. Gốc tọa độ nằm ở góc trên trái. Ứng dụng dùng ảnh đã tải lên để cắt. Giới hạn là 10 yêu cầu/phút mỗi tài khoản và 30/phút mỗi IP cho khách.
 
+Toạ độ box là số thực theo pixel. `name`, `description`, `iconUrl` là `null` khi danh mục chưa có thông tin. Lỗi riêng của endpoint:
+
+| HTTP | `code` | Khi nào |
+| --- | --- | --- |
+| 400 | `VALIDATION_ERROR` | Thiếu `image`, hoặc `model` không thuộc `yolov5`, `yolov8`, `detr` |
+| 413 | `PAYLOAD_TOO_LARGE` | Ảnh lớn hơn 10 000 000 byte hoặc 25 triệu pixel |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | Nội dung không phải JPEG, PNG, WebP, dù đuôi file là gì |
+| 429 | `RATE_LIMITED` | Vượt giới hạn; `Retry-After` là số giây tới cửa sổ sau |
+| 503 | `RECOGNITION_UNAVAILABLE` | Dịch vụ nhận diện quá tải, lỗi hoặc không trả lời trong 5 giây; `Retry-After: 1` |
+
 ## 6. Biển, đề xuất, đánh giá, báo cáo
 
 | Method | Đường dẫn | Quyền | Mô tả | FR |
@@ -184,6 +202,12 @@ model=yolov8        # yolov5 | yolov8 | detr | bỏ trống = mặc định
 | GET | `/places/search?q=` | Công khai | Tìm địa điểm, kết quả có toạ độ | FR-14 |
 
 Chi tiết biển công khai áp dụng cùng trạng thái hiển thị như bản đồ. API trả `404` khi ID không tồn tại hoặc biển chưa công bố, đã bị từ chối hay đã gỡ.
+
+### Tìm địa điểm
+
+`GET /places/search` nhận `q` dài 2–100 ký tự sau khi bỏ khoảng trắng hai đầu. Thiếu `q` hoặc độ dài không hợp lệ trả `400 VALIDATION_ERROR`. Mỗi IP được tối đa 30 truy vấn hợp lệ trong một cửa sổ 60 giây. Khi vượt, API trả `429 RATE_LIMITED` kèm `Retry-After`.
+
+Với cấu hình mặc định `signa.places.provider=none`, API trả `200` và `{ "items": [] }`. Khi có nhà cung cấp, mỗi mục có dạng `{ name, location: { lat, lng } }`. Nhà cung cấp thực tế sẽ được bổ sung sau khi chốt Q6.
 
 ### Biển trong vùng
 
@@ -235,6 +259,12 @@ crop=<ảnh cắt JPEG, ≤ 200 KB>
 
 `201` trả `{ id, status: "RECEIVED" }` sau khi ảnh đã lưu và bản ghi đã commit. Gửi lại cùng `clientId` trong cùng tài khoản trả `200` với đề xuất đã có, kể cả khi hai yêu cầu đến đồng thời. Hàng đợi trên ứng dụng gửi tuần tự từng đề xuất.
 
+`metadata` là đối tượng JSON. Mã biển phải đang dùng và phiên bản danh mục trong `model.labelMapVersion` phải được hỗ trợ. Trường sai trả `400 VALIDATION_ERROR` kèm `details`, phiên bản chưa hỗ trợ trả `422 BUSINESS_RULE`. Ảnh được nhận dạng theo chữ ký JPEG. Ảnh quá 200 KiB trả `413 PAYLOAD_TOO_LARGE`, ảnh sai định dạng trả `415 UNSUPPORTED_MEDIA_TYPE`.
+
+### Đề xuất của tôi
+
+`GET /api/v1/me/submissions?page=0&size=20` chỉ trả đề xuất của tài khoản đang đăng nhập, theo `receivedAt` giảm dần. Kết quả theo phân trang ở §1. Mỗi mục gồm `id`, `signTypeCode`, `status` (`RECEIVED`, `GROUPED`, `ACCEPTED`, `REJECTED`), `rejectReason`, `signId`, `location`, `receivedAt` và `capturedAt`. `signId` và `rejectReason` có thể là `null`.
+
 ### Đánh giá và báo cáo
 
 ```json
@@ -247,9 +277,18 @@ POST /api/v1/signs/{id}/reports
 { "reason": "WRONG_TYPE", "description": "Biển là cấm rẽ phải" }
 ```
 
-Báo cáo có ảnh dùng `multipart/form-data` với part `metadata` chứa cùng JSON và part `photo` chứa ảnh.
+`PUT /signs/{id}/rating` trả `204`. Người đã gửi đề xuất cho biển tự đánh giá nhận `422 BUSINESS_RULE`.
+Chi tiết biển của người đã đăng nhập có `myRating` là `CONFIRM`, `DENY` hoặc `null`.
+Sau lần duyệt, thành phần bằng chứng phản đối trong điểm chỉ lấy dữ liệu có thời điểm lớn hơn `reviewed_at`.
+Xem [Thiết kế AI §6](04-thiet-ke-ai.md#sau-quyết-định-của-kiểm-duyệt-viên).
 
-Đã có báo cáo đang chờ cho biển đó: `409 CONFLICT`. Người đã gửi đề xuất cho biển tự đánh giá: `422 BUSINESS_RULE`.
+Báo cáo có ảnh dùng `multipart/form-data` với part `metadata` chứa cùng JSON và part `photo` chứa ảnh JPEG,
+PNG hoặc WebP tối đa 5 MB. `reason` nhận `NOT_EXIST`, `WRONG_TYPE`, `WRONG_LOCATION` hoặc `OTHER`.
+Mô tả tối đa 1000 ký tự, bắt buộc khi chọn `OTHER`. Tạo thành công trả `201` với `{ id, status }`.
+Cả hai thao tác trả `404` nếu biển chưa hiển thị hoặc đã gỡ. Báo cáo đang chờ trùng trả `409 CONFLICT`.
+
+`GET /me/reports` phân trang theo báo cáo của người gọi. Mỗi mục có `id`, `signId`, `reason`,
+`description`, `status`, `resolution`, `resolutionNote`, `createdAt` và `resolvedAt`.
 
 ## 7. Dịch vụ nhận diện nội bộ
 
@@ -352,6 +391,7 @@ Các thao tác ghi khác trả `204`.
       "headingDeg": 92,
       "location": { "lat": 21.02851, "lng": 105.80479 },
       "receivedAt": "2026-01-15T08:30:13.002Z",
+      "status": "GROUPED",
       "cropUrl": "https://…(URL ký 10 phút)"
     }
   ],
@@ -363,6 +403,32 @@ Các thao tác ghi khác trả `204`.
 
 `flags` của biển có thể chứa `DIFFERS_FROM_APPROVED`; khi đó `relatedSignId` trỏ tới biển đã duyệt mà biển này khác mã. `nearbySigns` gồm các biển `APPROVED` và `UNDER_REVIEW` trong bán kính 50 m.
 
+`GET /admin/review-queue` nhận `status` (`PENDING` hoặc `UNDER_REVIEW`, bỏ trống thì lấy cả hai), `suggestion`, `categories` (danh sách mã nhóm cách nhau bởi dấu phẩy), `bbox` (như `GET /signs`), `page` tính từ 0 và `size` mặc định 20, tối đa 100. Thứ tự là "Nên duyệt" trước, rồi `confidence` giảm dần, rồi `createdAt` tăng dần, cuối cùng theo `id`.
+
+`GET /admin/signs/{id}` trả biển ở mọi trạng thái, `404` nếu không có. `submissions` sắp theo `receivedAt` tăng dần, mỗi đề xuất có thêm `status`. `codeWeights` gồm cả mã có trọng số 0. `nearbySigns` không gồm chính biển đang xem, biển gần nhất đứng trước.
+
+Trạng thái áp dụng của từng thao tác:
+
+| Thao tác | Trạng thái biển | Kết quả |
+| --- | --- | --- |
+| `approve` | `PENDING` | `APPROVED`, `M = 2`, `suggestion = null`. Lịch sử `APPROVED` |
+| `reject` | `PENDING` | `REJECTED`. Mọi đề xuất thành viên `REJECTED` với lý do của kiểm duyệt viên, cắt còn 500 ký tự. Lịch sử `REJECTED` |
+| `keep` | `UNDER_REVIEW` | `APPROVED`, `M = 2`, `deny_since_review = 0`. Lịch sử `EDITED` nếu có sửa, rồi `KEPT` |
+| `remove` | `APPROVED`, `UNDER_REVIEW` | `REMOVED`. Đề xuất `GROUPED` chuyển `REJECTED`. Lịch sử `REMOVED` |
+| `PATCH` | `PENDING`, `APPROVED`, `UNDER_REVIEW` | Không đổi trạng thái. Lịch sử `EDITED`. Biển `PENDING` chỉ sửa được vị trí và hướng |
+| `POST /admin/signs` | | `APPROVED`, `M = 2`, `locationLocked = true`. Lịch sử `CREATED` |
+
+Khi kiểm duyệt viên chốt mã (duyệt, giữ, hoặc sửa mã biển đã công bố), đề xuất khác mã chuyển `REJECTED`. Duyệt, giữ và thêm biển đặt `reviewed_at`; bằng chứng phản đối có trước mốc này không còn tính vào điểm theo [Thiết kế AI §6](04-thiet-ke-ai.md#sau-quyết-định-của-kiểm-duyệt-viên), nên biển vừa duyệt hoặc vừa giữ có điểm không dưới 0,5. `sign_code_weights` không đổi và `codeWeights` vẫn hiển thị đủ. Thao tác có `location` đặt `locationLocked = true`. `headingDeg` trong `keep` để trống thì giữ hướng cũ. Lịch sử ghi `before`, `after` gồm các trường thay đổi trong `status`, `signTypeCode`, `categoryCode`, `location`, `headingDeg`, `locationLocked`, `confidence`.
+
+Lỗi của các thao tác ghi:
+
+| Mã | Khi nào |
+| --- | --- |
+| `400 VALIDATION_ERROR` | Thiếu `version`, `reason` rỗng hoặc dài quá 1000 ký tự, toạ độ hoặc hướng sai miền, `PATCH` không có thay đổi nào |
+| `404 NOT_FOUND` | Không có biển |
+| `409 SIGN_ALREADY_PROCESSED` | `version` lệch, hoặc biển không ở trạng thái cho phép thao tác |
+| `422 BUSINESS_RULE` | Mã không có hoặc đã ngừng dùng; đổi mã biển `PENDING` bằng `PATCH`; `PATCH` có giá trị trùng hệt biển hiện tại |
+
 ### Báo cáo
 
 | Method | Đường dẫn | Quyền | Mô tả | FR |
@@ -371,7 +437,8 @@ Các thao tác ghi khác trả `204`.
 | POST | `/admin/reports/{id}/accept` | `report:resolve` | Chấp nhận kèm `action`: `EDIT` (với thay đổi) hoặc `REMOVE` | FR-32 |
 | POST | `/admin/reports/{id}/dismiss` | `report:resolve` | Từ chối, bắt buộc `note` | FR-32 |
 
-`GET /admin/reports` trả trang theo biển. `status` mặc định là `PENDING`. Mỗi mục có dạng:
+`GET /admin/reports` trả trang theo biển. `status` mặc định là `PENDING`. `photoUrl` là URL ký
+có hạn 10 phút khi ảnh còn trong thời hạn lưu giữ. Mỗi mục có dạng:
 
 ```json
 {
@@ -401,11 +468,16 @@ Các thao tác ghi khác trả `204`.
 
 | Thao tác | Nội dung |
 | --- | --- |
-| `accept` sửa biển | `{ "action": "EDIT", "version": 7, "changes": { "signTypeCode": "P.123b", "location": { … } } }`, cần ít nhất một thay đổi |
+| `accept` sửa biển | `{ "action": "EDIT", "version": 7, "changes": { "signTypeCode": "P.123b", "location": { … } } }`. Cần ít nhất một trong hai trường `signTypeCode` và `location` |
 | `accept` gỡ biển | `{ "action": "REMOVE", "version": 7 }` |
 | `dismiss` | `{ "note": "…" }`, 1–1000 ký tự |
 
-Chấp nhận một báo cáo sẽ sửa hoặc gỡ biển và ghi lịch sử trong cùng giao dịch. Các báo cáo khác đang chờ của biển đó vẫn ở trạng thái chờ. `version` lệch thì trả `409 SIGN_ALREADY_PROCESSED`.
+`accept` và `dismiss` trả `204` khi thành công, hoặc `409 CONFLICT` nếu báo cáo không ở
+trạng thái `PENDING`. Với `accept`, `version` lệch trả `409 SIGN_ALREADY_PROCESSED`.
+
+`accept` sửa hoặc gỡ biển, đặt báo cáo thành `ACCEPTED` với `resolution` tương ứng là
+`EDITED` hoặc `REMOVED`, lưu người và thời điểm xử lý. Lịch sử biển và `REPORT/ACCEPTED` được
+ghi trong cùng giao dịch. Các báo cáo khác đang chờ của biển đó vẫn ở trạng thái `PENDING`.
 
 ### Lịch sử, thống kê, so sánh mô hình
 
@@ -417,7 +489,11 @@ Chấp nhận một báo cáo sẽ sửa hoặc gỡ biển và ghi lịch sử 
 
 Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorType, actorId, actorName, beforeValue, afterValue, reason, requestId, createdAt }`. `actorId` và `actorName` là `null` khi `actorType = SYSTEM`. `from` và `to` là thời điểm ISO-8601.
 
-`/admin/stats` trả:
+`GET /admin/audit-logs` trả trang `{ items, page, size, total }`, mặc định `page = 0`, `size = 20`, sắp theo `createdAt` rồi `id` giảm dần. `from` và `to` lấy cả hai đầu. `beforeValue`, `afterValue` là JSON object (không phải chuỗi), `null` khi không có. Trả `400 VALIDATION_ERROR` khi `from > to` (`details[].field = "from"`), `size` ngoài 1–100, `page < 0`, `entityType` lạ, thời điểm sai định dạng, `entityId` hay `actorId` dài quá 36 ký tự, `action` dài quá 40 ký tự. Không có endpoint sửa hay xoá lịch sử (FR-23).
+
+`/admin/stats` nhận `from` và `to` là thời điểm ISO-8601 có độ lệch UTC. Cả hai đầu mút đều được tính. Mặc định `to` là thời điểm hiện tại và `from` là 30 ngày trước `to`. API trả `400 VALIDATION_ERROR` nếu thời điểm không hợp lệ, `from` sau `to` hoặc khoảng dài hơn 366 ngày.
+
+API trả đối tượng sau.
 
 ```json
 {
@@ -429,25 +505,42 @@ Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorTyp
 }
 ```
 
-`processingTime` đo từ đề xuất đầu tiên của biển tới quyết định duyệt hoặc từ chối. `densityCells` dùng cùng ô lưới với bản đồ ở mức zoom 12.
+- `submissionsByDay` đếm đề xuất theo `received_at` và ngày UTC. Danh sách theo thứ tự ngày tăng dần, gồm cả ngày có số đếm 0.
+- `decisions` đếm biển ở trạng thái `APPROVED` hoặc `REJECTED` có `reviewed_at` trong khoảng.
+- `processingTime` đo mili-giây từ đề xuất đầu tiên của biển tới `reviewed_at` cho các biển được đếm trong `decisions`. Chỉ biển đã có đề xuất tại thời điểm quyết định mới góp mẫu. `averageMs` là `null` khi `samples` bằng 0.
+- `signsByCategory` đếm toàn bộ biển `APPROVED` theo nhóm và trả tên nhóm từ danh mục. `densityCells` gom cùng tập biển theo ô lưới của bản đồ ở zoom 12. Hai trường này phản ánh độ phủ tại thời điểm truy vấn.
 
-`/admin/recognition/compare` nhận multipart `image` như `/recognition/detect`, rồi gọi lần lượt ba mô hình:
+`/admin/recognition/compare` nhận multipart `image` và dùng cùng quy tắc kiểm tra ảnh với `/recognition/detect`. Mỗi tài khoản được tối đa 10 lượt so sánh trong một cửa sổ 60 giây, với bộ đếm riêng. Khi vượt, API trả `429 RATE_LIMITED` kèm `Retry-After`.
+
+Kết quả theo thứ tự `yolov5`, `yolov8`, `detr`. Kích thước `image` và toạ độ `box` tính theo ảnh gốc. `name` lấy từ danh mục biển và có thể là `null` khi chưa có mã.
 
 ```json
 {
   "image": { "width": 1280, "height": 960 },
   "results": [
     {
+      "model": { "name": "yolov5", "version": "yolov5s-v1.0", "labelMapVersion": 1 },
+      "inferenceMs": 155,
+      "detections": []
+    },
+    {
       "model": { "name": "yolov8", "version": "yolov8s-v1.0", "labelMapVersion": 1 },
       "inferenceMs": 142,
-      "detections": [{ "box": { "x": 812, "y": 233, "width": 64, "height": 66 }, "signTypeCode": "P.123a", "confidence": 0.93 }]
+      "detections": [
+        {
+          "box": { "x": 812, "y": 233, "width": 64, "height": 66 },
+          "signTypeCode": "P.123a",
+          "confidence": 0.93,
+          "name": "Cấm rẽ trái"
+        }
+      ]
     },
-    { "model": { "name": "detr" }, "error": { "message": "Dịch vụ nhận diện quá tải" } }
+    { "model": { "name": "detr" }, "error": { "message": "Dịch vụ nhận diện tạm thời không phản hồi" } }
   ]
 }
 ```
 
-Một mô hình lỗi không làm hỏng cả request; kết quả của mô hình đó mang `error`.
+Với ảnh hợp lệ và yêu cầu trong hạn mức, API trả `200` kể cả khi dịch vụ nhận diện lỗi. Mỗi mô hình lỗi trả `model.name` và `error.message`.
 
 ### Danh mục và người dùng
 
@@ -457,14 +550,31 @@ Một mô hình lỗi không làm hỏng cả request; kết quả của mô hì
 | POST | `/admin/sign-categories` | `catalog:manage` | Thêm nhóm biển | FR-35 |
 | PATCH | `/admin/sign-categories/{code}` | `catalog:manage` | Sửa nhóm biển | FR-35 |
 | POST | `/admin/sign-types` | `catalog:manage` | Thêm loại biển chỉ nhập tay | FR-35 |
-| PATCH | `/admin/sign-types/{code}` | `catalog:manage` | Sửa tên, ý nghĩa, ảnh, `active` | FR-35 |
+| PATCH | `/admin/sign-types/{code}` | `catalog:manage` | Sửa tên, ý nghĩa, tốc độ, nhóm, `active` | FR-35 |
 | PUT | `/admin/sign-types/{code}/icon` | `catalog:manage` | Tải ảnh minh hoạ | FR-35 |
 | GET | `/admin/users?q=&role=&status=` | `user:manage` | Danh sách người dùng | FR-36 |
 | PATCH | `/admin/users/{id}` | `user:manage` | Đổi `role`, `status` | FR-36 |
 
-Loại biển trong API quản trị có dạng `{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable, active, updatedAt }`. `POST /admin/sign-types` luôn tạo loại `recognizable = false`. Tải ảnh minh hoạ dùng multipart part `icon` (PNG, JPEG hoặc WebP, ≤ 1 MB).
+`GET /admin/sign-types` trả `{ items: [...] }` với mỗi loại có dạng `{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable, active, updatedAt }`. Dùng `active=true` hoặc `active=false` để lọc. Bỏ tham số để lấy tất cả. Ngừng dùng một loại bằng `PATCH` với `active=false`.
 
-Người dùng trong danh sách có dạng `{ id, email, displayName, role, status, createdAt, lastLoginAt }`. `q` tìm theo một phần email. Quản trị viên tự hạ vai trò hoặc tự khoá chính mình thì nhận `422 BUSINESS_RULE`.
+Tạo nhóm hoặc loại trả `201`, trùng mã trả `409 CONFLICT`. Mã nhóm được chuẩn hoá chữ hoa và phải khớp `^[A-Z][A-Z0-9_]{0,19}$`. Mã loại dài 1–30 ký tự sau khi bỏ khoảng trắng ở hai đầu. `POST /admin/sign-types` luôn tạo loại `recognizable = false`. Trong `PATCH`, trường bỏ qua giữ giá trị cũ. Gửi `description: null` hoặc `speedKmh: null` để xoá giá trị tương ứng.
+
+Tải ảnh minh hoạ dùng multipart part `icon`. Backend kiểm tra chữ ký tệp và chấp nhận PNG, JPEG hoặc WebP tối đa 1 MB. Thành công trả `204`. Tệp vượt giới hạn trả `413 PAYLOAD_TOO_LARGE`, định dạng không hỗ trợ trả `415 UNSUPPORTED_MEDIA_TYPE`.
+
+Mỗi thay đổi danh mục ghi lịch sử `SIGN_CATEGORY` hoặc `SIGN_TYPE` trong cùng giao dịch, với người thực hiện và giá trị trước, sau. Backend xoá `cache:sign-types` sau khi commit.
+
+Người dùng trong danh sách có dạng `{ id, email, displayName, role, status, createdAt, lastLoginAt }`. `q` tìm theo một phần email, không phân biệt hoa thường; `%` và `_` trong `q` được hiểu là ký tự thường. `role` là `USER`, `MODERATOR` hoặc `ADMIN`; `status` là `ACTIVE` hoặc `LOCKED`. Trang mặc định `page = 0`, `size = 20`, sắp theo ngày tạo mới nhất. Quản trị viên tự hạ vai trò hoặc tự khoá chính mình thì nhận `422 BUSINESS_RULE`.
+
+`PATCH /admin/users/{id}` nhận `{ "role": "MODERATOR", "status": "LOCKED" }`, cần ít nhất một trường, trường vắng là giữ nguyên. Kết quả:
+
+| Trường hợp | Mã |
+| --- | --- |
+| Thành công, kể cả khi không có gì thay đổi | `204` |
+| Thiếu cả hai trường, giá trị ngoài danh sách | `400 VALIDATION_ERROR` |
+| Không có người dùng | `404 NOT_FOUND` |
+| Tự hạ vai trò, tự khoá; khoá hoặc hạ vai trò quản trị viên `ACTIVE` cuối cùng | `422 BUSINESS_RULE` |
+
+Khoá tài khoản hoặc đổi vai trò thu hồi mọi phiên của người đó, nên token cũ nhận `401` và người đó phải đăng nhập lại. Mỗi thay đổi ghi một dòng lịch sử `USER` với `ROLE_CHANGED`, `LOCKED` hoặc `UNLOCKED`, kèm giá trị trước và sau.
 
 ## 9. Tài liệu OpenAPI
 

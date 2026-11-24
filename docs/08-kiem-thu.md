@@ -73,8 +73,8 @@
 | UT-B11 | Phân quyền | Ma trận vai trò × endpoint quản trị | Đúng bảng quyền ở [CSDL §4](06-co-so-du-lieu.md#4-người-dùng-và-phân-quyền) |
 | UT-B12 | Gom cụm | Gửi lại cùng mã của biển bị từ chối cách đây 15 ngày, với vị trí và hướng phù hợp | Gán đề xuất vào hồ sơ bị từ chối. Nếu mã khác hoặc đã quá 30 ngày, áp dụng luồng tạo biển thông thường |
 | IT-B01 | Đề xuất | Gửi cùng `clientId` hai lần | Một bản ghi; lần hai trả `200` |
-| IT-B02 | Đề xuất | Gửi đề xuất → chờ worker | Ảnh có trong `sign-crops`; đề xuất `GROUPED`; biển có trong DB |
-| IT-B03 | Gom cụm đồng thời | Gửi song song 20 đề xuất cùng một biển từ 20 người | Đúng một biển |
+| IT-B02 | Đề xuất | Gửi đề xuất → chờ worker | Ảnh có trong `sign-crops`; đề xuất `GROUPED`; biển có trong DB và có lịch sử `CREATED` |
+| IT-B03 | Gom cụm đồng thời | Gửi song song 20 đề xuất cùng một biển từ 20 người | Đúng một biển với `distinct_submitters = 20` |
 | IT-B04 | Phê duyệt | Hai kiểm duyệt viên duyệt cùng `version` | Một thành công, một `409 SIGN_ALREADY_PROCESSED` |
 | IT-B05 | Lịch sử | Duyệt, sửa, gỡ một biển | 3 dòng `audit_logs` đúng trước/sau; tài khoản backend không `UPDATE`/`DELETE` được bảng này |
 | IT-B06 | Không gian | Biển biết trước trong và ngoài `bbox` | Chỉ biển trong được trả |
@@ -202,6 +202,7 @@ Khi triển khai, đặt script mô phỏng trong `backend/src/test` để chạ
 - [ ] Người dùng không đọc được đề xuất, báo cáo của người khác qua đổi ID
 - [ ] Đầu vào sai kiểu, quá dài, toạ độ ngoài phạm vi bị từ chối với `400`; ảnh giả mạo đuôi bị `415`
 - [ ] Đăng nhập, OTP, nhận diện ảnh bị giới hạn tần suất
+- [ ] Quên mật khẩu trả cùng `202` cho email tồn tại và không tồn tại trong hạn mức. OTP hết hạn sau 10 phút, bị xoá sau lần sai thứ 5 hoặc sau khi dùng, và mọi phiên cũ bị thu hồi khi đặt lại mật khẩu (FR-13)
 - [ ] Mật khẩu lưu BCrypt; mật khẩu, token không xuất hiện trong log
 - [ ] Ảnh trong `sign-crops`, `report-photos` không đọc được khi thiếu chữ ký
 - [ ] Dịch vụ nhận diện, MySQL, Redis không truy cập được từ ngoài máy chủ
