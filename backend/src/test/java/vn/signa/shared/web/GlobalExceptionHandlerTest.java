@@ -10,9 +10,14 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +30,8 @@ import vn.signa.shared.error.ErrorCode;
 @Import({
   GlobalExceptionHandler.class,
   RequestIdFilter.class,
-  GlobalExceptionHandlerTest.FakeController.class
+  GlobalExceptionHandlerTest.FakeController.class,
+  GlobalExceptionHandlerTest.OpenSecurity.class
 })
 class GlobalExceptionHandlerTest {
 
@@ -82,8 +88,23 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.message").value("labelMapVersion không hỗ trợ"));
   }
 
+  /**
+   * Từ lát 1 có Spring Security. Mở mọi đường dẫn: test này chỉ kiểm tra ánh xạ lỗi, phân quyền
+   * kiểm ở {@code identity}.
+   */
+  @TestConfiguration
+  static class OpenSecurity {
+    @Bean
+    SecurityFilterChain open(HttpSecurity http) throws Exception {
+      return http.csrf(AbstractHttpConfigurer::disable)
+          .authorizeHttpRequests(a -> a.anyRequest().permitAll())
+          .build();
+    }
+  }
+
   @RestController
   static class FakeController {
+
     record Body(@NotBlank String name) {}
 
     @GetMapping("/fake/not-found")

@@ -56,7 +56,20 @@ Backend có hai chế độ chạy, dùng hai tài khoản MySQL khác nhau:
 | `migrate`: chạy Flyway một lần rồi thoát | `signa_migrator` (DDL, `GRANT OPTION`) | `SIGNA_DB_MIGRATOR_USER`, `SIGNA_DB_MIGRATOR_PASSWORD` |
 | Ứng dụng chạy lâu dài, Flyway tắt | `signa_app` (quyền theo bảng, `audit_logs` chỉ `SELECT, INSERT`) | `SIGNA_DB_APP_USER`, `SIGNA_DB_APP_PASSWORD` |
 
-Ứng dụng chạy lâu dài **không** đọc mật khẩu migrator. Nếu backend bị chiếm, kẻ tấn công vẫn không sửa hay xoá được `audit_logs` (FR-23). Lát 1 sẽ thêm service `migrate` chạy một lần vào Compose. Hiện tại chạy bằng Gradle:
+Ứng dụng chạy lâu dài **không** đọc mật khẩu migrator. Nếu backend bị chiếm, kẻ tấn công vẫn không sửa hay xoá được `audit_logs` (FR-23).
+
+### Chạy backend trong Compose
+
+Dành cho web quản trị cần API thật mà không cài JDK. Image build từ [`Dockerfile`](Dockerfile) (JDK build, JRE chạy bằng user `signa` uid 10001):
+
+```sh
+docker compose -f infra/compose.yaml --profile app up -d --build   # MySQL, Redis, MinIO, migrate, backend
+docker compose -f infra/compose.yaml --profile migrate up migrate  # chỉ chạy migration
+```
+
+`migrate` chạy profile `migrate` với `SIGNA_DB_MIGRATOR_*` rồi thoát; `backend` chỉ nhận `SIGNA_DB_APP_*` và chỉ khởi động khi `migrate` kết thúc thành công. Backend nghe ở `http://127.0.0.1:8080`; web dev trỏ proxy Vite vào đó (`SIGNA_TARGET=http://localhost:8080`). Đặt `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` trong `infra/.env` để có tài khoản đăng nhập web quản trị.
+
+### Chạy bằng Gradle
 
 ```sh
 set -a; . ../infra/.env; set +a                                     # trong backend/
@@ -83,8 +96,40 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_MINIO_ACCESS_KEY`, `SIGNA_MINIO_SECRET_KEY` | (trống, bắt buộc) | Thiếu thì ứng dụng không khởi động |
 | `SIGNA_RECOGNITION_URL` | `http://localhost:8000` | Dịch vụ nhận diện FastAPI |
 | `SIGNA_LABELS_PATH` | `../ai/data/labels.yaml` | Danh mục nhãn cho `import-labels` (lát 2) |
+| `SIGNA_CATALOG_IMPORT_ON_STARTUP` | `false` | Nạp danh mục nhãn mỗi lần khởi động |
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
+| `SIGNA_TRUSTED_PROXIES` | dải IP riêng | Biểu thức chính quy các proxy được tin `X-Forwarded-For`, ví dụ `172\.18\.0\.5` |
+| `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |
+
+## Danh mục nhãn và dữ liệu mẫu
+
+Nạp `ai/data/labels.yaml` vào `sign_categories`, `sign_types` bằng tham số `--import-labels` hoặc `SIGNA_CATALOG_IMPORT_ON_STARTUP=true`. Ứng dụng nạp xong rồi chạy tiếp; file sai (trùng `id`, trùng `code`, nhóm không tồn tại) thì dừng khởi động và báo số dòng. Nạp lại không ghi đè mô tả, ảnh minh hoạ, trạng thái dùng, cũng không ghi đè tên quản trị viên đã sửa.
+
+```sh
+./gradlew bootRun --args='--spring.profiles.active=local --import-labels'
+```
+
+Profile `demo` thêm 30 biển mẫu quanh Hà Nội (`db/demo/R__demo_data.sql`) khi migrate, cùng các loại biển chúng dùng:
+
+```sh
+./gradlew bootRun --args='--spring.profiles.active=migrate,demo'
+```
 
 ## Lưu ảnh
 
 Khi khởi động, backend tạo các bucket còn thiếu: `sign-crops`, `report-photos` (riêng tư, đọc qua URL ký) và `sign-icons` (đọc công khai). URL ký dùng `SIGNA_MINIO_PUBLIC_ENDPOINT` và được ký offline. Chữ ký gắn với host, nên proxy đứng trước MinIO phải giữ nguyên header `Host` của URL đó. Ảnh gửi chỉ để nhận diện không bao giờ được ghi vào MinIO (NFR-09).
+
+## Tài khoản và phân quyền
+
+API ở [`docs/07 §3`](../docs/07-api.md#3-tài-khoản). Token phiên là 32 byte ngẫu nhiên (base64url), gửi bằng `Authorization: Bearer`. Redis chỉ giữ SHA-256 của token: `session:{hash}` (hash `userId`, `role`, `client`, `createdAt`; TTL 30 ngày với `MOBILE`, 8 giờ với `WEB`, gia hạn mỗi lần dùng) và `user-sessions:{userId}`. Đổi mật khẩu thu hồi các phiên khác; module khác thu hồi mọi phiên qua `identity.api.SessionRevoker`.
+
+Quyền theo vai trò nạp từ `role_permissions` khi khởi động. Endpoint kiểm tra bằng `@PreAuthorize("hasAuthority('<mã quyền>')")` và lấy người dùng bằng `@AuthenticationPrincipal AuthenticatedUser`. Endpoint mới phải có dòng trong `PermissionMatrixTest` (UT-B11). Lỗi `401`, `403` của Spring Security và của `@PreAuthorize` cùng định dạng lỗi chung.
+
+Giới hạn: sai mật khẩu quá 10 lần trong 15 phút theo `rl:login:{email}:{ip}` thì `429` kèm `Retry-After`; nhập sai mật khẩu hiện tại khi đổi mật khẩu giới hạn tương tự theo `rl:password:{userId}`. IP của client do `RemoteIpValve` của Tomcat xác định (`server.forward-headers-strategy: native`). Valve chỉ đọc `X-Forwarded-For` khi kết nối đến từ proxy khớp `SIGNA_TRUSTED_PROXIES`, mặc định là các dải IP riêng 10/8, 172.16/12, 192.168/16, 127/8 và `::1`. Client bên ngoài gửi header giả thì vẫn bị tính theo IP thật (`TrustedProxyForwardedForTest`, `UntrustedForwardedForTest`).
+
+Hai điều kiện để giới hạn theo IP có hiệu lực:
+
+- nginx (lát 10) phải **ghi đè** header bằng `proxy_set_header X-Forwarded-For $remote_addr;`, không dùng `$proxy_add_x_forwarded_for`. Nếu nối thêm, một máy trong mạng LAN (IP riêng, được tin như proxy) có thể chèn IP tuỳ ý vào trước chuỗi.
+- Cổng backend không mở cho mạng có client dùng IP riêng. Compose chỉ bind `127.0.0.1`. Khi biết IP cố định của nginx, đặt `SIGNA_TRUSTED_PROXIES` đúng IP đó.
+
+**Quản trị viên đầu tiên.** Khi khởi động, nếu chưa có tài khoản `ADMIN` và có đủ `SIGNA_BOOTSTRAP_ADMIN_EMAIL` cùng `SIGNA_BOOTSTRAP_ADMIN_PASSWORD`, backend tạo tài khoản `ADMIN` và ghi lịch sử `USER/ROLE_CHANGED` với `actor_type = SYSTEM`. Thiếu biến thì bỏ qua; mật khẩu sai chính sách thì không khởi động. Email đã thuộc tài khoản khác thì không nâng quyền tài khoản đó. Không có mật khẩu mặc định.

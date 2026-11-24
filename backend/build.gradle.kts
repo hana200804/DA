@@ -42,6 +42,8 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-minio")
     testImplementation("com.tngtech.archunit:archunit-junit5:$archunitVersion")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    implementation("org.springframework.boot:spring-boot-starter-security") // lát 1
+    testImplementation("org.springframework.boot:spring-boot-starter-security-test") // lát 1
 }
 
 tasks.withType<JavaCompile> {
