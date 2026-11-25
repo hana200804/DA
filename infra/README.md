@@ -96,17 +96,16 @@ services:
 ```sh
 docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev up -d --build
 docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev ps -a migrate
-set -a
-. ./infra/.env
-set +a
 ./infra/smoke-test.sh
 ```
 
 Chờ `migrate` thoát mã 0 và backend báo `UP` tại
 `http://localhost:8080/actuator/health/readiness`. Script cần Bash, curl, jq,
-Python 3 và dùng gateway `http://localhost:8080` theo mặc định. Script tạo hai
-tài khoản, hai đề xuất và một biển đã duyệt trong dữ liệu dev. Nếu chạy cùng
-dịch vụ nhận diện, đặt `SIGNA_SMOKE_EXPECT_RECOGNITION_UNAVAILABLE=false`
+Python 3 và dùng gateway `http://localhost:8080` theo mặc định. Script đọc hai
+biến bootstrap từ môi trường hoặc giá trị trên một dòng trong `infra/.env`.
+Với giá trị cần nội suy, truyền hai biến bootstrap đã nội suy qua môi trường.
+Script tạo hai tài khoản, hai đề xuất và một biển đã duyệt trong dữ liệu dev.
+Nếu chạy cùng dịch vụ nhận diện, đặt `SIGNA_SMOKE_EXPECT_RECOGNITION_UNAVAILABLE=false`
 để bỏ qua phép thử phản hồi `503`.
 
 ## Demo HTTPS

@@ -2,8 +2,10 @@
 # Chạy trên stack dev. Kịch bản tạo tài khoản, đề xuất và một biển thử trong các volume.
 set -euo pipefail
 
-: "${SIGNA_BOOTSTRAP_ADMIN_EMAIL:?Cần xuất SIGNA_BOOTSTRAP_ADMIN_EMAIL}"
-: "${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:?Cần xuất SIGNA_BOOTSTRAP_ADMIN_PASSWORD}"
+admin_email=${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
+admin_password=${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}
+unset SIGNA_BOOTSTRAP_ADMIN_EMAIL SIGNA_BOOTSTRAP_ADMIN_PASSWORD
+export -n admin_email admin_password
 gateway=${SIGNA_SMOKE_ORIGIN:-http://localhost:8080}
 gateway=${gateway%/}
 api="$gateway/api/v1"
@@ -22,6 +24,53 @@ fail() {
   printf 'Lỗi %s\n' "$1" >&2
   exit 1
 }
+
+env_file="$(dirname -- "${BASH_SOURCE[0]}")/.env"
+if [[ -z $admin_email || -z $admin_password ]] && [[ -r $env_file ]]; then
+  bootstrap_keys=()
+  [[ -n $admin_email ]] || bootstrap_keys+=(SIGNA_BOOTSTRAP_ADMIN_EMAIL)
+  [[ -n $admin_password ]] || bootstrap_keys+=(SIGNA_BOOTSTRAP_ADMIN_PASSWORD)
+  python3 - "$env_file" "${bootstrap_keys[@]}" >"$work/bootstrap" <<'PY'
+import re
+import sys
+
+# Chỉ lấy hai khoá bootstrap. Các giá trị được đọc như dữ liệu, không nội suy.
+requested = sys.argv[2:]
+values = dict.fromkeys(requested, "")
+assignment = re.compile(r"[ \t]*(?:export[ \t]+)?(\w+)[ \t]*[:=](.*)")
+with open(sys.argv[1], encoding="utf-8-sig") as env:
+    for line in env:
+        entry = assignment.fullmatch(line.rstrip("\n"))
+        if entry and entry[1] in values:
+            values[entry[1]] = entry[2]
+
+for key in requested:
+    raw = values[key]
+    value = raw.lstrip()
+    if value.startswith("'"):
+        match = re.fullmatch(r"'((?:\\'|[^'])*)'[ \t]*(?:#.*)?", value)
+        if not match:
+            sys.exit(f"Giá trị {key} phải nằm trên một dòng")
+        value = match[1].replace(r"\'", "'")
+    elif value.startswith('"'):
+        match = re.fullmatch(r'"((?:\\.|[^"\\])*)"[ \t]*(?:#.*)?', value)
+        if not match:
+            sys.exit(f"Giá trị {key} phải nằm trên một dòng")
+        escapes = {"n": "\n", "r": "\r", "t": "\t", '"': '"', "\\": "\\"}
+        value = re.sub(r'\\([nrt"\\])', lambda item: escapes[item[1]], match[1])
+    else:
+        value = re.split(r"[ \t]+#", raw, maxsplit=1)[0].strip()
+    if "\0" in value:
+        sys.exit(f"Giá trị {key} chứa ký tự NUL")
+    sys.stdout.buffer.write(value.encode("utf-8") + b"\0")
+PY
+  {
+    [[ -n $admin_email ]] || IFS= read -r -d '' admin_email
+    [[ -n $admin_password ]] || IFS= read -r -d '' admin_password
+  } <"$work/bootstrap"
+fi
+: "${admin_email:?Cần SIGNA_BOOTSTRAP_ADMIN_EMAIL trong môi trường hoặc infra/.env}"
+: "${admin_password:?Cần SIGNA_BOOTSTRAP_ADMIN_PASSWORD trong môi trường hoặc infra/.env}"
 
 request() {
   local step=$1
@@ -48,9 +97,8 @@ show() {
 login() {
   local client=$1 role=$2
   # Các giá trị được đưa qua stdin để mật khẩu không xuất hiện trong đối số tiến trình.
-  jq -n '{
-    email: input, password: input, client: input
-  }' --raw-input >"$payload" < <(printf '%s\n' "$3" "$4" "$client")
+  printf '%s\0' "$3" "$4" "$client" | jq -Rs 'split("\u0000") |
+    {email: .[0], password: .[1], client: .[2]}' >"$payload"
   request "b) Đăng nhập $role" -H 'Content-Type: application/json' \
     --data-binary "@$payload" "$api/auth/login"
   expect "b) Đăng nhập $role" 200
@@ -130,7 +178,7 @@ for user in 1 2; do
   show "b) Đăng ký người dùng $user" 'select(.role == "USER") | {role}'
   login MOBILE USER "$email" "$password" "$work/user-$user"
 done
-login WEB ADMIN "$SIGNA_BOOTSTRAP_ADMIN_EMAIL" "$SIGNA_BOOTSTRAP_ADMIN_PASSWORD" "$work/admin"
+login WEB ADMIN "$admin_email" "$admin_password" "$work/admin"
 admin_header="@$work/admin"
 
 code=P.123a
@@ -257,16 +305,20 @@ show 'f) Lịch sử' 'select(any(.items[]; .action == "CREATED" and .actorType 
   {total, actions: [.items[] | {action, actorType}]}'
 
 [[ $crop_url == "$gateway"/sign-crops/*X-Amz-Signature=* ]] || fail 'g) URL ký sai origin hoặc bucket'
-request 'g) Ảnh cắt' "$crop_url"
+[[ $crop_url != *[[:cntrl:]]* && $crop_url != *'"'* && $crop_url != *\\* ]] \
+  || fail 'g) URL ký chứa ký tự chưa được mã hóa'
+request 'g) Ảnh cắt' --config - < <(printf 'url = "%s"\n' "$crop_url")
 expect 'g) Ảnh cắt' 200
 cmp -s "$response" "$work/crop.jpg" || fail 'g) Ảnh tải về khác ảnh đã gửi'
 printf 'g) Ảnh cắt HTTP %s (%s byte)\n' "$http" "$(wc -c <"$response")"
 
 request 'h) Web quản trị' "$gateway/"
 expect 'h) Web quản trị' 200
-grep -Eiq '<!doctype html' "$response" && grep -Fq 'Quản trị biển báo' "$response" \
-  || fail 'h) Gateway không trả HTML của web quản trị'
-printf 'h) Web quản trị HTTP %s (HTML)\n' "$http"
+if grep -Eiq '<!doctype html' "$response" && grep -Fq 'Quản trị biển báo' "$response"; then
+  printf 'h) Web quản trị HTTP %s (HTML)\n' "$http"
+else
+  fail 'h) Gateway không trả HTML của web quản trị'
+fi
 
 if [[ ${SIGNA_SMOKE_EXPECT_RECOGNITION_UNAVAILABLE:-true} == true ]]; then
   request 'i) Nhận diện' -F "image=@$work/crop.jpg;type=image/jpeg" "$api/recognition/detect"
