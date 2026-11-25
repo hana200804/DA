@@ -39,6 +39,11 @@ import vn.signa.catalog.internal.CatalogRepository.TypeRow;
 @Service
 public class LabelImporter {
 
+  private enum ImportMode {
+    SYNC,
+    INSERT_MISSING
+  }
+
   /** Kết quả một lần nạp. */
   public record Result(
       int version,
@@ -71,11 +76,37 @@ public class LabelImporter {
 
   /** Đọc, kiểm tra rồi nạp file; file sai thì ném {@link LabelsFileException}, không ghi gì. */
   public Result importFrom(Path path) {
-    return importParsed(path, LabelsYamlParser.load(path));
+    LabelMap map = LabelsYamlParser.load(path);
+    Result result =
+        tx.execute(status -> {
+          repository.lockGeneration();
+          return apply(map, ImportMode.SYNC);
+        });
+    logResult(path, result);
+    return result;
   }
 
-  Result importParsed(Path path, LabelMap map) {
-    Result result = tx.execute(status -> apply(map));
+  void importOnStartup(Path path) {
+    LabelMap map = LabelsYamlParser.load(path);
+    Result result =
+        tx.execute(status -> {
+          // Lấy khoá trước lần đọc nhất quán đầu tiên để thấy lần nạp vừa commit.
+          repository.lockGeneration();
+          int storedVersion = repository.latestLabelMapVersion().orElse(0);
+          if (map.version() < storedVersion) {
+            log.warn(
+                "Bỏ qua nạp danh mục nhãn lúc khởi động: file v{} thấp hơn CSDL v{}",
+                map.version(),
+                storedVersion);
+            return null;
+          }
+          return apply(
+              map, map.version() == storedVersion ? ImportMode.INSERT_MISSING : ImportMode.SYNC);
+        });
+    if (result != null) logResult(path, result);
+  }
+
+  private static void logResult(Path path, Result result) {
     log.info(
         "Nạp danh mục nhãn {} v{}: thêm {} nhóm, thêm {} loại, cập nhật {} loại, giữ nguyên {}",
         path,
@@ -87,10 +118,9 @@ public class LabelImporter {
     if (!result.notInFile().isEmpty()) {
       log.warn("Loại nhận diện được nhưng không có trong file: {}", result.notInFile());
     }
-    return result;
   }
 
-  private Result apply(LabelMap map) {
+  private Result apply(LabelMap map, ImportMode mode) {
     Instant now = clock.instant().truncatedTo(ChronoUnit.MILLIS);
     int version = map.version();
 
@@ -138,6 +168,10 @@ public class LabelImporter {
         created++;
         continue;
       }
+      if (mode == ImportMode.INSERT_MISSING) {
+        unchanged++;
+        continue;
+      }
       boolean nameUntouched = Objects.equals(old.name(), old.labelName());
       TypeRow row =
           new TypeRow(
@@ -178,7 +212,7 @@ public class LabelImporter {
         .filter(t -> !importedCodes.contains(t.code()) && t.labelId() != null && t.active())
         .forEach(t -> notInFile.add(t.code()));
 
-    if (created + updated > 0) repository.advanceGeneration();
+    if (categoriesCreated + created + updated > 0) repository.advanceGeneration();
     return new Result(version, categoriesCreated, created, updated, unchanged, notInFile);
   }
 

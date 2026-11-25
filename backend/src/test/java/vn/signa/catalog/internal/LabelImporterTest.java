@@ -201,6 +201,17 @@ class LabelImporterTest {
     }
 
     @Override
+    void lockGeneration() {}
+
+    @Override
+    Optional<Integer> latestLabelMapVersion() {
+      return types.values().stream()
+          .map(TypeRow::labelMapVersion)
+          .filter(java.util.Objects::nonNull)
+          .max(Integer::compareTo);
+    }
+
+    @Override
     void advanceGeneration() {
       generation++;
     }

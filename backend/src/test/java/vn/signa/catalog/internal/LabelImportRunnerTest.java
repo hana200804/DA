@@ -1,83 +1,113 @@
 package vn.signa.catalog.internal;
 
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.transaction.support.TransactionTemplate;
+import vn.signa.catalog.internal.CatalogRepository.CategoryRow;
+import vn.signa.catalog.internal.CatalogRepository.TypeRow;
+import vn.signa.catalog.internal.LabelImporterTest.FakeRepository;
+import vn.signa.catalog.internal.LabelImporterTest.NoOpTransactionManager;
 import vn.signa.shared.config.SignaProperties;
 
 class LabelImportRunnerTest {
 
-  private static final Path LABELS = LabelsYamlParserTest.REAL_FILE;
-  private final LabelImporter importer = mock(LabelImporter.class);
-  private final CatalogRepository repository = mock(CatalogRepository.class);
+  @TempDir Path directory;
+  private final FakeRepository repository = new FakeRepository();
+  private final LabelImporter importer =
+      new LabelImporter(
+          repository,
+          entry -> {},
+          event -> {},
+          new TransactionTemplate(new NoOpTransactionManager()),
+          Clock.systemUTC());
 
   @Test
-  void startupImportsWhenNoLabelVersionHasBeenStored() {
-    when(repository.latestLabelMapVersion()).thenReturn(Optional.empty());
+  void startupImportsWhenNoLabelVersionHasBeenStored() throws IOException {
+    runner(true, labels(1)).run(new DefaultApplicationArguments());
 
-    runner(true).run(new DefaultApplicationArguments());
-
-    verify(importer).importParsed(eq(LABELS), argThat(map -> map.version() == 1));
+    assertThat(repository.types.keySet()).containsExactly("A.1", "A.2");
+    assertThat(repository.types.get("A.1").labelMapVersion()).isEqualTo(1);
   }
 
   @Test
-  void startupSkipsWhenLabelVersionIsUnchanged() {
-    when(repository.latestLabelMapVersion()).thenReturn(Optional.of(1));
+  void startupInsertsMissingRowsWithoutEditingExistingRows() throws IOException {
+    TypeRow edited = seedEditedType();
 
-    runner(true).run(new DefaultApplicationArguments());
+    runner(true, labels(1)).run(new DefaultApplicationArguments());
 
-    verifyNoInteractions(importer);
+    assertThat(repository.types.get("A.1")).isEqualTo(edited);
+    assertThat(repository.types.get("A.2").labelMapVersion()).isEqualTo(1);
+    assertThat(repository.categories).containsKey("MANDATORY");
+    assertThat(repository.generation()).isEqualTo(2);
+    assertThat(repository.updates).isZero();
   }
 
   @Test
-  void startupImportsWhenFileVersionIsNewer(@TempDir Path directory) throws IOException {
-    Path newer = directory.resolve("labels.yaml");
-    Files.writeString(
-        newer, Files.readString(LABELS).replaceFirst("(?m)^version: 1$", "version: 2"));
-    when(repository.latestLabelMapVersion()).thenReturn(Optional.of(1));
+  void startupSynchronizesWhenFileVersionIsNewer() throws IOException {
+    seedEditedType();
 
-    runner(true, newer).run(new DefaultApplicationArguments());
+    runner(true, labels(2)).run(new DefaultApplicationArguments());
 
-    verify(importer).importParsed(eq(newer), argThat(map -> map.version() == 2));
+    assertThat(repository.types.get("A.1").labelMapVersion()).isEqualTo(2);
+    assertThat(repository.types.get("A.1").speedKmh()).isEqualTo(50);
+    assertThat(repository.types.get("A.2").labelMapVersion()).isEqualTo(2);
   }
 
   @Test
-  void startupSkipsWhenFileVersionIsOlder() {
-    when(repository.latestLabelMapVersion()).thenReturn(Optional.of(2));
+  void startupSkipsWhenFileVersionIsOlder() throws IOException {
+    Path old = labels(1);
+    importer.importFrom(labels(2));
+    long generation = repository.generation();
 
-    runner(true).run(new DefaultApplicationArguments());
+    runner(true, old).run(new DefaultApplicationArguments());
 
-    verifyNoInteractions(importer);
+    assertThat(repository.types.get("A.1").labelMapVersion()).isEqualTo(2);
+    assertThat(repository.generation()).isEqualTo(generation);
   }
 
   @Test
-  void explicitOptionBypassesStartupSettingAndVersionCheck() {
-    runner(false).run(new DefaultApplicationArguments("--import-labels"));
+  void explicitOptionSynchronizesEvenAtSameVersionAndWithStartupDisabled() throws IOException {
+    seedEditedType();
 
-    verify(importer).importFrom(LABELS);
-    verifyNoInteractions(repository);
+    runner(false, labels(1)).run(new DefaultApplicationArguments("--import-labels"));
+
+    assertThat(repository.types.get("A.1").speedKmh()).isEqualTo(50);
+    assertThat(repository.updates).isEqualTo(1);
   }
 
-  private LabelImportRunner runner(boolean importOnStartup) {
-    return runner(importOnStartup, LABELS);
+  private TypeRow seedEditedType() {
+    repository.insertCategory(new CategoryRow("OTHER", "Nhóm đã sửa", null, 1));
+    TypeRow edited = new TypeRow("A.1", "OTHER", "Tên đã sửa", null, 55, null, 0, 1, "A", false);
+    repository.types.put(edited.code(), edited);
+    return edited;
+  }
+
+  private Path labels(int version) throws IOException {
+    return Files.writeString(
+        directory.resolve("labels-v" + version + ".yaml"),
+        """
+        version: %d
+        categories:
+          other: { name: Biển khác }
+          mandatory: { name: Biển hiệu lệnh }
+        classes:
+          - { id: 0, code: A.1, category: other, name: A, speed_kmh: 50 }
+          - { id: 1, code: A.2, category: mandatory, name: B }
+        """
+            .formatted(version));
   }
 
   private LabelImportRunner runner(boolean importOnStartup, Path path) {
     return new LabelImportRunner(
         importer,
-        repository,
         new CatalogProperties(importOnStartup, Duration.ofHours(24)),
         new SignaProperties(null, null, path.toString()));
   }
