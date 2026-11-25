@@ -22,6 +22,8 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.signa.app.domain.model.DeviceLocation
 import com.signa.app.domain.model.TrafficSign
+import com.signa.app.data.remote.dto.MapClusterDto
+import com.signa.app.data.repository.SignViewport
 import com.signa.app.ui.map.MapCameraTarget
 import com.signa.app.ui.map.DirectionsUiState
 import com.signa.app.ui.map.MapViewportInsets
@@ -54,6 +56,7 @@ import vn.vietmap.vietmapsdk.log.Logger
 import vn.vietmap.vietmapsdk.maps.MapView
 import vn.vietmap.vietmapsdk.maps.Style
 import vn.vietmap.vietmapsdk.maps.VietMapGL
+import kotlin.math.floor
 
 @Composable
 internal fun VietMapSurface(
@@ -64,16 +67,19 @@ internal fun VietMapSurface(
     modifier: Modifier = Modifier,
     directions: DirectionsUiState = DirectionsUiState(),
     viewportInsets: MapViewportInsets = MapViewportInsets(),
-    onChoosePoint: (GeoPoint) -> Unit = {}
+    onChoosePoint: (GeoPoint) -> Unit = {},
+    onCameraIdle: (SignViewport) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val latestSelection = rememberUpdatedState(onSelectSign)
     val latestStatus = rememberUpdatedState(onStatus)
     val latestPoint = rememberUpdatedState(onChoosePoint)
+    val latestViewport = rememberUpdatedState(onCameraIdle)
     val result = remember(context, configuration, state.retryMapId) {
         try {
-            Result.success(VietMapController(context, configuration, { latestSelection.value(it) }, { latestStatus.value(it) }, { latestPoint.value(it) }))
+            Result.success(VietMapController(context, configuration, { latestSelection.value(it) },
+                { latestStatus.value(it) }, { latestPoint.value(it) }, { latestViewport.value(it) }))
         } catch (failure: RuntimeException) {
             Result.failure(failure)
         } catch (failure: LinkageError) {
@@ -104,11 +110,12 @@ private class VietMapController(
     private val configuration: VietMapConfiguration,
     private val onSelectSign: (String) -> Unit,
     private val onStatus: (MapLoadStatus) -> Unit,
-    private val onChoosePoint: (GeoPoint) -> Unit
+    private val onChoosePoint: (GeoPoint) -> Unit,
+    private val onCameraIdle: (SignViewport) -> Unit
 ) : DefaultLifecycleObserver, ComponentCallbacks {
     val view: MapView
     private val density = context.resources.displayMetrics.density
-    private val signIcons = mutableSetOf<String>()
+    private val markers = SignMapMarkers(density)
     private var signSource: GeoJsonSource? = null
     private var locationSource: GeoJsonSource? = null
     private var routeSource: GeoJsonSource? = null
@@ -125,6 +132,8 @@ private class VietMapController(
     private var mapStyle: Style? = null
     private var latestState = MapUiState()
     private var renderedSigns: List<TrafficSign>? = null
+    private var renderedStatuses: Map<String, String>? = null
+    private var renderedClusters: List<MapClusterDto>? = null
     private var renderedLocation: DeviceLocation? = null
     private var lastCamera: MapCameraTarget? = null
     private var ready = false
@@ -153,9 +162,20 @@ private class VietMapController(
                 }
                 sdk.addOnMapClickListener { coordinate ->
                     val feature = sdk.queryRenderedFeatures(sdk.projection.toScreenLocation(coordinate), SIGN_LAYER).firstOrNull()
-                    val signId = feature?.getStringProperty("signId")
-                    if (signId == null) false else { onSelectSign(signId); true }
+                    if (feature?.hasProperty("cluster") == true) {
+                        val center = feature.geometry() as? Point
+                        center?.let {
+                            sdk.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                                LatLng(it.latitude(), it.longitude()), (sdk.cameraPosition.zoom + 2).coerceAtMost(sdk.maxZoomLevel)
+                            ), 400)
+                        }
+                        true
+                    } else {
+                        val signId = feature?.getStringProperty("signId")
+                        if (signId == null) false else { onSelectSign(signId); true }
+                    }
                 }
+                sdk.addOnCameraIdleListener { publishViewport(sdk) }
                 sdk.addOnMapLongClickListener { coordinate ->
                     GeoPoint.fromOrNull(coordinate.latitude, coordinate.longitude)?.let(onChoosePoint)
                     true
@@ -187,6 +207,7 @@ private class VietMapController(
                         ready = true
                         onStatus(if (configuration.isConfigured) MapLoadStatus.Ready else MapLoadStatus.MissingKey)
                         render(latestState, latestDirections, latestInsets)
+                        view.post { publishViewport(sdk) }
                     }
                 }
             }
@@ -200,18 +221,11 @@ private class VietMapController(
         val sdk = map ?: return
         val style = mapStyle ?: return
         if (!ready || closed) return
-        if (renderedSigns != state.positionedSigns) {
-            val features = state.positionedSigns.map { sign ->
-                val point = requireNotNull(sign.position)
-                val iconId = "signa-speed-${sign.speedLimitKmh ?: "unknown"}"
-                if (signIcons.add(iconId)) style.addImage(iconId, signIcon(sign.speedLimitKmh))
-                Feature.fromGeometry(Point.fromLngLat(point.longitude, point.latitude)).apply {
-                    addStringProperty("signId", sign.id)
-                    addStringProperty("icon", iconId)
-                }
-            }
-            signSource?.setGeoJson(FeatureCollection.fromFeatures(features))
+        if (renderedSigns != state.positionedSigns || renderedStatuses != state.signStatuses || renderedClusters != state.clusters) {
+            signSource?.setGeoJson(markers.features(state, style))
             renderedSigns = state.positionedSigns
+            renderedStatuses = state.signStatuses
+            renderedClusters = state.clusters
         }
         if (state.userLocation != renderedLocation) {
             val features = state.userLocation?.let {
@@ -282,27 +296,21 @@ private class VietMapController(
         lastFitRoute = directions.fitRouteRequest
     }
 
-    private fun signIcon(speed: Int?): Bitmap {
-        val size = px(48)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        val radius = size / 2f
-        paint.color = Color.WHITE
-        canvas.drawCircle(radius, radius, radius - density, paint)
-        paint.color = Color.rgb(204, 30, 40)
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 4 * density
-        canvas.drawCircle(radius, radius, radius - 3 * density, paint)
-        paint.style = Paint.Style.FILL
-        paint.color = Color.rgb(16, 35, 63)
-        paint.textSize = 20 * density
-        paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
-        paint.textAlign = Paint.Align.CENTER
-        canvas.drawText(speed?.toString() ?: "!", radius, radius - (paint.ascent() + paint.descent()) / 2, paint)
-        bitmap.density = (density * 160).toInt()
-        return bitmap
+    private fun publishViewport(sdk: VietMapGL) {
+        if (closed || !ready || view.width <= 0 || view.height <= 0) return
+        val bounds = sdk.projection.visibleRegion.latLngBounds
+        val world = bounds.longitudeSpan >= 360
+        val west = if (world) -180.0 else wrapLongitude(bounds.longitudeWest)
+        val east = if (world) 180.0 else wrapLongitude(bounds.longitudeEast)
+        val south = bounds.latitudeSouth.coerceIn(-90.0, 90.0)
+        val north = bounds.latitudeNorth.coerceIn(-90.0, 90.0)
+        if (west.isFinite() && east.isFinite() && west != east && south < north) {
+            onCameraIdle(SignViewport(west, south, east, north, floor(sdk.cameraPosition.zoom).toInt().coerceIn(0, 22)))
+        }
     }
+
+    private fun wrapLongitude(value: Double): Double =
+        if (value in -180.0..180.0) value else ((value + 180) % 360 + 360) % 360 - 180
 
     private fun locationIcon(): Bitmap {
         val size = px(28)
@@ -354,7 +362,6 @@ private class VietMapController(
         locationSource = null
         routeSource = null
         destinationSource = null
-        signIcons.clear()
     }
 
     private companion object {

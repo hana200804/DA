@@ -4,27 +4,34 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.signa.app.domain.model.LocationProblem
 import com.signa.app.domain.model.LocationResult
+import com.signa.app.domain.model.TrafficSign
 import com.signa.app.domain.repository.LocationRepository
 import com.signa.app.domain.repository.SignRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.Normalizer
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class MapViewModel @Inject constructor(
-    repository: SignRepository,
+class MapViewModel private constructor(
+    signsFlow: Flow<List<TrafficSign>>,
     private val locations: LocationRepository
 ) : ViewModel() {
+    constructor(repository: SignRepository, locations: LocationRepository) : this(repository.observeSigns(), locations)
+
+    @Inject constructor(locations: LocationRepository) : this(flowOf(emptyList()), locations)
+
     private val interaction = MutableStateFlow(MapUiState())
     private var cameraSequence = 0L
-    val state = combine(repository.observeSigns(), interaction) { signs, ui ->
+    val state = combine(signsFlow, interaction) { signs, ui ->
         val keyword = normalize(ui.query.trim())
         val matching = signs.filter {
             (ui.speedFilter == null || it.speedLimitKmh == ui.speedFilter) &&

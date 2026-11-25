@@ -9,8 +9,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun SignDetailRoute(
     onBack: () -> Unit,
     onReport: () -> Unit,
-    viewModel: SignDetailViewModel = hiltViewModel()
+    signId: String? = null,
+    onSignInRequired: () -> Unit = {},
+    onShowOnMap: (String) -> Unit = {}
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    SignDetailScreen(state = state, onBack = onBack, onReport = onReport)
+    when {
+        signId == null -> {
+            val viewModel: SignDetailViewModel = hiltViewModel()
+            val state by viewModel.state.collectAsStateWithLifecycle()
+            SignDetailScreen(state = state, onBack = onBack, onReport = onReport)
+        }
+        signId.startsWith(CATALOG_TYPE_PREFIX) ->
+            SignCatalogTypeDetail(signId.removePrefix(CATALOG_TYPE_PREFIX), onBack, onShowOnMap)
+        else -> LiveSignDetailContent(onBack, onSignInRequired)
+    }
 }
