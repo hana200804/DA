@@ -88,6 +88,7 @@ public class CatalogAdminService {
 
   @Transactional
   public SignCategoryItem createCategory(String actorId, NewCategory input) {
+    repository.lockGeneration();
     CategoryRow row =
         new CategoryRow(
             input.code(), input.name(), description(input.description()), input.sortOrder());
@@ -119,6 +120,7 @@ public class CatalogAdminService {
 
   @Transactional
   public AdminSignTypeItem createType(String actorId, NewType input) {
+    repository.lockGeneration();
     requireCategory(input.categoryCode());
     TypeRow row =
         new TypeRow(
@@ -144,6 +146,7 @@ public class CatalogAdminService {
 
   @Transactional
   public AdminSignTypeItem editType(String actorId, String code, EditType input) {
+    repository.lockGeneration();
     AdminTypeRow current = lockType(code);
     TypeRow old = current.type();
     String category = Objects.requireNonNullElse(input.categoryCode(), old.categoryCode());
@@ -175,6 +178,7 @@ public class CatalogAdminService {
   @Transactional
   public void uploadIcon(String actorId, String code, byte[] bytes) {
     ImageFormat format = ImageValidation.validate(bytes, MAX_ICON_EDGE, MAX_ICON_PIXELS);
+    repository.lockGeneration();
     TypeRow row = lockType(code).type();
     String key = row.code() + "-" + UUID.randomUUID() + "." + format.extension();
     scheduleIconCleanup(row.code(), row.iconKey(), key);

@@ -183,6 +183,12 @@ Bảng `catalog_generation` giữ một bộ đếm tăng trong cùng giao dịc
 
 Hai bảng danh mục được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35. Lệnh nhập không ghi đè `description`, `icon_key`, `active`, không sửa nhóm đã có, và chỉ đổi `name` khi quản trị viên chưa sửa.
 
+Khi bật nạp danh mục lúc khởi động, backend khoá hàng `catalog_generation`,
+đọc `label_map_version` lớn nhất đã lưu và xử lý trong cùng một giao dịch.
+CSDL chưa có phiên bản hoặc YAML mới hơn thì đồng bộ như lệnh nhập.
+Cùng phiên bản thì chỉ chèn nhóm và loại còn thiếu, với audit `CREATED`
+và tăng bộ đếm khi có chèn. YAML cũ hơn thì bỏ qua và ghi cảnh báo.
+
 ### sign_categories
 
 | Cột | Kiểu | Ràng buộc | Mô tả |

@@ -95,6 +95,12 @@ public class CatalogRepository {
         .single();
   }
 
+  void lockGeneration() {
+    jdbc.sql("SELECT generation FROM catalog_generation WHERE id = 1 FOR UPDATE")
+        .query(Long.class)
+        .single();
+  }
+
   void advanceGeneration() {
     jdbc.sql("UPDATE catalog_generation SET generation = generation + 1 WHERE id = 1").update();
   }
@@ -142,6 +148,15 @@ public class CatalogRepository {
             "SELECT " + TYPE_COLUMNS + ", updated_at FROM sign_types WHERE code = :code FOR UPDATE")
         .param("code", code)
         .query(CatalogRepository::adminType)
+        .optional();
+  }
+
+  /** Phiên bản nhãn lớn nhất đã lưu, kể cả trên loại biển đã ngừng dùng. */
+  Optional<Integer> latestLabelMapVersion() {
+    return jdbc.sql(
+            "SELECT label_map_version FROM sign_types WHERE label_map_version IS NOT NULL"
+                + " ORDER BY label_map_version DESC LIMIT 1")
+        .query(Integer.class)
         .optional();
   }
 

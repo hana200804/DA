@@ -98,7 +98,7 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_RECOGNITION_URL` | `http://localhost:8000` | Dịch vụ nhận diện FastAPI |
 | `SIGNA_CLUSTERING_WORKER_ENABLED` | `false` (Gradle), `true` (Compose) | Bật worker gom cụm trên một bản sao backend trong mỗi môi trường theo ADR-0007 |
 | `SIGNA_LABELS_PATH` | `../ai/data/labels.yaml` | Danh mục nhãn cho `import-labels` (lát 2) |
-| `SIGNA_CATALOG_IMPORT_ON_STARTUP` | `false` | Nạp danh mục nhãn mỗi lần khởi động |
+| `SIGNA_CATALOG_IMPORT_ON_STARTUP` | `false` (Gradle), `true` (Compose) | Bật nạp danh mục lúc khởi động theo phiên bản nhãn |
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
 | `SIGNA_TRUSTED_PROXIES` | dải IP riêng | Biểu thức chính quy các proxy được tin `X-Forwarded-For`, ví dụ `172\.18\.0\.5` |
 | `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |
@@ -108,13 +108,29 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 
 ## Danh mục nhãn và dữ liệu mẫu
 
-Nạp `ai/data/labels.yaml` vào `sign_categories`, `sign_types` bằng tham số `--import-labels` hoặc `SIGNA_CATALOG_IMPORT_ON_STARTUP=true`. Ứng dụng nạp xong rồi chạy tiếp; file sai (trùng `id`, trùng `code`, nhóm không tồn tại) thì dừng khởi động và báo số dòng. Nạp lại không ghi đè mô tả, ảnh minh hoạ, trạng thái dùng, cũng không ghi đè tên quản trị viên đã sửa.
+Khi bật `SIGNA_CATALOG_IMPORT_ON_STARTUP=true`, backend đọc `ai/data/labels.yaml`
+và so với phiên bản nhãn lớn nhất trong CSDL.
+
+- CSDL chưa có phiên bản nhãn hoặc tệp mới hơn thì đồng bộ đầy đủ.
+- Cùng phiên bản thì chỉ thêm nhóm và loại còn thiếu, giữ chỉnh sửa của quản trị viên.
+- Tệp cũ hơn thì bỏ qua và ghi cảnh báo.
+
+Backend khoá hàng `catalog_generation` trước khi đọc phiên bản và giữ khoá
+đến khi giao dịch nạp kết thúc. Khi chạy nhiều bản sao, chỉ bật cờ trên một
+bản sao.
+
+Tham số `--import-labels` luôn đồng bộ từ YAML, kể cả cùng phiên bản, và có
+thể cập nhật nhóm và tốc độ trên loại biển. Lệnh giữ mô tả, ảnh minh hoạ,
+trạng thái dùng và tên quản trị viên đã sửa. Tệp bị lỗi, chẳng hạn trùng
+`id`, trùng `code` hoặc nhóm chưa khai báo, làm backend dừng và báo số dòng.
 
 ```sh
 ./gradlew bootRun --args='--spring.profiles.active=local --import-labels'
 ```
 
-Profile `demo` thêm 30 biển mẫu quanh Hà Nội (`db/demo/R__demo_data.sql`) khi migrate, cùng các loại biển chúng dùng:
+Profile `demo` thêm 30 biển mẫu quanh Hà Nội (`db/demo/R__demo_data.sql`) khi
+migrate, cùng các loại biển chúng dùng. Backend có bật nạp lúc khởi động sẽ
+thêm các loại còn thiếu từ YAML cùng phiên bản.
 
 ```sh
 ./gradlew bootRun --args='--spring.profiles.active=migrate,demo'

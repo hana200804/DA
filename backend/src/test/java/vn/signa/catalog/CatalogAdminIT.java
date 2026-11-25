@@ -19,8 +19,12 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.AopTestUtils;
 import tools.jackson.databind.JsonNode;
@@ -30,6 +34,7 @@ import vn.signa.shared.storage.ObjectStorage;
 import vn.signa.support.IntegrationTest;
 
 /** FR-35 qua HTTP thật, MySQL, Redis và MinIO. */
+@TestPropertySource(properties = "signa.catalog.import-on-startup=true")
 class CatalogAdminIT extends IntegrationTest {
 
   private static final String CATEGORIES = "/api/v1/admin/sign-categories";
@@ -46,9 +51,36 @@ class CatalogAdminIT extends IntegrationTest {
   @Autowired JsonMapper json;
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectStorage storage;
+
+  @Autowired
+  @Qualifier("labelImportRunner")
+  ApplicationRunner labelImportRunner;
+
   @MockitoSpyBean AuditRecorder audit;
 
   record Session(String userId, String token) {}
+
+  @Test
+  void startupWithSameLabelVersionPreservesAdminCategoryAndSpeed() throws Exception {
+    Session admin = signIn("ADMIN");
+    String code = "P.127_50";
+    String publicPath = PUBLIC_TYPES + "/" + code;
+    try {
+      change(
+          admin, "PATCH", TYPES + "/" + code, "{\"categoryCode\":\"OTHER\",\"speedKmh\":55}", 200);
+
+      labelImportRunner.run(new DefaultApplicationArguments());
+
+      JsonNode after = json.readTree(assertStatus(call("GET", publicPath, null, null), 200));
+      assertThat(after.get("categoryCode").asString()).isEqualTo("OTHER");
+      assertThat(after.get("speedKmh").intValue()).isEqualTo(55);
+    } finally {
+      labelImportRunner.run(new DefaultApplicationArguments("--import-labels"));
+    }
+    JsonNode restored = json.readTree(assertStatus(call("GET", publicPath, null, null), 200));
+    assertThat(restored.get("categoryCode").asString()).isEqualTo("PROHIBITORY");
+    assertThat(restored.get("speedKmh").intValue()).isEqualTo(50);
+  }
 
   @Test
   void createsEditsAndDeactivatesWithUserHistoryAndCacheEviction() throws Exception {

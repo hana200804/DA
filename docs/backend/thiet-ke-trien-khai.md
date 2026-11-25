@@ -84,6 +84,11 @@ Cách chia module, CSDL và hạ tầng đã được ADR chốt. Câu hỏi cò
 | Kiểm thử | JUnit 5, AssertJ, Testcontainers, WireMock, RestAssured, ArchUnit, JaCoCo | `docs/08 §1` |
 | Log, metric | Log JSON một dòng có `requestId`, `userId`, không ghi mật khẩu hay token. Micrometer qua `/actuator/prometheus`, chỉ mở trong mạng nội bộ | `docs/03 §9`, `docs/08 §7` |
 
+Scraper gọi trực tiếp backend trong mạng nội bộ và phải gửi
+`Authorization: Bearer <token phiên hợp lệ>`. Backend trả `401` nếu thiếu
+token và gateway trả `404` cho tuyến này. Việc cấp và duy trì phiên riêng
+cho scraper còn mở.
+
 Web dev server chuyển tiếp `/api/v1` qua proxy của Vite (`SIGNA_TARGET`), bản demo đi qua nginx cùng origin. Vì vậy backend **không bật CORS**.
 
 ### 5.2. Cấu trúc mã
@@ -132,7 +137,7 @@ infra/
 | Phê duyệt | `UPDATE signs … WHERE id = ? AND version = ?`; 0 dòng thì `409 SIGN_ALREADY_PROCESSED`. Cùng giao dịch: cập nhật đề xuất thành viên và ghi lịch sử. Worker cũng tăng `version` khi bằng chứng đổi |
 | Giữ kèm sửa | `POST /admin/signs/{id}/keep` nhận thêm `signTypeCode`, `location`, `headingDeg` tuỳ chọn. Sửa và giữ nằm trong một giao dịch, ghi hai dòng lịch sử `EDITED` và `KEPT`. Web chỉ gọi một lần (issue #33) |
 | Lịch sử bất biến | `infra/mysql/init/01-users.sql` tạo `signa_migrator` (DDL) và `signa_app` (`SELECT, INSERT` trên `audit_logs`). Compose và Testcontainers dùng **chung** script này. IT-B05 thử `UPDATE`/`DELETE` bằng `signa_app` và phải bị từ chối |
-| Danh mục nhãn | Lệnh `import-labels` đọc `SIGNA_LABELS_PATH`, upsert `sign_categories` và `sign_types`, đổi khoá nhóm sang chữ hoa (`prohibitory` → `PROHIBITORY`), tăng phiên bản dùng cho khoá cache khi loại biển thay đổi. ETag là hash nội dung |
+| Danh mục nhãn | Lệnh `--import-labels` luôn đọc `SIGNA_LABELS_PATH` và upsert `sign_categories`, `sign_types`. Khi bật nạp lúc khởi động, backend khoá hàng `catalog_generation` trước khi đọc `label_map_version` lớn nhất và giữ khoá trong giao dịch nạp. Chưa có phiên bản hoặc tệp mới hơn thì đồng bộ đầy đủ, cùng phiên bản thì thêm các nhóm và loại còn thiếu, tệp cũ hơn thì bỏ qua và ghi cảnh báo. Khoá nhóm được đổi sang chữ hoa (`prohibitory` → `PROHIBITORY`). Lần nạp có thay đổi làm tăng bộ đếm cho khoá cache. ETag là hash nội dung |
 | Quản trị viên đầu tiên | **(đề xuất)** Chưa có `ADMIN` thì khởi động tạo một tài khoản từ `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD`, ghi lịch sử với `actor_type = SYSTEM`. Thiếu biến thì bỏ qua. Không có mật khẩu mặc định |
 | Dọn ảnh | Job định kỳ: xoá ảnh `sign-crops` của biển `REJECTED` sau 90 ngày, ảnh `report-photos` 90 ngày sau khi báo cáo được xử lý (`docs/06 §11`). Xoá ảnh trong `sign-crops` không có bản ghi MySQL và cũ hơn 1 giờ (ADR-0006) |
 | Metric | Độ dài stream, số mục chưa `XACK`, số đề xuất `RECEIVED`, tuổi đề xuất chờ lâu nhất và thời gian xử lý gom cụm (ADR-0007); thời gian gọi dịch vụ nhận diện theo mô hình |

@@ -8,9 +8,8 @@ import org.springframework.stereotype.Component;
 import vn.signa.shared.config.SignaProperties;
 
 /**
- * Nạp danh mục nhãn khi khởi động nếu {@code signa.catalog.import-on-startup=true} hoặc có tham số
- * {@code --import-labels}. Ứng dụng vẫn chạy tiếp sau khi nạp. File sai thì ngoại lệ làm ứng dụng
- * dừng khởi động. Không chạy ở profile {@code migrate}.
+ * Nạp nhãn lúc khởi động theo phiên bản đã lưu. Tham số {@code --import-labels} luôn đồng bộ bằng
+ * file. Không chạy ở profile {@code migrate}.
  */
 @Component
 @Profile("!migrate")
@@ -30,10 +29,16 @@ class LabelImportRunner implements ApplicationRunner {
 
   @Override
   public void run(ApplicationArguments args) {
-    if (!catalog.importOnStartup() && !args.containsOption(OPTION)) return;
+    boolean requested = args.containsOption(OPTION);
+    if (!requested && !catalog.importOnStartup()) return;
     if (signa.labelsPath() == null || signa.labelsPath().isBlank()) {
       throw new IllegalStateException("Cần SIGNA_LABELS_PATH để nạp danh mục nhãn");
     }
-    importer.importFrom(Path.of(signa.labelsPath()));
+    Path path = Path.of(signa.labelsPath());
+    if (requested) {
+      importer.importFrom(path);
+    } else {
+      importer.importOnStartup(path);
+    }
   }
 }

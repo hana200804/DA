@@ -12,6 +12,14 @@ cp infra/.env.example infra/.env
 `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` nếu cần tạo
 quản trị viên đầu tiên. Giữ `infra/.env` ngoài Git.
 
+Máy chạy Compose, kể cả demo, cần có `ai/data/labels.yaml` từ repo. Compose
+mount tệp ở chế độ chỉ đọc và yêu cầu tệp đã tồn tại. Mặc định khi khởi
+động, backend đồng bộ khi MySQL chưa có phiên bản nhãn hoặc tệp mới hơn.
+Cùng phiên bản, backend thêm nhóm và loại còn thiếu, giữ các chỉnh sửa
+của quản trị viên. Tệp cũ hơn được bỏ qua với một cảnh báo. Đặt
+`SIGNA_CATALOG_IMPORT_ON_STARTUP=false` để tắt. Khi triển khai nhiều
+bản sao backend, chỉ bật nạp trên một bản sao.
+
 Compose mặc định bật worker gom cụm cho backend ở các profile `app`, `dev`
 và `demo`. Đặt `SIGNA_CLUSTERING_WORKER_ENABLED=false` trong `infra/.env`
 để tắt. Chỉ bật worker trên một bản sao backend trong mỗi môi trường theo
@@ -46,7 +54,9 @@ cả ba mô hình đã nạp xong. Dùng `docker compose -f infra/compose.yaml l
 docker compose -f infra/compose.yaml --profile dev up -d --build
 ```
 
-Mở `http://localhost:8080`. Gateway chuyển `/api/v1/` tới backend,
+Mở `http://localhost:8080`. Gateway chuyển `/api/v1/`, `/actuator/health` và
+`/actuator/health/readiness` tới backend. Các đường dẫn Actuator còn lại
+trả `404`. Gateway chuyển
 `/icons/` tới bucket công khai `sign-icons`, các URL ký của
 `sign-crops` và `report-photos` tới MinIO, và các đường dẫn còn lại tới web quản trị.
 MinIO xác thực chữ ký và thời hạn của ảnh riêng tư.
@@ -67,6 +77,50 @@ docker compose -f infra/compose.yaml up -d mysql redis minio
 Có thể dùng profile `app` như tên tương đương với `dev` để chạy cả hệ thống.
 Profile `migrate` dành cho lệnh Flyway chạy một lần. Dịch vụ nhận diện
 nằm trong mạng Docker riêng cùng backend và chỉ nghe cổng 8000 trong mạng đó.
+
+### Kiểm tra nhanh backend
+
+Đặt `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` trong
+`infra/.env` trước khi dựng stack dev để có tài khoản quản trị cho smoke test.
+
+Khi thiếu checkpoint, lưu cấu hình sau vào một tệp tạm ngoài repo để chạy
+dev mà không build dịch vụ nhận diện.
+
+```yaml
+services:
+  backend:
+    depends_on:
+      recognition:
+        required: false
+  recognition:
+    profiles: !override [recognition]
+```
+
+```sh
+docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev up -d --build
+docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev ps -a migrate
+```
+
+Chờ `migrate` thoát mã 0 và backend báo `UP` tại
+`http://localhost:8080/actuator/health/readiness`. Script cần Bash, curl, jq,
+Python 3 và dùng gateway `http://localhost:8080` theo mặc định. Truyền đúng
+hai biến bootstrap đã có giá trị cuối qua môi trường của script. Có thể nhập
+chúng trong Bash để mật khẩu không xuất hiện khi gõ hoặc trong lịch sử lệnh.
+
+```bash
+(
+  IFS= read -r -p 'Email quản trị: ' SIGNA_BOOTSTRAP_ADMIN_EMAIL
+  IFS= read -rs -p 'Mật khẩu quản trị: ' SIGNA_BOOTSTRAP_ADMIN_PASSWORD
+  printf '\n'
+  export SIGNA_BOOTSTRAP_ADMIN_EMAIL SIGNA_BOOTSTRAP_ADMIN_PASSWORD
+  ./infra/smoke-test.sh
+)
+```
+
+Script tạo hai tài khoản và một biển đã duyệt trong dữ liệu dev. Nếu cặp
+đề xuất không được gom cụm, script có thể gửi cặp mới ở vị trí khác.
+Nếu chạy cùng dịch vụ nhận diện, đặt `SIGNA_SMOKE_EXPECT_RECOGNITION_UNAVAILABLE=false`
+để bỏ qua phép thử phản hồi `503`.
 
 ## Demo HTTPS
 

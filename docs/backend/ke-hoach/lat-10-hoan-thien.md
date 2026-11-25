@@ -125,3 +125,44 @@ Bộ Gradle ban đầu đạt. Đã hoàn thành mô phỏng và đối chiếu 
   `BootstrapAdminIT` đã biên dịch. Chạy các ca này cần Docker Engine của CI.
 - Chờ ghép phần review fix2, dữ liệu thực địa cho G4 và phép đo k6 trên
   máy demo với checkpoint thật.
+
+**2026-11-25 · Chạy container cùng nhau trên máy thật.** Dùng Docker 29.1.3,
+Compose 2.40.3 và profile `dev` qua `http://localhost:8080`. Một override tạm
+tắt dịch vụ nhận diện vì chưa có checkpoint. Lệnh `up -d --build` trên Docker
+chưa có image mất 6 phút 26 giây gồm kéo image, build và khởi động.
+Từ lần kéo image dịch vụ cuối đến lúc gắn tag image build cuối mất khoảng
+4 phút 36 giây. Đĩa `/home` còn 17 GB trước và 13 GB sau build.
+
+Lần đầu gateway trả HTML cho hai đường dẫn Actuator và danh mục trả danh
+sách rỗng. Đã định tuyến health và readiness tới backend, đồng thời chuyển
+cờ nạp danh mục và mount `ai/data/labels.yaml` chỉ đọc vào backend. Mã băm
+của tệp trong container khớp tệp trên host.
+[Kịch bản smoke test](../../../infra/README.md#kiểm-tra-nhanh-backend) đạt
+hai lần liên tiếp sau khi áp dụng các sửa lỗi.
+
+| Bước | Kết quả qua gateway |
+| --- | --- |
+| a · Health và migrate | Health và readiness `200 UP`. Flyway áp dụng 11 migration tới V111, container `migrate` thoát mã 0. |
+| b · Tài khoản | Hai lượt đăng ký `201 USER`, hai lượt đăng nhập `200 USER` và đăng nhập bootstrap `200 ADMIN`. |
+| c · Danh mục | `200`, `labelMapVersion=1`, 46 loại biển. |
+| d · Đề xuất | Hai tài khoản gửi cùng mã `P.123a` ở hai điểm cách nhau khoảng 5 m, hướng 92° và 97°. Cả hai nhận `201 RECEIVED`, mỗi ảnh JPEG 632 byte. |
+| e · Gom cụm | Cả hai đề xuất `200 GROUPED` với cùng `signId`. Hàng đợi `200 PENDING`, hai người gửi, điểm tin cậy 0,8239. |
+| f · Phê duyệt, bản đồ và audit | Duyệt `204`, bản đồ `200 APPROVED` với điểm 0,8967, audit `200` có `CREATED`, `LOCATION_RECOMPUTED` và `APPROVED`. |
+| g · Ảnh cắt | URL ký `sign-crops` qua gateway trả `200`, 632 byte khớp ảnh đã gửi. |
+| h · Web quản trị | `GET /` trả `200` HTML. Đã mở và chụp trang đăng nhập bằng Chromium. |
+| i · Nhận diện khi dịch vụ vắng mặt | `POST /api/v1/recognition/detect` trả `503 RECOGNITION_UNAVAILABLE`. |
+
+| Dịch vụ | Dung lượng image theo `docker image ls` | RAM cao nhất lấy mẫu bằng `docker stats --no-stream` |
+| --- | ---: | ---: |
+| MySQL | 1,1 GB | 483,0 MiB |
+| Redis | 58,5 MB | 14,47 MiB |
+| MinIO | 216 MB | 127,0 MiB |
+| Mailpit | 53,3 MB | 7,65 MiB |
+| Migrate | 571 MB (chung image backend) | 260,6 MiB |
+| Backend | 571 MB | 390,1 MiB |
+| Web quản trị | 102 MB | 19,04 MiB |
+| nginx | 102 MB | 11,38 MiB |
+
+RAM của `migrate` được lấy mẫu khi chạy lại Flyway trên volume đã có schema.
+Kiểm thử nhận diện với ba checkpoint, RAM khi nạp mô hình và đo tải k6 trên
+môi trường demo vẫn cần thực hiện.
