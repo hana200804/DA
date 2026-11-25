@@ -130,8 +130,8 @@ AuthViewModel → AuthRepository; chỉ xóa mã đang nhập khi gửi lại th
 
 `AccountViewModel` kết hợp phiên với SettingsRepository để hiển thị loại xe đã lưu.
 ProfileScreen nhận dữ liệu/callback và quản lý hộp thoại thông tin cá nhân
-và trợ giúp. Mở thông tin cá nhân tải hồ sơ qua `GET /me`; lưu tên hiển thị
-qua `PATCH /me`. Loại xe lấy từ cài đặt cục bộ.
+và trợ giúp. Với backend thật, mở thông tin cá nhân tải hồ sơ qua `GET /me`
+và lưu tên hiển thị qua `PATCH /me`. Loại xe lấy từ cài đặt cục bộ.
 ContributionSummary chứa các quan sát có biển, trạng thái và thời điểm; UI
 ánh xạ thành nhãn trạng thái và ngày, không tự gán kết quả xác minh.
 FakeData cung cấp các quan sát minh họa từ danh mục biển mẫu hiện có.
@@ -159,9 +159,10 @@ endpoint công khai hoặc upload ngoài origin. Lỗi API được ánh xạ th
 và ngữ cảnh thao tác, với mã HTTP dự phòng. Khi bị giới hạn tần suất, giao diện
 hiển thị số giây từ `Retry-After` nếu có. Không ghi log token, mật khẩu hoặc OTP.
 
-**Giới hạn nghiệm thu:** API client được kiểm thử bằng MockWebServer; chưa xác minh
-đầu cuối với backend thật. Phạm vi “tài khoản chạy với API hoặc dữ liệu giả lập”
-của tuần 2 được đáp ứng bằng fake auth đầy đủ ở trên.
+API tài khoản được kiểm thử với MockWebServer bằng mẫu phản hồi từ backend Signa.
+`RemoteAuthRepositoryE2eTest` chạy luồng tài khoản JVM với backend dev khi đặt
+`SIGNA_E2E_BASE_URL` (ví dụ `http://localhost:8080/api/v1/`) trước khi chạy
+`testDebugUnitTest --rerun-tasks`. Test tạo một tài khoản riêng cho mỗi lần chạy.
 
 ## Kiểm tra
 

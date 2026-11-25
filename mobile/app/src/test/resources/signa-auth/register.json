@@ -1,0 +1,11 @@
+{
+  "id": "f39794ed-2de9-42a1-83f3-9b57b5c12a4f",
+  "email": "an@example.com",
+  "displayName": "Tài khoản Android",
+  "role": "USER",
+  "permissions": [
+    "report:create",
+    "sign:rate",
+    "submission:create"
+  ]
+}

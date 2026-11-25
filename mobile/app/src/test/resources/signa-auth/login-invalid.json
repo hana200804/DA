@@ -1,0 +1,6 @@
+{
+  "code": "UNAUTHENTICATED",
+  "message": "Email hoặc mật khẩu không đúng",
+  "details": [],
+  "requestId": "0123456789abcdef0123456789abcdef"
+}

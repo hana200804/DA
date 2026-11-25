@@ -1,0 +1,15 @@
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Dữ liệu không hợp lệ",
+  "details": [
+    {
+      "field": "displayName",
+      "issue": "size must be between 1 and 100"
+    },
+    {
+      "field": "displayName",
+      "issue": "must not be blank"
+    }
+  ],
+  "requestId": "0123456789abcdef0123456789abcdef"
+}

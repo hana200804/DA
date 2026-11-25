@@ -69,6 +69,22 @@ class SessionManagerTest {
         assertEquals(replacement, store.current)
     }
 
+    @Test fun lateProfileUpdateCannotRestorePreviousSession() = runTest {
+        val previous = session("old", base + 60_000)
+        val replacement = session("new", base + 60_000)
+        val store = MemorySessionStore(previous)
+        val manager = SessionManager(store, Clock.fixed(Instant.ofEpochMilli(base), ZoneOffset.UTC), SessionSource.FAKE, backgroundScope)
+        runCurrent()
+        manager.clear(previous.id)
+        val updated = previous.copy(user = previous.user.copy(displayName = "Tên đã sửa"))
+        manager.updateProfile(updated)
+        assertNull(store.current)
+
+        manager.save(replacement)
+        manager.updateProfile(updated)
+        assertEquals(replacement, store.current)
+    }
+
     @Test fun failedExpiryCleanupReturnsToGuestAndCanObserveNextSession() = runTest {
         val state = MutableStateFlow<Session?>(session("expired", base - 1))
         val store = object : SessionStore {
