@@ -68,6 +68,42 @@ Có thể dùng profile `app` như tên tương đương với `dev` để chạ
 Profile `migrate` dành cho lệnh Flyway chạy một lần. Dịch vụ nhận diện
 nằm trong mạng Docker riêng cùng backend và chỉ nghe cổng 8000 trong mạng đó.
 
+### Kiểm tra nhanh backend
+
+Đặt `SIGNA_CATALOG_IMPORT_ON_STARTUP=true` và hai biến
+`SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` trong
+`infra/.env` trước khi dựng stack dev. Compose mount `ai/data/labels.yaml` ở
+chế độ chỉ đọc để backend nạp danh mục khi khởi động.
+
+Khi thiếu checkpoint, lưu cấu hình sau vào một tệp tạm ngoài repo để chạy
+dev mà không build dịch vụ nhận diện.
+
+```yaml
+services:
+  backend:
+    depends_on:
+      recognition:
+        required: false
+  recognition:
+    profiles: !override [recognition]
+```
+
+```sh
+docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev up -d --build
+docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev ps -a migrate
+set -a
+. ./infra/.env
+set +a
+./infra/smoke-test.sh
+```
+
+Chờ `migrate` thoát mã 0 và backend báo `UP` tại
+`http://localhost:8080/actuator/health/readiness`. Script cần Bash, curl, jq,
+Python 3 và dùng gateway `http://localhost:8080` theo mặc định. Script tạo hai
+tài khoản, hai đề xuất và một biển đã duyệt trong dữ liệu dev. Nếu chạy cùng
+dịch vụ nhận diện, đặt `SIGNA_SMOKE_EXPECT_RECOGNITION_UNAVAILABLE=false`
+để bỏ qua phép thử phản hồi `503`.
+
 ## Demo HTTPS
 
 Đặt `fullchain.pem` và `privkey.pem` trong `infra/certs/`. Tên miền hoặc
