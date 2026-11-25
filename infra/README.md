@@ -98,14 +98,24 @@ services:
 ```sh
 docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev up -d --build
 docker compose -f infra/compose.yaml -f /tmp/signa-no-recognition.yaml --profile dev ps -a migrate
-./infra/smoke-test.sh
 ```
 
 Chờ `migrate` thoát mã 0 và backend báo `UP` tại
 `http://localhost:8080/actuator/health/readiness`. Script cần Bash, curl, jq,
-Python 3 và dùng gateway `http://localhost:8080` theo mặc định. Script đọc hai
-biến bootstrap từ môi trường hoặc giá trị trên một dòng trong `infra/.env`.
-Với giá trị cần nội suy, truyền hai biến bootstrap đã nội suy qua môi trường.
+Python 3 và dùng gateway `http://localhost:8080` theo mặc định. Truyền đúng
+hai biến bootstrap đã có giá trị cuối qua môi trường của script. Có thể nhập
+chúng trong Bash để mật khẩu không xuất hiện khi gõ hoặc trong lịch sử lệnh.
+
+```bash
+(
+  IFS= read -r -p 'Email quản trị: ' SIGNA_BOOTSTRAP_ADMIN_EMAIL
+  IFS= read -rs -p 'Mật khẩu quản trị: ' SIGNA_BOOTSTRAP_ADMIN_PASSWORD
+  printf '\n'
+  export SIGNA_BOOTSTRAP_ADMIN_EMAIL SIGNA_BOOTSTRAP_ADMIN_PASSWORD
+  ./infra/smoke-test.sh
+)
+```
+
 Script tạo hai tài khoản và một biển đã duyệt trong dữ liệu dev. Nếu cặp
 đề xuất không được gom cụm, script có thể gửi cặp mới ở vị trí khác.
 Nếu chạy cùng dịch vụ nhận diện, đặt `SIGNA_SMOKE_EXPECT_RECOGNITION_UNAVAILABLE=false`

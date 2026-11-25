@@ -2,8 +2,8 @@
 # Chạy trên stack dev. Kịch bản tạo tài khoản, đề xuất và một biển thử trong các volume.
 set -euo pipefail
 
-admin_email=${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
-admin_password=${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}
+admin_email=${SIGNA_BOOTSTRAP_ADMIN_EMAIL:?Cần truyền SIGNA_BOOTSTRAP_ADMIN_EMAIL qua môi trường. Xem infra/README.md}
+admin_password=${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:?Cần truyền SIGNA_BOOTSTRAP_ADMIN_PASSWORD qua môi trường. Xem infra/README.md}
 unset SIGNA_BOOTSTRAP_ADMIN_EMAIL SIGNA_BOOTSTRAP_ADMIN_PASSWORD
 export -n admin_email admin_password
 gateway=${SIGNA_SMOKE_ORIGIN:-http://localhost:8080}
@@ -24,53 +24,6 @@ fail() {
   printf 'Lỗi %s\n' "$1" >&2
   exit 1
 }
-
-env_file="$(dirname -- "${BASH_SOURCE[0]}")/.env"
-if [[ -z $admin_email || -z $admin_password ]] && [[ -r $env_file ]]; then
-  bootstrap_keys=()
-  [[ -n $admin_email ]] || bootstrap_keys+=(SIGNA_BOOTSTRAP_ADMIN_EMAIL)
-  [[ -n $admin_password ]] || bootstrap_keys+=(SIGNA_BOOTSTRAP_ADMIN_PASSWORD)
-  python3 - "$env_file" "${bootstrap_keys[@]}" >"$work/bootstrap" <<'PY'
-import re
-import sys
-
-# Chỉ lấy hai khoá bootstrap. Các giá trị được đọc như dữ liệu, không nội suy.
-requested = sys.argv[2:]
-values = dict.fromkeys(requested, "")
-assignment = re.compile(r"[ \t]*(?:export[ \t]+)?(\w+)[ \t]*[:=](.*)")
-with open(sys.argv[1], encoding="utf-8-sig") as env:
-    for line in env:
-        entry = assignment.fullmatch(line.rstrip("\n"))
-        if entry and entry[1] in values:
-            values[entry[1]] = entry[2]
-
-for key in requested:
-    raw = values[key]
-    value = raw.lstrip()
-    if value.startswith("'"):
-        match = re.fullmatch(r"'((?:\\'|[^'])*)'[ \t]*(?:#.*)?", value)
-        if not match:
-            sys.exit(f"Giá trị {key} phải nằm trên một dòng")
-        value = match[1].replace(r"\'", "'")
-    elif value.startswith('"'):
-        match = re.fullmatch(r'"((?:\\.|[^"\\])*)"[ \t]*(?:#.*)?', value)
-        if not match:
-            sys.exit(f"Giá trị {key} phải nằm trên một dòng")
-        escapes = {"n": "\n", "r": "\r", "t": "\t", '"': '"', "\\": "\\"}
-        value = re.sub(r'\\([nrt"\\])', lambda item: escapes[item[1]], match[1])
-    else:
-        value = re.split(r"[ \t]+#", raw, maxsplit=1)[0].strip()
-    if "\0" in value:
-        sys.exit(f"Giá trị {key} chứa ký tự NUL")
-    sys.stdout.buffer.write(value.encode("utf-8") + b"\0")
-PY
-  {
-    [[ -n $admin_email ]] || IFS= read -r -d '' admin_email
-    [[ -n $admin_password ]] || IFS= read -r -d '' admin_password
-  } <"$work/bootstrap"
-fi
-: "${admin_email:?Cần SIGNA_BOOTSTRAP_ADMIN_EMAIL trong môi trường hoặc infra/.env}"
-: "${admin_password:?Cần SIGNA_BOOTSTRAP_ADMIN_PASSWORD trong môi trường hoặc infra/.env}"
 
 request() {
   local step=$1
