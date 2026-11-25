@@ -272,6 +272,8 @@ flowchart LR
 | Đường dẫn | Đích |
 | --- | --- |
 | `/api/v1/*` | backend |
+| `/actuator/health`, `/actuator/health/readiness` | backend, khớp chính xác sau khi nginx chuẩn hóa URI. Ví dụ `/actuator/%68ealth` cũng trả JSON health. |
+| Các đường dẫn còn lại bắt đầu bằng `/actuator` | nginx trả `404`, gồm `/actuator/prometheus`, `/actuator/env` và `/actuator/health/liveness` |
 | `/icons/*` | MinIO, bucket `sign-icons` đọc công khai |
 | `/` | web-admin |
 

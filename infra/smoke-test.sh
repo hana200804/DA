@@ -66,6 +66,14 @@ show 'a) Health' 'select(.status == "UP") | {status}'
 request 'a) Readiness' "$gateway/actuator/health/readiness"
 expect 'a) Readiness' 200
 show 'a) Readiness' 'select(.status == "UP") | {status}'
+request 'a) Health URL-encode' "$gateway/actuator/%68ealth"
+expect 'a) Health URL-encode' 200
+show 'a) Health URL-encode' 'select(.status == "UP") | {status}'
+for path in /actuator/prometheus /actuator/env /actuator/health/liveness; do
+  request "a) $path" "$gateway$path"
+  expect "a) $path" 404
+  printf 'a) %s HTTP %s\n' "$path" "$http"
+done
 
 # Mỗi cặp điểm cách nhau khoảng 5 m.
 python3 - "$work" >"$work/run-data" <<'PY'

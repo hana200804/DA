@@ -51,7 +51,9 @@ cả ba mô hình đã nạp xong. Dùng `docker compose -f infra/compose.yaml l
 docker compose -f infra/compose.yaml --profile dev up -d --build
 ```
 
-Mở `http://localhost:8080`. Gateway chuyển `/api/v1/` tới backend,
+Mở `http://localhost:8080`. Gateway chuyển `/api/v1/`, `/actuator/health` và
+`/actuator/health/readiness` tới backend. Các đường dẫn Actuator còn lại
+trả `404`. Gateway chuyển
 `/icons/` tới bucket công khai `sign-icons`, các URL ký của
 `sign-crops` và `report-photos` tới MinIO, và các đường dẫn còn lại tới web quản trị.
 MinIO xác thực chữ ký và thời hạn của ảnh riêng tư.
