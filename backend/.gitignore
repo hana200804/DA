@@ -2,3 +2,9 @@
 build/
 *.log
 .env
+
+# File do Java language server của IDE (Eclipse JDT) sinh ra
+.project
+.classpath
+.settings/
+bin/

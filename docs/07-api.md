@@ -174,6 +174,16 @@ model=yolov8        # yolov5 | yolov8 | detr | bỏ trống = mặc định
 
 Ứng dụng chuẩn hóa hướng ảnh trước khi tải lên. `image.width` và `image.height` là kích thước ảnh nhận từ ứng dụng. Nếu thu nhỏ ảnh để suy luận, backend quy đổi box về hệ tọa độ này trước khi trả kết quả. Gốc tọa độ nằm ở góc trên trái. Ứng dụng dùng ảnh đã tải lên để cắt. Giới hạn là 10 yêu cầu/phút mỗi tài khoản và 30/phút mỗi IP cho khách.
 
+Toạ độ box là số thực theo pixel. `name`, `description`, `iconUrl` là `null` khi danh mục chưa có thông tin. Lỗi riêng của endpoint:
+
+| HTTP | `code` | Khi nào |
+| --- | --- | --- |
+| 400 | `VALIDATION_ERROR` | Thiếu `image`, hoặc `model` không thuộc `yolov5`, `yolov8`, `detr` |
+| 413 | `PAYLOAD_TOO_LARGE` | Ảnh lớn hơn 10 000 000 byte hoặc 25 triệu pixel |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | Nội dung không phải JPEG, PNG, WebP, dù đuôi file là gì |
+| 429 | `RATE_LIMITED` | Vượt giới hạn; `Retry-After` là số giây tới cửa sổ sau |
+| 503 | `RECOGNITION_UNAVAILABLE` | Dịch vụ nhận diện quá tải, lỗi hoặc không trả lời trong 5 giây; `Retry-After: 1` |
+
 ## 6. Biển, đề xuất, đánh giá, báo cáo
 
 | Method | Đường dẫn | Quyền | Mô tả | FR |
