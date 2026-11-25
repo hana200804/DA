@@ -74,6 +74,12 @@ signa:
     bootstrap-admin:
       email: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:}
       password: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:}
+    # Lát 9 · Quên mật khẩu (OtpProperties).
+    otp:
+      secret: ${SIGNA_OTP_SECRET:}
+      smtp-host: ${SIGNA_SMTP_HOST:localhost}
+      smtp-port: ${SIGNA_SMTP_PORT:1025}
+      smtp-from: ${SIGNA_SMTP_FROM:no-reply@signa.local}
   catalog:
     # Lát 2. Nạp ai/data/labels.yaml (signa.labels-path) khi khởi động; cũng bật bằng --import-labels.
     import-on-startup: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:false}
@@ -86,3 +92,6 @@ signa:
       consumer: ${SIGNA_CLUSTERING_WORKER_CONSUMER:signa-backend}
     crop-cleanup:
       enabled: ${SIGNA_CLUSTERING_CROP_CLEANUP_ENABLED:true}
+  # Lát 9 · khung tìm địa điểm; bổ sung nhà cung cấp thật sau Q6.
+  places:
+    provider: ${SIGNA_PLACES_PROVIDER:none}

@@ -63,7 +63,7 @@
 | POST | `/auth/register` | Công khai | Đăng ký, vai trò `USER` | FR-01 |
 | POST | `/auth/login` | Công khai | Đăng nhập, trả token | FR-01, FR-30 |
 | POST | `/auth/logout` | Đăng nhập | Thu hồi token hiện tại | FR-01 |
-| POST | `/auth/password/forgot` | Công khai | Gửi OTP qua email; luôn trả `202` | FR-13 |
+| POST | `/auth/password/forgot` | Công khai | Yêu cầu OTP qua email; trả `202` trong hạn mức | FR-13 |
 | POST | `/auth/password/reset` | Công khai | Đặt lại mật khẩu bằng OTP | FR-13 |
 | GET | `/me` | Đăng nhập | Thông tin tài khoản và danh sách quyền | FR-01 |
 | PATCH | `/me` | Đăng nhập | Sửa tên hiển thị | FR-01 |
@@ -100,9 +100,13 @@ Ràng buộc đầu vào: email được trim và chuyển chữ thường, ≤ 
 | `POST /auth/register` `{ email, password, displayName }` | `201`, thân như `GET /me` | `409 CONFLICT` khi email đã đăng ký |
 | `POST /auth/login` | `200` | `401` cùng một thông điệp dù email có tồn tại hay không; `403` khi tài khoản `LOCKED` hoặc `WEB` thiếu `review:decide`, chỉ sau khi mật khẩu đúng; `429` kèm `Retry-After` |
 | `POST /auth/logout` | `204` | |
+| `POST /auth/password/forgot` `{ email }` | `202`, thân rỗng, bất kể email có tồn tại | `429 RATE_LIMITED` kèm `Retry-After` sau 3 yêu cầu trong 15 phút theo cặp email và IP |
+| `POST /auth/password/reset` `{ email, code, newPassword }` | `204`; thu hồi mọi phiên | Cùng lỗi `422 BUSINESS_RULE` khi mã sai, hết hạn hoặc đã bị xoá sau 5 lần sai |
 | `GET /me` | `200` | |
 | `PATCH /me` `{ displayName }` | `200`, thân như `GET /me` | |
 | `PUT /me/password` `{ currentPassword, newPassword }` | `204`; phiên đang dùng vẫn hợp lệ | `422 BUSINESS_RULE` khi sai mật khẩu hiện tại; `429` khi sai quá 10 lần trong 15 phút |
+
+OTP chỉ gửi cho tài khoản `ACTIVE`. Mã gồm 6 chữ số, có hiệu lực 10 phút và thay thế mã trước đó. Gửi `code` dưới dạng chuỗi để giữ chữ số 0 ở đầu.
 
 Token thiếu, sai hoặc đã thu hồi ở endpoint cần đăng nhập trả `401` kèm `WWW-Authenticate: Bearer`. Ở endpoint công khai, token như vậy bị bỏ qua và request được xử lý như khách. `expiresAt` tính tại lúc đăng nhập; mỗi lần dùng, phiên được gia hạn thêm một khoảng thời hạn đầy đủ.
 
@@ -198,6 +202,12 @@ Toạ độ box là số thực theo pixel. `name`, `description`, `iconUrl` là
 | GET | `/places/search?q=` | Công khai | Tìm địa điểm, kết quả có toạ độ | FR-14 |
 
 Chi tiết biển công khai áp dụng cùng trạng thái hiển thị như bản đồ. API trả `404` khi ID không tồn tại hoặc biển chưa công bố, đã bị từ chối hay đã gỡ.
+
+### Tìm địa điểm
+
+`GET /places/search` nhận `q` dài 2–100 ký tự sau khi bỏ khoảng trắng hai đầu. Thiếu `q` hoặc độ dài không hợp lệ trả `400 VALIDATION_ERROR`. Mỗi IP được tối đa 30 truy vấn hợp lệ trong một cửa sổ 60 giây. Khi vượt, API trả `429 RATE_LIMITED` kèm `Retry-After`.
+
+Với cấu hình mặc định `signa.places.provider=none`, API trả `200` và `{ "items": [] }`. Khi có nhà cung cấp, mỗi mục có dạng `{ name, location: { lat, lng } }`. Nhà cung cấp thực tế sẽ được bổ sung sau khi chốt Q6.
 
 ### Biển trong vùng
 
@@ -481,7 +491,9 @@ Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorTyp
 
 `GET /admin/audit-logs` trả trang `{ items, page, size, total }`, mặc định `page = 0`, `size = 20`, sắp theo `createdAt` rồi `id` giảm dần. `from` và `to` lấy cả hai đầu. `beforeValue`, `afterValue` là JSON object (không phải chuỗi), `null` khi không có. Trả `400 VALIDATION_ERROR` khi `from > to` (`details[].field = "from"`), `size` ngoài 1–100, `page < 0`, `entityType` lạ, thời điểm sai định dạng, `entityId` hay `actorId` dài quá 36 ký tự, `action` dài quá 40 ký tự. Không có endpoint sửa hay xoá lịch sử (FR-23).
 
-`/admin/stats` trả:
+`/admin/stats` nhận `from` và `to` là thời điểm ISO-8601 có độ lệch UTC. Cả hai đầu mút đều được tính. Mặc định `to` là thời điểm hiện tại và `from` là 30 ngày trước `to`. API trả `400 VALIDATION_ERROR` nếu thời điểm không hợp lệ, `from` sau `to` hoặc khoảng dài hơn 366 ngày.
+
+API trả đối tượng sau.
 
 ```json
 {
@@ -493,25 +505,42 @@ Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorTyp
 }
 ```
 
-`processingTime` đo từ đề xuất đầu tiên của biển tới quyết định duyệt hoặc từ chối. `densityCells` dùng cùng ô lưới với bản đồ ở mức zoom 12.
+- `submissionsByDay` đếm đề xuất theo `received_at` và ngày UTC. Danh sách theo thứ tự ngày tăng dần, gồm cả ngày có số đếm 0.
+- `decisions` đếm biển ở trạng thái `APPROVED` hoặc `REJECTED` có `reviewed_at` trong khoảng.
+- `processingTime` đo mili-giây từ đề xuất đầu tiên của biển tới `reviewed_at` cho các biển được đếm trong `decisions`. Chỉ biển đã có đề xuất tại thời điểm quyết định mới góp mẫu. `averageMs` là `null` khi `samples` bằng 0.
+- `signsByCategory` đếm toàn bộ biển `APPROVED` theo nhóm và trả tên nhóm từ danh mục. `densityCells` gom cùng tập biển theo ô lưới của bản đồ ở zoom 12. Hai trường này phản ánh độ phủ tại thời điểm truy vấn.
 
-`/admin/recognition/compare` nhận multipart `image` như `/recognition/detect`, rồi gọi lần lượt ba mô hình:
+`/admin/recognition/compare` nhận multipart `image` và dùng cùng quy tắc kiểm tra ảnh với `/recognition/detect`. Mỗi tài khoản được tối đa 10 lượt so sánh trong một cửa sổ 60 giây, với bộ đếm riêng. Khi vượt, API trả `429 RATE_LIMITED` kèm `Retry-After`.
+
+Kết quả theo thứ tự `yolov5`, `yolov8`, `detr`. Kích thước `image` và toạ độ `box` tính theo ảnh gốc. `name` lấy từ danh mục biển và có thể là `null` khi chưa có mã.
 
 ```json
 {
   "image": { "width": 1280, "height": 960 },
   "results": [
     {
+      "model": { "name": "yolov5", "version": "yolov5s-v1.0", "labelMapVersion": 1 },
+      "inferenceMs": 155,
+      "detections": []
+    },
+    {
       "model": { "name": "yolov8", "version": "yolov8s-v1.0", "labelMapVersion": 1 },
       "inferenceMs": 142,
-      "detections": [{ "box": { "x": 812, "y": 233, "width": 64, "height": 66 }, "signTypeCode": "P.123a", "confidence": 0.93 }]
+      "detections": [
+        {
+          "box": { "x": 812, "y": 233, "width": 64, "height": 66 },
+          "signTypeCode": "P.123a",
+          "confidence": 0.93,
+          "name": "Cấm rẽ trái"
+        }
+      ]
     },
-    { "model": { "name": "detr" }, "error": { "message": "Dịch vụ nhận diện quá tải" } }
+    { "model": { "name": "detr" }, "error": { "message": "Dịch vụ nhận diện tạm thời không phản hồi" } }
   ]
 }
 ```
 
-Một mô hình lỗi không làm hỏng cả request; kết quả của mô hình đó mang `error`.
+Với ảnh hợp lệ và yêu cầu trong hạn mức, API trả `200` kể cả khi dịch vụ nhận diện lỗi. Mỗi mô hình lỗi trả `model.name` và `error.message`.
 
 ### Danh mục và người dùng
 

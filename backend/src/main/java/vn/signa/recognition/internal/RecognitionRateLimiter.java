@@ -3,6 +3,7 @@ package vn.signa.recognition.internal;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -21,18 +22,7 @@ public class RecognitionRateLimiter {
 
   @SuppressWarnings({"rawtypes", "unchecked"})
   private static final RedisScript<List<Long>> SCRIPT =
-      (RedisScript)
-          RedisScript.of(
-              """
-              local count = redis.call('INCR', KEYS[1])
-              local ttl = redis.call('TTL', KEYS[1])
-              if ttl < 0 then
-                redis.call('EXPIRE', KEYS[1], ARGV[1])
-                ttl = tonumber(ARGV[1])
-              end
-              return {count, ttl}
-              """,
-              List.class);
+      (RedisScript) RedisScript.of(new ClassPathResource("redis/fixed-window.lua"), List.class);
 
   private final StringRedisTemplate redis;
 

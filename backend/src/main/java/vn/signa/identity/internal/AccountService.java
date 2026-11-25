@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.identity.internal.SessionService.IssuedSession;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
@@ -36,6 +37,7 @@ public class AccountService {
   private final SessionService sessions;
   private final RolePermissions rolePermissions;
   private final LoginRateLimiter limiter;
+  private final TransactionTemplate transactions;
   private final Clock clock;
 
   /**
@@ -50,12 +52,14 @@ public class AccountService {
       SessionService sessions,
       RolePermissions rolePermissions,
       LoginRateLimiter limiter,
+      TransactionTemplate transactions,
       Clock clock) {
     this.users = users;
     this.encoder = encoder;
     this.sessions = sessions;
     this.rolePermissions = rolePermissions;
     this.limiter = limiter;
+    this.transactions = transactions;
     this.clock = clock;
     this.dummyHash = encoder.encode(UUID.randomUUID().toString());
   }
@@ -97,8 +101,14 @@ public class AccountService {
       throw new ApiException(
           ErrorCode.FORBIDDEN, "Chỉ kiểm duyệt viên và quản trị viên được vào web quản trị");
     }
-    IssuedSession session = sessions.issue(user.id(), user.role(), client);
-    users.touchLastLogin(user.id(), clock.instant());
+    IssuedSession session =
+        transactions.execute(status -> {
+          // Khoá hàng đến khi cấp phiên xong để đặt lại mật khẩu thu hồi được cả phiên này.
+          if (!users.touchLastLogin(user.id(), user.passwordHash(), clock.instant())) {
+            throw new ApiException(ErrorCode.UNAUTHENTICATED, BAD_CREDENTIALS);
+          }
+          return sessions.issue(user.id(), user.role(), client);
+        });
     log.info("Đăng nhập userId={} client={}", user.id(), client);
     return new LoginResult(session.token(), session.expiresAt(), profile(user));
   }
@@ -131,7 +141,10 @@ public class AccountService {
       throw new ApiException(ErrorCode.BUSINESS_RULE, "Mật khẩu hiện tại không đúng");
     }
     limiter.reset(limitKey);
-    users.updatePasswordHash(userId, encoder.encode(newPassword), clock.instant());
+    if (!users.updatePasswordHash(
+        userId, user.passwordHash(), encoder.encode(newPassword), clock.instant())) {
+      throw new ApiException(ErrorCode.BUSINESS_RULE, "Mật khẩu hiện tại không đúng");
+    }
     sessions.revokeOthers(userId, currentSessionId);
     log.info("Đổi mật khẩu userId={}, đã thu hồi các phiên khác", userId);
   }

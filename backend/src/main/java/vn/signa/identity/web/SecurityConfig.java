@@ -51,6 +51,8 @@ class SecurityConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, API + "/auth/register", API + "/auth/login")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, API + "/auth/password/**")
+                .permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**")
                 .permitAll()
                 .requestMatchers(
@@ -95,6 +97,8 @@ class SecurityConfig {
                 .hasAuthority("report:create")
                 .requestMatchers(API + "/me/reports")
                 .authenticated()
+                .requestMatchers(API + "/places/**")
+                .permitAll()
                 // Lát 8 · quyền theo tiền tố /admin, chặn trước khi Spring đọc và kiểm dữ liệu, nên
                 // người thiếu quyền nhận 403 chứ không phải 400; @PreAuthorize giữ làm lớp thứ hai.
                 // Bảng tiền tố → quyền: docs/backend/ke-hoach/lat-1-tai-khoan.md.
@@ -105,10 +109,12 @@ class SecurityConfig {
                 // Lát 2 · quản trị danh mục: chỉ cần catalog:manage, không cần review:decide.
                 .requestMatchers(API + "/admin/sign-types/**", API + "/admin/sign-categories/**")
                 .hasAuthority("catalog:manage")
-                // Mặc định: /admin còn lại cần tối thiểu review:decide. Đặt SAU mọi quy tắc /admin
-                // cụ
-                // thể, vì quy tắc khớp trước được dùng. Mọi quyền quản trị chỉ thuộc MODERATOR,
-                // ADMIN, và cả hai đều có review:decide.
+                .requestMatchers(API + "/admin/stats/**")
+                .hasAuthority("stats:read")
+                .requestMatchers(API + "/admin/recognition/**")
+                .hasAuthority("recognition:compare")
+                // /admin còn lại cần review:decide. Đặt sau mọi quy tắc /admin cụ thể vì
+                // Spring dùng quy tắc khớp đầu tiên. MODERATOR và ADMIN đều có review:decide.
                 .requestMatchers(API + "/admin/**")
                 .hasAuthority("review:decide")
                 .anyRequest()

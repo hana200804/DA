@@ -50,8 +50,8 @@ Quyền theo tiền tố `/api/v1/admin/**` trong `SecurityConfig.apiSecurity` (
 | `/api/v1/admin/users/**` | mọi method | `user:manage` | 8 | Đã có |
 | `/api/v1/admin/audit-logs/**` | mọi method | `audit:read` | 8 | Đã có |
 | `/api/v1/admin/sign-types/**`, `/api/v1/admin/sign-categories/**` | mọi method | `catalog:manage` | 2 (thêm khi ghép ở lát 8) | Đã có |
-| `/api/v1/admin/stats/**` | mọi method | `stats:read` | 9 | Đề xuất |
-| `/api/v1/admin/recognition/compare` | `POST` | `recognition:compare` | 9 | Đề xuất |
+| `/api/v1/admin/stats/**` | mọi method | `stats:read` | 9 | Đã có |
+| `/api/v1/admin/recognition/**` | mọi method | `recognition:compare` | 9 | Đã có |
 | `/api/v1/admin/**` còn lại | mọi method | `review:decide` (tối thiểu) | 8 (khi ghép lát 2–7) | Đã có |
 
 Dòng mặc định nằm **sau** mọi dòng `/admin` cụ thể và trước `anyRequest()`, vì quy tắc nào khớp trước thì được dùng. Mọi quyền quản trị chỉ thuộc `MODERATOR`, `ADMIN`, và cả hai đều có `review:decide`, nên dòng này không chặn người đủ quyền trên CSDL thật. Lát mới thêm dòng của mình phía trên dòng mặc định. Nếu không thêm, endpoint vẫn chạy nhưng `@WebMvcTest` có vai trò giả thiếu `review:decide` sẽ nhận `403`. Trường hợp này đã gặp ở danh mục: `CatalogAdminControllerTest` chỉ cấp `catalog:manage`, nên phải thêm dòng `catalog:manage` riêng. Ở `signs`, dòng `review:decide` cho `approve`, `reject`, `keep` đặt trước dòng `sign:edit`.

@@ -52,10 +52,12 @@ import vn.signa.catalog.internal.CatalogResponses.SignTypesSnapshot;
 import vn.signa.identity.internal.AccountService;
 import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
+import vn.signa.identity.internal.PasswordResetService;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
 import vn.signa.identity.internal.UserAdminService;
 import vn.signa.identity.internal.UserPage;
+import vn.signa.recognition.internal.CompareResult;
 import vn.signa.recognition.internal.DetectResult;
 import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
@@ -66,11 +68,15 @@ import vn.signa.sign.internal.feedback.ReportService;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
 import vn.signa.sign.internal.map.SignDetail;
+import vn.signa.sign.internal.places.PlaceSearch;
+import vn.signa.sign.internal.places.PlacesRateLimiter;
 import vn.signa.sign.internal.review.ReviewDetails;
 import vn.signa.sign.internal.review.ReviewQueryService;
 import vn.signa.sign.internal.review.ReviewService;
 import vn.signa.sign.internal.review.ReviewViews.Created;
 import vn.signa.sign.internal.review.ReviewViews.QueuePage;
+import vn.signa.sign.internal.stats.StatisticsService;
+import vn.signa.sign.internal.stats.StatisticsView;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -194,6 +200,17 @@ class PermissionMatrixTest {
               "/api/v1/me/password",
               "{\"currentPassword\":\"cu-12345\",\"newPassword\":\"moi-12345\"}",
               Access.AUTHENTICATED),
+          // Lát 9 · OTP đặt lại mật khẩu (docs/07 §3).
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/auth/password/forgot",
+              "{\"email\":\"a@b.vn\"}",
+              Access.PUBLIC),
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/auth/password/reset",
+              "{\"email\":\"a@b.vn\",\"code\":\"001234\",\"newPassword\":\"moi-12345\"}",
+              Access.PUBLIC),
           // Lát 2 · tra cứu danh mục (docs/07 §4)
           Endpoint.of(HttpMethod.GET, "/api/v1/sign-types", null, Access.PUBLIC),
           Endpoint.of(HttpMethod.GET, "/api/v1/sign-types/P.102", null, Access.PUBLIC),
@@ -307,6 +324,15 @@ class PermissionMatrixTest {
               "/api/v1/admin/users/u-khac",
               "{\"status\":\"LOCKED\"}",
               Access.permission("user:manage")),
+          // Lát 9 · thống kê, so sánh mô hình và tìm địa điểm.
+          Endpoint.of(HttpMethod.GET, "/api/v1/admin/stats", null, Access.permission("stats:read")),
+          Endpoint.withFile(
+              HttpMethod.POST,
+              "/api/v1/admin/recognition/compare",
+              new MockMultipartFile(
+                  "image", "a.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
+              Access.permission("recognition:compare")),
+          Endpoint.of(HttpMethod.GET, "/api/v1/places/search?q=Hanoi", null, Access.PUBLIC),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -314,12 +340,6 @@ class PermissionMatrixTest {
           // /admin chưa có quy tắc riêng rơi vào mặc định review:decide (lát 8).
           Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/signs", REVIEW),
           Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/chua-co", REVIEW),
-          // Đặt sẵn cho lát 9: mặc định review:decide cho đúng các vai trò có quyền này.
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/stats", Access.permission("stats:read")),
-          Endpoint.reserved(
-              HttpMethod.POST,
-              "/api/v1/admin/recognition/compare",
-              Access.permission("recognition:compare")),
           // Tự kiểm: endpoint mẫu có @PreAuthorize chứng minh khung bắt được thiếu quyền.
           Endpoint.of(HttpMethod.GET, PROBE + "/review", null, Access.permission("review:decide")),
           Endpoint.of(
@@ -349,6 +369,7 @@ class PermissionMatrixTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean AccountService accounts;
+  @MockitoBean PasswordResetService passwords;
   @MockitoBean CatalogQueryService catalog;
   @MockitoBean CatalogAdminService catalogAdmin;
   @MockitoBean SessionService sessions;
@@ -366,6 +387,9 @@ class PermissionMatrixTest {
   @MockitoBean ReportService reports;
   @MockitoBean AuditLogService auditLogs;
   @MockitoBean UserAdminService userAdmin;
+  @MockitoBean StatisticsService statistics;
+  @MockitoBean PlaceSearch places;
+  @MockitoBean PlacesRateLimiter placesLimiter;
 
   @BeforeEach
   void stubs() {
@@ -379,6 +403,17 @@ class PermissionMatrixTest {
         .thenReturn(new LoginResult("tok", Instant.parse("2026-12-01T00:00:00Z"), profile));
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
+    when(statistics.statistics(null, null))
+        .thenReturn(
+            new StatisticsView(
+                List.of(),
+                new StatisticsView.Decisions(0, 0),
+                new StatisticsView.ProcessingTime(null, 0),
+                List.of(),
+                List.of()));
+    when(recognition.compare(any(), anyString()))
+        .thenReturn(new CompareResult(new DetectResult.ImageSize(8, 8), List.of()));
+    when(places.search("Hanoi")).thenReturn(new PlaceSearch.Result(List.of()));
     when(recognition.models()).thenReturn(new ModelList("yolov8", List.of()));
     when(recognition.detect(any(), any(), any()))
         .thenReturn(

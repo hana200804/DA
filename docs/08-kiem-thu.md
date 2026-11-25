@@ -202,6 +202,7 @@ Khi triển khai, đặt script mô phỏng trong `backend/src/test` để chạ
 - [ ] Người dùng không đọc được đề xuất, báo cáo của người khác qua đổi ID
 - [ ] Đầu vào sai kiểu, quá dài, toạ độ ngoài phạm vi bị từ chối với `400`; ảnh giả mạo đuôi bị `415`
 - [ ] Đăng nhập, OTP, nhận diện ảnh bị giới hạn tần suất
+- [ ] Quên mật khẩu trả cùng `202` cho email tồn tại và không tồn tại trong hạn mức. OTP hết hạn sau 10 phút, bị xoá sau lần sai thứ 5 hoặc sau khi dùng, và mọi phiên cũ bị thu hồi khi đặt lại mật khẩu (FR-13)
 - [ ] Mật khẩu lưu BCrypt; mật khẩu, token không xuất hiện trong log
 - [ ] Ảnh trong `sign-crops`, `report-photos` không đọc được khi thiếu chữ ký
 - [ ] Dịch vụ nhận diện, MySQL, Redis không truy cập được từ ngoài máy chủ

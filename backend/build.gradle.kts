@@ -47,6 +47,7 @@ dependencies {
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.3") // lát 3
     testImplementation("org.wiremock:wiremock-standalone:3.13.2") // lát 3
     implementation("io.micrometer:micrometer-registry-prometheus") // lát 5
+    implementation("org.springframework.boot:spring-boot-starter-mail") // lát 9
 }
 
 tasks.withType<JavaCompile> {

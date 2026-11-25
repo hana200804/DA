@@ -163,8 +163,23 @@ class UserRepository {
         == 1;
   }
 
-  boolean updatePasswordHash(String id, String hash, Instant now) {
-    return jdbc.sql("UPDATE users SET password_hash = :hash, updated_at = :now WHERE id = :id")
+  boolean updatePasswordHash(String id, String previousHash, String hash, Instant now) {
+    return jdbc.sql(
+                """
+                UPDATE users SET password_hash = :hash, updated_at = :now
+                WHERE id = :id AND CAST(password_hash AS BINARY) = CAST(:previousHash AS BINARY)
+                """)
+            .param("hash", hash)
+            .param("previousHash", previousHash)
+            .param("now", Timestamp.from(now))
+            .param("id", id)
+            .update()
+        == 1;
+  }
+
+  boolean updateActivePasswordHash(String id, String hash, Instant now) {
+    return jdbc.sql(
+                "UPDATE users SET password_hash = :hash, updated_at = :now WHERE id = :id AND status = 'ACTIVE'")
             .param("hash", hash)
             .param("now", Timestamp.from(now))
             .param("id", id)
@@ -172,11 +187,18 @@ class UserRepository {
         == 1;
   }
 
-  void touchLastLogin(String id, Instant now) {
-    jdbc.sql("UPDATE users SET last_login_at = :now WHERE id = :id")
-        .param("now", Timestamp.from(now))
-        .param("id", id)
-        .update();
+  boolean touchLastLogin(String id, String checkedHash, Instant now) {
+    return jdbc.sql(
+                """
+                UPDATE users SET last_login_at = :now
+                WHERE id = :id AND status = 'ACTIVE'
+                  AND CAST(password_hash AS BINARY) = CAST(:checkedHash AS BINARY)
+                """)
+            .param("now", Timestamp.from(now))
+            .param("id", id)
+            .param("checkedHash", checkedHash)
+            .update()
+        == 1;
   }
 
   private static UserRecord map(ResultSet rs, int row) throws SQLException {

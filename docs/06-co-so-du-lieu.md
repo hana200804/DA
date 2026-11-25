@@ -358,7 +358,8 @@ Truy vấn áp dụng các bộ lọc nhóm và mã biển khi có tham số. N�
 | --- | --- | --- | --- |
 | `session:{sha256(token)}` | Hash `userId`, `role`, `client`, `createdAt` | 30 ngày (`MOBILE`), 8 giờ (`WEB`); gia hạn đủ thời hạn mỗi lần dùng | Phiên đăng nhập. Khoá là SHA-256 hex của token, Redis không giữ token thô |
 | `user-sessions:{userId}` | Set `sha256(token)` | Không; mục đã hết hạn được dọn mỗi lần tạo phiên mới | Thu hồi mọi phiên khi đổi mật khẩu, khoá tài khoản, đổi vai trò |
-| `otp:{email}` | Hash `codeHash`, `attempts` | 10 phút | FR-13 |
+| `otp:{sha256(email)}` | Hash `codeHash` (HMAC-SHA256 dạng hex), `attempts` | 10 phút, tính từ lần cấp mã gần nhất | FR-13, email đã chuẩn hoá. Xoá khi dùng thành công hoặc nhập sai lần thứ 5 |
+| `rl:otp:{sha256(email)}:{ip}` | Counter | 15 phút, tính từ yêu cầu đầu | Tối đa 3 yêu cầu gửi OTP theo cặp email chuẩn hoá và IP, kể cả email không tồn tại |
 | `rl:login:{email}:{ip}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn đăng nhập: mỗi lần thử `INCR` trước khi so mật khẩu, lần thứ 11 trả `429`; đúng mật khẩu thì xoá |
 | `rl:password:{userId}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn nhập mật khẩu hiện tại khi đổi mật khẩu, cùng cách đếm với `rl:login` |
 | `rl:recognize:{userId hoặc ip}` | Counter | 1 phút | Giới hạn nhận diện ảnh |
