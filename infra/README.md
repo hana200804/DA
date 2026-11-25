@@ -13,11 +13,12 @@ cp infra/.env.example infra/.env
 quản trị viên đầu tiên. Giữ `infra/.env` ngoài Git.
 
 Máy chạy Compose, kể cả demo, cần có `ai/data/labels.yaml` từ repo. Compose
-mount tệp ở chế độ chỉ đọc và yêu cầu tệp đã tồn tại. Lúc khởi động, backend
-mặc định nạp khi MySQL chưa có phiên bản nhãn hoặc tệp có phiên bản mới hơn.
-Khởi động lại với cùng phiên bản giữ các chỉnh sửa của quản trị viên.
-Đặt `SIGNA_CATALOG_IMPORT_ON_STARTUP=false` để tắt. Khi triển khai nhiều bản
-sao backend, chỉ bật nạp trên một bản sao.
+mount tệp ở chế độ chỉ đọc và yêu cầu tệp đã tồn tại. Mặc định khi khởi
+động, backend đồng bộ khi MySQL chưa có phiên bản nhãn hoặc tệp mới hơn.
+Cùng phiên bản, backend thêm nhóm và loại còn thiếu, giữ các chỉnh sửa
+của quản trị viên. Tệp cũ hơn được bỏ qua với một cảnh báo. Đặt
+`SIGNA_CATALOG_IMPORT_ON_STARTUP=false` để tắt. Khi triển khai nhiều
+bản sao backend, chỉ bật nạp trên một bản sao.
 
 Compose mặc định bật worker gom cụm cho backend ở các profile `app`, `dev`
 và `demo`. Đặt `SIGNA_CLUSTERING_WORKER_ENABLED=false` trong `infra/.env`
