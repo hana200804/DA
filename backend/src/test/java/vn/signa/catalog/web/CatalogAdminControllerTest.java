@@ -158,6 +158,30 @@ class CatalogAdminControllerTest {
     verifyNoInteractions(catalog);
   }
 
+  /**
+   * Quy tắc URL {@code /admin/sign-types/**}, {@code /admin/sign-categories/**} đặt trước mặc định
+   * {@code /admin/**} cần {@code review:decide}: chỉ {@code catalog:manage} là đủ, chỉ {@code
+   * review:decide} thì không.
+   */
+  @Test
+  void catalogManageAloneIsEnoughAndReviewDecideAloneIsNot() throws Exception {
+    when(catalog.types(true)).thenReturn(new AdminSignTypeList(List.of()));
+    mvc.perform(get(TYPES).param("active", "true").with(admin())).andExpect(status().isOk());
+
+    var reviewer = new AuthenticatedUser("mod-1", "MODERATOR", Set.of("review:decide"));
+    RequestPostProcessor moderator =
+        authentication(
+            UsernamePasswordAuthenticationToken.authenticated(
+                reviewer, null, List.of(new SimpleGrantedAuthority("review:decide"))));
+    mvc.perform(get(TYPES).with(moderator)).andExpect(status().isForbidden());
+    mvc.perform(
+            post(CATEGORIES)
+                .with(moderator)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{khong-phai-json"))
+        .andExpect(status().isForbidden());
+  }
+
   private static RequestPostProcessor admin() {
     String permission = "catalog:manage";
     var user = new AuthenticatedUser(ACTOR, "ADMIN", Set.of(permission));

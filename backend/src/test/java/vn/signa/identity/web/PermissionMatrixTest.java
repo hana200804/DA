@@ -41,6 +41,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.signa.audit.internal.AuditLogService;
+import vn.signa.audit.internal.AuditPage;
 import vn.signa.catalog.internal.CatalogAdminService;
 import vn.signa.catalog.internal.CatalogQueryService;
 import vn.signa.catalog.internal.CatalogResponses.AdminSignTypeList;
@@ -52,6 +54,8 @@ import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
 import vn.signa.identity.internal.RolePermissions;
 import vn.signa.identity.internal.SessionService;
+import vn.signa.identity.internal.UserAdminService;
+import vn.signa.identity.internal.UserPage;
 import vn.signa.recognition.internal.DetectResult;
 import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
@@ -292,11 +296,30 @@ class PermissionMatrixTest {
               "/api/v1/admin/reports/r-1/dismiss",
               "{\"note\":\"Đã kiểm tra\"}",
               Access.permission("report:resolve")),
+          // Lát 8 · lịch sử (docs/07 §8)
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/admin/audit-logs", null, Access.permission("audit:read")),
+          // Lát 8 · người dùng (docs/07 §8)
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/admin/users", null, Access.permission("user:manage")),
+          Endpoint.of(
+              HttpMethod.PATCH,
+              "/api/v1/admin/users/u-khac",
+              "{\"status\":\"LOCKED\"}",
+              Access.permission("user:manage")),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
           Endpoint.reserved(HttpMethod.POST, "/api/v1/signs", Access.AUTHENTICATED),
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/signs", Access.AUTHENTICATED),
+          // /admin chưa có quy tắc riêng rơi vào mặc định review:decide (lát 8).
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/signs", REVIEW),
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/chua-co", REVIEW),
+          // Đặt sẵn cho lát 9: mặc định review:decide cho đúng các vai trò có quyền này.
+          Endpoint.reserved(HttpMethod.GET, "/api/v1/admin/stats", Access.permission("stats:read")),
+          Endpoint.reserved(
+              HttpMethod.POST,
+              "/api/v1/admin/recognition/compare",
+              Access.permission("recognition:compare")),
           // Tự kiểm: endpoint mẫu có @PreAuthorize chứng minh khung bắt được thiếu quyền.
           Endpoint.of(HttpMethod.GET, PROBE + "/review", null, Access.permission("review:decide")),
           Endpoint.of(
@@ -341,6 +364,8 @@ class PermissionMatrixTest {
   // Lát 7 · đánh giá và báo cáo
   @MockitoBean RatingService ratings;
   @MockitoBean ReportService reports;
+  @MockitoBean AuditLogService auditLogs;
+  @MockitoBean UserAdminService userAdmin;
 
   @BeforeEach
   void stubs() {
@@ -406,6 +431,8 @@ class PermissionMatrixTest {
             Optional.of(
                 new SignTypeItem(
                     "P.102", "PROHIBITORY", "Cấm đi ngược chiều", null, null, null, true)));
+    when(auditLogs.search(any())).thenReturn(new AuditPage<>(List.of(), 0, 20, 0));
+    when(userAdmin.search(any())).thenReturn(new UserPage(List.of(), 0, 20, 0));
   }
 
   static Stream<Arguments> cases() {

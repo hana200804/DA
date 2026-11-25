@@ -17,8 +17,9 @@ import vn.signa.identity.internal.SessionService;
 
 /**
  * Spring Security không trạng thái: phiên nằm trong Redis, kiểm tra quyền bằng
- * {@code @PreAuthorize("hasAuthority('…')")} trên từng endpoint (docs/07 §1). Không bật CORS vì web
- * đi qua proxy cùng origin (docs/backend/thiet-ke-trien-khai.md §5.1).
+ * {@code @PreAuthorize("hasAuthority('…')")} trên từng endpoint (docs/07 §1), cùng quy tắc theo
+ * tiền tố {@code /api/v1/admin/**} để thiếu quyền bị chặn trước khi kiểm dữ liệu. Không bật CORS vì
+ * web đi qua proxy cùng origin (docs/backend/thiet-ke-trien-khai.md §5.1).
  */
 @Configuration
 @EnableWebSecurity
@@ -94,6 +95,22 @@ class SecurityConfig {
                 .hasAuthority("report:create")
                 .requestMatchers(API + "/me/reports")
                 .authenticated()
+                // Lát 8 · quyền theo tiền tố /admin, chặn trước khi Spring đọc và kiểm dữ liệu, nên
+                // người thiếu quyền nhận 403 chứ không phải 400; @PreAuthorize giữ làm lớp thứ hai.
+                // Bảng tiền tố → quyền: docs/backend/ke-hoach/lat-1-tai-khoan.md.
+                .requestMatchers(API + "/admin/users/**")
+                .hasAuthority("user:manage")
+                .requestMatchers(API + "/admin/audit-logs/**")
+                .hasAuthority("audit:read")
+                // Lát 2 · quản trị danh mục: chỉ cần catalog:manage, không cần review:decide.
+                .requestMatchers(API + "/admin/sign-types/**", API + "/admin/sign-categories/**")
+                .hasAuthority("catalog:manage")
+                // Mặc định: /admin còn lại cần tối thiểu review:decide. Đặt SAU mọi quy tắc /admin
+                // cụ
+                // thể, vì quy tắc khớp trước được dùng. Mọi quyền quản trị chỉ thuộc MODERATOR,
+                // ADMIN, và cả hai đều có review:decide.
+                .requestMatchers(API + "/admin/**")
+                .hasAuthority("review:decide")
                 .anyRequest()
                 .authenticated());
     return http.build();
