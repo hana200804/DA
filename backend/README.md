@@ -96,6 +96,7 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_MINIO_PUBLIC_ENDPOINT` | `http://localhost:9000` | Gốc của URL ký trả cho client |
 | `SIGNA_MINIO_ACCESS_KEY`, `SIGNA_MINIO_SECRET_KEY` | (trống, bắt buộc) | Thiếu thì ứng dụng không khởi động |
 | `SIGNA_RECOGNITION_URL` | `http://localhost:8000` | Dịch vụ nhận diện FastAPI |
+| `SIGNA_CLUSTERING_WORKER_ENABLED` | `false` (Gradle), `true` (Compose) | Bật worker gom cụm trên một bản sao backend trong mỗi môi trường theo ADR-0007 |
 | `SIGNA_LABELS_PATH` | `../ai/data/labels.yaml` | Danh mục nhãn cho `import-labels` (lát 2) |
 | `SIGNA_CATALOG_IMPORT_ON_STARTUP` | `false` | Nạp danh mục nhãn mỗi lần khởi động |
 | `SIGNA_PORT` | `8080` | Cổng HTTP |

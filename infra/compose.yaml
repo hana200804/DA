@@ -95,6 +95,8 @@ services:
       SIGNA_MINIO_ACCESS_KEY: ${SIGNA_MINIO_ACCESS_KEY:?Đặt SIGNA_MINIO_ACCESS_KEY trong infra/.env}
       SIGNA_MINIO_SECRET_KEY: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
       SIGNA_RECOGNITION_URL: http://recognition:8000
+      # Chỉ bật worker trên một bản sao backend trong mỗi môi trường (ADR-0007).
+      SIGNA_CLUSTERING_WORKER_ENABLED: ${SIGNA_CLUSTERING_WORKER_ENABLED:-true}
       # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).
       SIGNA_BOOTSTRAP_ADMIN_EMAIL: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
       SIGNA_BOOTSTRAP_ADMIN_PASSWORD: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}

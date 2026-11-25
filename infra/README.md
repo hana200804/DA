@@ -12,6 +12,12 @@ cp infra/.env.example infra/.env
 `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` nếu cần tạo
 quản trị viên đầu tiên. Giữ `infra/.env` ngoài Git.
 
+Compose mặc định bật worker gom cụm cho backend ở các profile `app`, `dev`
+và `demo`. Đặt `SIGNA_CLUSTERING_WORKER_ENABLED=false` trong `infra/.env`
+để tắt. Chỉ bật worker trên một bản sao backend trong mỗi môi trường theo
+[ADR-0007](../docs/adr/0007-gom-cum-tuan-tu-qua-redis-stream.md). Tự duyệt
+vẫn mặc định tắt.
+
 Khi khởi tạo volume MySQL, script dùng `SIGNA_DB_MIGRATOR_USER` và
 `SIGNA_DB_APP_USER` cùng với các mật khẩu tương ứng. Hai tên phải khác nhau,
 khác `root` và có 1–32 ký tự trong tập `A–Z`, `a–z`, `0–9`, `_`, `.`, `-`.
