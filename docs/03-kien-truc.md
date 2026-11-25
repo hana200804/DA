@@ -228,14 +228,14 @@ sequenceDiagram
     participant R as Redis
 
     C->>BE: POST /auth/login
-    BE->>R: HSET session:{token} userId role, EXPIRE; SADD user-sessions:{userId} token
+    BE->>R: HSET session:{sha256(token)} userId role client createdAt, EXPIRE; SADD user-sessions:{userId} sha256(token)
     BE-->>C: token, expiresAt, user
     C->>BE: request + Authorization: Bearer {token}
-    BE->>R: HGETALL session:{token}; gia hạn TTL
+    BE->>R: HGETALL session:{sha256(token)}; gia hạn TTL
     BE-->>C: kết quả, hoặc 401 / 403
 ```
 
-Token là chuỗi ngẫu nhiên 256 bit, không phải JWT, để thu hồi tức thì khi đăng xuất, đổi mật khẩu, khoá tài khoản (FR-01, FR-36). Quyền được tra từ vai trò, nạp vào bộ nhớ đệm khi khởi động.
+Token là chuỗi ngẫu nhiên 256 bit, không phải JWT, để thu hồi tức thì khi đăng xuất, đổi mật khẩu, khoá tài khoản (FR-01, FR-36). Redis chỉ giữ SHA-256 của token, cả trong khoá phiên lẫn trong `user-sessions`, nên đọc được Redis cũng không dùng lại được phiên ([CSDL §10](06-co-so-du-lieu.md#10-redis)). Quyền được tra từ vai trò, nạp vào bộ nhớ đệm khi khởi động.
 
 ## 7. Ước lượng tải
 

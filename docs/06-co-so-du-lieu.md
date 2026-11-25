@@ -355,10 +355,11 @@ Truy vấn áp dụng các bộ lọc nhóm và mã biển khi có tham số. N�
 
 | Khoá | Kiểu | TTL | Mục đích |
 | --- | --- | --- | --- |
-| `session:{token}` | Hash `userId`, `role`, `createdAt` | 30 ngày (ứng dụng), 8 giờ (web); gia hạn khi dùng | Phiên đăng nhập |
-| `user-sessions:{userId}` | Set token | Không | Thu hồi mọi phiên khi đổi mật khẩu, khoá tài khoản |
+| `session:{sha256(token)}` | Hash `userId`, `role`, `client`, `createdAt` | 30 ngày (`MOBILE`), 8 giờ (`WEB`); gia hạn đủ thời hạn mỗi lần dùng | Phiên đăng nhập. Khoá là SHA-256 hex của token, Redis không giữ token thô |
+| `user-sessions:{userId}` | Set `sha256(token)` | Không; mục đã hết hạn được dọn mỗi lần tạo phiên mới | Thu hồi mọi phiên khi đổi mật khẩu, khoá tài khoản, đổi vai trò |
 | `otp:{email}` | Hash `codeHash`, `attempts` | 10 phút | FR-13 |
-| `rl:login:{email}:{ip}` | Counter | 15 phút | Giới hạn đăng nhập sai |
+| `rl:login:{email}:{ip}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn đăng nhập: mỗi lần thử `INCR` trước khi so mật khẩu, lần thứ 11 trả `429`; đúng mật khẩu thì xoá |
+| `rl:password:{userId}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn nhập mật khẩu hiện tại khi đổi mật khẩu, cùng cách đếm với `rl:login` |
 | `rl:recognize:{userId hoặc ip}` | Counter | 1 phút | Giới hạn nhận diện ảnh |
 | `cache:sign-types` | String JSON + ETag | Xoá khi danh mục đổi | FR-08 |
 | `stream:submissions` | Stream, group `clustering` | Xoá mục sau khi xử lý và xác nhận | Hàng đợi gom cụm ([ADR-0007](adr/0007-gom-cum-tuan-tu-qua-redis-stream.md)) |
