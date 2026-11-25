@@ -150,14 +150,14 @@ URL chỉ có host được bổ sung `/api/v1/`; URL đã có path được chu
 Chế độ fake/API là cấu hình lúc build. Build lại không truyền cờ sẽ trở về fake.
 Debug cho HTTP để kiểm thử nội bộ; release yêu cầu HTTPS.
 
-AuthApi có login/register/logout/forgot/reset/change-password và users/me theo
-`docs/07-api.md`. Đăng nhập đọc `sessionId`, `expiresAt`, `user`; các thao tác
-ghi còn lại chỉ yêu cầu HTTP thành công và bỏ qua response body. Các request body
-chưa có ví dụ đầy đủ trong đặc tả đang dùng `displayName/email/password`,
-`email/otp/newPassword`, `oldPassword/newPassword`; cần đối chiếu khi backend triển khai.
+AuthApi gọi các endpoint tài khoản theo `docs/07-api.md`. Đăng nhập gửi
+`client: "MOBILE"` và đọc `token`, `expiresAt`, `user`. Hồ sơ đọc và cập nhật qua
+`/me`. Đặt lại mật khẩu gửi `email/code/newPassword`; đổi qua `/me/password`
+gửi `currentPassword/newPassword`.
 OkHttp chỉ gắn Bearer cho API cùng origin/path và phiên REMOTE hợp lệ, không gắn cho
-endpoint công khai hoặc upload ngoài origin. Timeout, JSON lỗi, HTTP 400/401/403/404/
-409/422/429/5xx được chuyển thành lỗi UI. Không ghi log token, mật khẩu hoặc OTP.
+endpoint công khai hoặc upload ngoài origin. Lỗi API được ánh xạ theo `code`
+và ngữ cảnh thao tác, với mã HTTP dự phòng. Khi bị giới hạn tần suất, giao diện
+hiển thị số giây từ `Retry-After` nếu có. Không ghi log token, mật khẩu hoặc OTP.
 
 **Giới hạn nghiệm thu:** API client được kiểm thử bằng MockWebServer; chưa xác minh
 đầu cuối với backend thật. Phạm vi “tài khoản chạy với API hoặc dữ liệu giả lập”

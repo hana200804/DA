@@ -122,7 +122,7 @@
   <string name="auth_invalid_credentials">Email hoặc mật khẩu chưa đúng.</string>
   <string name="auth_email_exists">Email đã được đăng ký.</string>
   <string name="auth_account_missing">Không tìm thấy tài khoản với email này.</string>
-  <string name="auth_invalid_otp">Mã OTP chưa đúng hoặc đã được sử dụng.</string>
+  <string name="auth_invalid_otp">Mã OTP không hợp lệ hoặc đã hết hạn.</string>
   <string name="auth_expired_otp">Mã OTP đã hết hạn. Hãy yêu cầu mã mới.</string>
   <string name="auth_otp_locked">Đã nhập sai quá số lần cho phép. Hãy yêu cầu mã mới.</string>
   <string name="auth_otp_cooldown">Vui lòng chờ 30 giây trước khi yêu cầu mã mới.</string>
@@ -130,6 +130,7 @@
   <string name="auth_wrong_password">Mật khẩu hiện tại chưa đúng.</string>
   <string name="auth_network_error">Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.</string>
   <string name="auth_rate_limited">Có quá nhiều yêu cầu. Vui lòng thử lại sau.</string>
+  <string name="auth_rate_limited_retry_after">Có quá nhiều yêu cầu. Vui lòng thử lại sau %1$d giây.</string>
   <string name="auth_server_error">Máy chủ đang gặp sự cố. Vui lòng thử lại sau.</string>
   <string name="auth_invalid_response">Không xử lý được dữ liệu tài khoản. Vui lòng thử lại.</string>
   <string name="auth_storage_error">Không lưu được phiên trên thiết bị. Vui lòng thử lại.</string>

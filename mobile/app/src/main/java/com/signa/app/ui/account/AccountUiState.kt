@@ -10,6 +10,7 @@ data class AccountUiState(
     val isLoading: Boolean = true,
     val hasError: Boolean = false,
     val operationError: AuthError? = null,
+    val retryAfterSeconds: Int? = null,
     val isSigningOut: Boolean = false,
     val isUpdatingProfile: Boolean = false
 )

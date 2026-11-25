@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 class AccountViewModel @Inject constructor(
     private val repository: AuthRepository, settings: SettingsRepository
 ) : ViewModel() {
-    private val operationError = MutableStateFlow<AuthError?>(null)
+    private val operationError = MutableStateFlow<AuthException?>(null)
     private val signingOut = MutableStateFlow(false)
     private val updatingProfile = MutableStateFlow(false)
     val state = combine(
@@ -29,7 +29,8 @@ class AccountViewModel @Inject constructor(
     ) { session, error, signingOut, updatingProfile, preferences ->
         AccountUiState(
             user = session?.user, vehicleType = preferences.vehicleType, isLoading = false,
-            operationError = error, isSigningOut = signingOut, isUpdatingProfile = updatingProfile
+            operationError = error?.error, retryAfterSeconds = error?.retryAfterSeconds,
+            isSigningOut = signingOut, isUpdatingProfile = updatingProfile
         )
     }.catch { emit(AccountUiState(isLoading = false, hasError = true)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountUiState())
@@ -50,9 +51,9 @@ class AccountViewModel @Inject constructor(
             try {
                 action()
             } catch (error: AuthException) {
-                operationError.value = error.error
-            } catch (_: IOException) {
-                operationError.value = AuthError.Storage
+                operationError.value = error
+            } catch (error: IOException) {
+                operationError.value = AuthException(AuthError.Storage, error)
             } finally {
                 busy.value = false
             }

@@ -1,6 +1,8 @@
 package com.signa.app.ui.auth
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import com.signa.app.R
 import com.signa.app.domain.model.AuthError
 
@@ -23,3 +25,11 @@ fun authErrorMessage(error: AuthError): Int = when (error) {
     AuthError.InvalidResponse -> R.string.auth_invalid_response
     AuthError.Storage -> R.string.auth_storage_error
 }
+
+@Composable
+fun authErrorText(error: AuthError, retryAfterSeconds: Int?): String =
+    if (error == AuthError.RateLimited && retryAfterSeconds != null) {
+        stringResource(R.string.auth_rate_limited_retry_after, retryAfterSeconds)
+    } else {
+        stringResource(authErrorMessage(error))
+    }

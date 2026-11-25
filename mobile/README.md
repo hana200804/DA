@@ -159,7 +159,7 @@ cd mobile
 | `API_BASE_URL` | Địa chỉ nginx của backend: `http://10.0.2.2:8080` trên emulator, `http://<IP máy tính>:8080` trên điện thoại thật cùng mạng |
 | `MODEL_VERSION` | Dự kiến dùng khi tích hợp mô hình; hiện chưa có task `fetchModels` |
 
-Mặc định dùng fake auth. Chọn backend thật bằng `-Psigna.useFakeBackend=false`; URL có thể truyền qua `-Psigna.apiBaseUrl` hoặc `SIGNA_API_BASE_URL`. Chi tiết request/response và phần cần đối chiếu backend nằm trong [ARCHITECTURE.md](ARCHITECTURE.md).
+Mặc định dùng fake auth. Chọn backend thật cho luồng tài khoản bằng `-Psigna.useFakeBackend=false`. Truyền URL qua `-Psigna.apiBaseUrl` hoặc `SIGNA_API_BASE_URL`. Chi tiết hợp đồng và cách xử lý phiên nằm trong [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Kiểm thử
 

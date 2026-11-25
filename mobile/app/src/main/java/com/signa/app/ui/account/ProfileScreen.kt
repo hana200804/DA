@@ -22,7 +22,7 @@ import com.signa.app.ui.components.SignaStatusLabel
 @Composable
 fun ProfileScreen(
     user: User, onClose: () -> Unit, onContributions: () -> Unit, onChangePassword: () -> Unit,
-    isPreview: Boolean = false, errorMessage: Int? = null, isSigningOut: Boolean = false,
+    isPreview: Boolean = false, errorMessage: String? = null, isSigningOut: Boolean = false,
     vehicleType: VehicleType = user.vehicleType,
     onOpenProfile: () -> Unit = {},
     onUpdateProfile: ((String) -> Unit)? = null,
@@ -44,7 +44,7 @@ fun ProfileScreen(
             AccountRow(stringResource(R.string.change_password), R.drawable.ic_lock, onChangePassword)
             AccountRow(stringResource(R.string.help), R.drawable.ic_help) { showHelp = true }
         }
-        if (!showInformation) errorMessage?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+        if (!showInformation) errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         TextButton(onClick = onClose, enabled = !isSigningOut && !isUpdatingProfile, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             Icon(painterResource(R.drawable.ic_logout), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error)
             Spacer(Modifier.width(16.dp))
@@ -72,7 +72,7 @@ fun ProfileScreen(
                     InformationValue(stringResource(R.string.email), user.email)
                     InformationValue(stringResource(R.string.vehicle_type), stringResource(vehicleLabel(vehicleType)))
                     if (isUpdatingProfile) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    errorMessage?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+                    errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
             confirmButton = {

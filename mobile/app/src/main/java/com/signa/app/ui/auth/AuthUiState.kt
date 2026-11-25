@@ -30,5 +30,6 @@ data class AuthUiState(
     val errors: Map<AuthField, AuthFieldError> = emptyMap(),
     val isSubmitting: Boolean = false,
     val requestError: AuthError? = null,
+    val retryAfterSeconds: Int? = null,
     val resetChallenge: PasswordResetChallenge? = null
 )
