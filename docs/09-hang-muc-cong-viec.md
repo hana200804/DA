@@ -102,14 +102,14 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 **Mục tiêu:** đề xuất từ người dùng trở thành biển trên bản đồ qua phê duyệt có trợ giúp, mọi thay đổi có lịch sử. Thiết kế: [Kiến trúc §6](03-kien-truc.md#6-luồng-xử-lý-chính), [Thiết kế AI §6–7](04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy).
 
-- [ ] Dịch vụ nhận diện phục vụ ba mô hình; API nhận diện có giới hạn tần suất (FR-02, FR-24). Phía backend xong: proxy nhận diện, giới hạn tần suất bằng Redis.
+- [ ] Dịch vụ nhận diện phục vụ ba mô hình; API nhận diện có giới hạn tần suất (FR-02, FR-24). Đã có proxy nhận diện, giới hạn tần suất bằng Redis và dịch vụ hỗ trợ YOLOv5, YOLOv8, DETR. Còn nghiệm thu khi nạp đủ ba checkpoint thật.
 - [x] API danh mục, biển theo vùng có điểm gộp (FR-05, FR-06, FR-08)
-- [x] API đề xuất, worker gom cụm qua Redis Stream, điểm tin cậy, gợi ý (FR-04, FR-20, FR-21). Quy tắc loại bằng chứng cũ sau quyết định ở [Thiết kế AI §6](04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy) chờ cả nhóm review.
+- [x] Đã triển khai API đề xuất, worker Redis Stream, tính điểm tin cậy và gợi ý (FR-04, FR-20, FR-21). Sau quyết định, công thức điểm chỉ tính bằng chứng phản đối mới; bằng chứng trước đó vẫn được lưu. Quy tắc trong [Thiết kế AI §6](04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy) chờ cả nhóm duyệt.
 - [x] Đánh giá, rà soát lại, báo cáo (FR-09, FR-10, FR-22)
 - [x] Lịch sử xử lý bất biến (FR-23)
 - [ ] Web: hàng đợi phê duyệt, chi tiết biển, báo cáo, sửa biển, lịch sử (FR-31 → FR-34)
 - [ ] Web: danh mục, người dùng (FR-35, FR-36)
-- [ ] P1: tự duyệt, so sánh mô hình, thống kê (FR-25, FR-37, FR-38). Phía backend xong; phần web nghiệm thu riêng theo [kế hoạch kiểm thử](08-kiem-thu.md).
+- [ ] P1: tự duyệt, so sánh mô hình, thống kê (FR-25, FR-37, FR-38). Đã triển khai tự duyệt (mặc định tắt) và API so sánh, thống kê. Web đã kết nối hai API; còn nghiệm thu FR-37 và FR-38 với backend thật, gồm đối chiếu cách hiển thị thống kê độ phủ.
 
 **Hoàn thành khi:** các ca kiểm thử P0 của backend và web trong [kế hoạch kiểm thử](08-kiem-thu.md) đạt. Nếu triển khai FR-25, chạy thêm UT-B09 và UT-B10.
 
