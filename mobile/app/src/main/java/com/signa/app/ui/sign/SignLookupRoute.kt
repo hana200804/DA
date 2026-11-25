@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.signa.app.ui.recognition.PhotoRecognitionRoute
 
 @Composable
 fun SignLookupRoute(
@@ -12,5 +13,7 @@ fun SignLookupRoute(
     viewModel: SignLookupViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    SignLookupScreen(state = state, onAction = onAction, onOpenSign = onOpenSign)
+    PhotoRecognitionRoute(onSignIn = onAction) { takePhoto, choosePhoto ->
+        SignLookupScreen(state = state, onAction = takePhoto, onChoosePhoto = choosePhoto, onOpenSign = onOpenSign)
+    }
 }

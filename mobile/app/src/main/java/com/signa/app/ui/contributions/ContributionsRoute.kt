@@ -9,8 +9,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun ContributionsRoute(
     onBack: () -> Unit,
     onOpenSign: (String) -> Unit,
-    viewModel: ContributionsViewModel = hiltViewModel()
+    viewModel: PhotoContributionsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ContributionsScreen(state = state, onBack = onBack, onOpenSign = onOpenSign)
+    PhotoContributionsScreen(
+        state = state,
+        onBack = onBack,
+        onOpenSign = onOpenSign,
+        onRefresh = viewModel::refresh,
+        onLoad = viewModel::load
+    )
 }

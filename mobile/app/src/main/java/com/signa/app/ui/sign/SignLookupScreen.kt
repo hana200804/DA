@@ -29,7 +29,7 @@ import com.signa.app.ui.components.SignaPrimaryButton
 import com.signa.app.ui.components.SpeedLimitBadge
 
 @Composable
-fun SignLookupScreen(state: SignLookupUiState, onAction: () -> Unit = {}, onOpenSign: (String) -> Unit = {}) {
+fun SignLookupScreen(state: SignLookupUiState, onAction: () -> Unit = {}, onOpenSign: (String) -> Unit = {}, onChoosePhoto: () -> Unit = onAction) {
     SignaPage(stringResource(R.string.lookup_title)) {
         Column(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primaryContainer).padding(32.dp),
@@ -41,7 +41,7 @@ fun SignLookupScreen(state: SignLookupUiState, onAction: () -> Unit = {}, onOpen
             Text(stringResource(R.string.lookup_hero), style = MaterialTheme.typography.bodyLarge)
         }
         SignaPrimaryButton(stringResource(R.string.take_photo), onAction, Modifier.fillMaxWidth())
-        OutlinedButton(onClick = onAction, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.choose_photo)) }
+        OutlinedButton(onClick = onChoosePhoto, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.choose_photo)) }
         Text(stringResource(R.string.common_signs), style = MaterialTheme.typography.titleMedium)
         when {
             state.isLoading -> CircularProgressIndicator()
