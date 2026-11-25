@@ -95,6 +95,8 @@ services:
       SIGNA_MINIO_ACCESS_KEY: ${SIGNA_MINIO_ACCESS_KEY:?Đặt SIGNA_MINIO_ACCESS_KEY trong infra/.env}
       SIGNA_MINIO_SECRET_KEY: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
       SIGNA_RECOGNITION_URL: http://recognition:8000
+      SIGNA_LABELS_PATH: /app/catalog/labels.yaml
+      SIGNA_CATALOG_IMPORT_ON_STARTUP: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:-false}
       # Chỉ bật worker trên một bản sao backend trong mỗi môi trường (ADR-0007).
       SIGNA_CLUSTERING_WORKER_ENABLED: ${SIGNA_CLUSTERING_WORKER_ENABLED:-true}
       # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).
@@ -104,6 +106,13 @@ services:
       SIGNA_SMTP_HOST: ${SIGNA_SMTP_HOST:-mailpit}
       SIGNA_SMTP_PORT: ${SIGNA_SMTP_PORT:-1025}
       SIGNA_SMTP_FROM: ${SIGNA_SMTP_FROM:-no-reply@signa.local}
+    volumes:
+      - type: bind
+        source: ../ai/data/labels.yaml
+        target: /app/catalog/labels.yaml
+        read_only: true
+        bind:
+          create_host_path: false
     networks: [default, recognition]
     depends_on:
       migrate:
