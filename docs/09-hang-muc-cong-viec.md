@@ -52,11 +52,11 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 - [ ] Bộ tài liệu `docs/` được cả nhóm và GVHD duyệt; ADR chuyển `Accepted`
 - [ ] Trả lời Q1–Q4 trong [Đặc tả §11](02-dac-ta-yeu-cau.md#11-vấn-đề-cần-làm-rõ)
-- [ ] Backend một khối với các module `identity`, `catalog`, `sign`, `recognition`, `audit`; test ArchUnit cho ranh giới
-- [ ] Migration Flyway cho toàn bộ lược đồ [CSDL](06-co-so-du-lieu.md)
-- [ ] Tài khoản, phiên, phân quyền (FR-01, FR-30)
-- [ ] Docker Compose: MySQL, Redis, MinIO, nginx, backend, dịch vụ nhận diện, web
-- [ ] CI build, lint, test cho mọi thành phần
+- [x] Backend một khối với các module `identity`, `catalog`, `sign`, `recognition`, `audit`; test ArchUnit cho ranh giới. [Thiết kế triển khai](backend/thiet-ke-trien-khai.md), PR #38–#50
+- [x] Migration Flyway cho toàn bộ lược đồ [CSDL](06-co-so-du-lieu.md)
+- [x] Tài khoản, phiên, phân quyền (FR-01, FR-30) phía backend. Ứng dụng di động chưa tích hợp.
+- [ ] Docker Compose: MySQL, Redis, MinIO, nginx, backend, dịch vụ nhận diện, web. Đã viết [`infra/compose.yaml`](../infra/compose.yaml), chưa chạy thử `docker compose up` trên máy thật.
+- [ ] CI build, lint, test cho mọi thành phần. Đã có cho backend (unit và tích hợp Testcontainers), AI và tài liệu; còn thiếu web quản trị và di động.
 
 **Hoàn thành khi:** `docker compose up` chạy đủ hệ thống; đăng ký, đăng nhập được từ ứng dụng và web; CI xanh.
 
@@ -102,14 +102,14 @@ Cuối tuần 12 **đóng băng tính năng**.
 
 **Mục tiêu:** đề xuất từ người dùng trở thành biển trên bản đồ qua phê duyệt có trợ giúp, mọi thay đổi có lịch sử. Thiết kế: [Kiến trúc §6](03-kien-truc.md#6-luồng-xử-lý-chính), [Thiết kế AI §6–7](04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy).
 
-- [ ] Dịch vụ nhận diện phục vụ ba mô hình; API nhận diện có giới hạn tần suất (FR-02, FR-24)
-- [ ] API danh mục, biển theo vùng có điểm gộp (FR-05, FR-06, FR-08)
-- [ ] API đề xuất, worker gom cụm qua Redis Stream, điểm tin cậy, gợi ý (FR-04, FR-20, FR-21)
-- [ ] Đánh giá, rà soát lại, báo cáo (FR-09, FR-10, FR-22)
-- [ ] Lịch sử xử lý bất biến (FR-23)
+- [ ] Dịch vụ nhận diện phục vụ ba mô hình; API nhận diện có giới hạn tần suất (FR-02, FR-24). Phía backend xong: proxy nhận diện, giới hạn tần suất bằng Redis.
+- [x] API danh mục, biển theo vùng có điểm gộp (FR-05, FR-06, FR-08)
+- [x] API đề xuất, worker gom cụm qua Redis Stream, điểm tin cậy, gợi ý (FR-04, FR-20, FR-21). Quy tắc loại bằng chứng cũ sau quyết định ở [Thiết kế AI §6](04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy) chờ cả nhóm review.
+- [x] Đánh giá, rà soát lại, báo cáo (FR-09, FR-10, FR-22)
+- [x] Lịch sử xử lý bất biến (FR-23)
 - [ ] Web: hàng đợi phê duyệt, chi tiết biển, báo cáo, sửa biển, lịch sử (FR-31 → FR-34)
 - [ ] Web: danh mục, người dùng (FR-35, FR-36)
-- [ ] P1: tự duyệt, so sánh mô hình, thống kê (FR-25, FR-37, FR-38)
+- [ ] P1: tự duyệt, so sánh mô hình, thống kê (FR-25, FR-37, FR-38). Phía backend xong; phần web nghiệm thu riêng theo [kế hoạch kiểm thử](08-kiem-thu.md).
 
 **Hoàn thành khi:** các ca kiểm thử P0 của backend và web trong [kế hoạch kiểm thử](08-kiem-thu.md) đạt. Nếu triển khai FR-25, chạy thêm UT-B09 và UT-B10.
 
