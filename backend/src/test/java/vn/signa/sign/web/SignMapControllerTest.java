@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,16 +14,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import vn.signa.identity.api.AuthenticatedUser;
 import vn.signa.identity.web.WithApiSecurity;
 import vn.signa.shared.web.GlobalExceptionHandler;
 import vn.signa.shared.web.RequestIdFilter;
+import vn.signa.sign.clustering.RatingValue;
 import vn.signa.sign.internal.map.BoundingBox;
 import vn.signa.sign.internal.map.MapQuery;
 import vn.signa.sign.internal.map.MapResult;
@@ -141,6 +146,40 @@ class SignMapControllerTest {
         .andExpect(jsonPath("$.denyCount").value(2))
         .andExpect(jsonPath("$.updatedAt").value("2026-01-15T08:30:12.345Z"))
         .andExpect(jsonPath("$.coverCropUrl").isEmpty())
+        .andExpect(jsonPath("$.myRating").doesNotHaveJsonPath())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"));
+  }
+
+  @Test
+  void signedInDetailContainsRatingOrExplicitNull() throws Exception {
+    var detail =
+        new SignDetail(
+            "s1",
+            "P.123a",
+            "PROHIBITORY",
+            new LatLng(21, 105),
+            null,
+            "APPROVED",
+            0.75,
+            1,
+            0,
+            Instant.parse("2026-01-15T08:30:12.345Z"),
+            null);
+    var principal = new AuthenticatedUser("u1", "USER", Set.of("sign:rate"));
+    var auth = UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of());
+    when(service.detail("s1", "u1"))
+        .thenReturn(
+            Optional.of(new MapService.PersonalDetail(detail, null)),
+            Optional.of(new MapService.PersonalDetail(detail, RatingValue.CONFIRM)));
+
+    mvc.perform(get("/api/v1/signs/s1").with(authentication(auth)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value("s1"))
+        .andExpect(jsonPath("$.myRating").hasJsonPath())
+        .andExpect(jsonPath("$.myRating").isEmpty());
+    mvc.perform(get("/api/v1/signs/s1").with(authentication(auth)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.myRating").value("CONFIRM"))
         .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"));
   }
 

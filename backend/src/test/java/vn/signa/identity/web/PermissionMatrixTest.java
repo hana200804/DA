@@ -57,6 +57,8 @@ import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
 import vn.signa.sign.clustering.SubmissionStatus;
 import vn.signa.sign.internal.SubmissionService;
+import vn.signa.sign.internal.feedback.RatingService;
+import vn.signa.sign.internal.feedback.ReportService;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
 import vn.signa.sign.internal.map.SignDetail;
@@ -266,6 +268,30 @@ class PermissionMatrixTest {
               ADMIN_SIGNS + "/s-1/remove",
               "{\"version\":1,\"reason\":\"Sai\"}",
               EDIT_SIGN),
+          // Lát 7 · đánh giá và báo cáo (docs/07 §6, §8)
+          Endpoint.of(
+              HttpMethod.PUT,
+              "/api/v1/signs/s-1/rating",
+              "{\"value\":\"DENY\"}",
+              Access.permission("sign:rate")),
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/signs/s-1/reports",
+              "{\"reason\":\"NOT_EXIST\"}",
+              Access.permission("report:create")),
+          Endpoint.of(HttpMethod.GET, "/api/v1/me/reports", null, Access.AUTHENTICATED),
+          Endpoint.of(
+              HttpMethod.GET, "/api/v1/admin/reports", null, Access.permission("report:resolve")),
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/admin/reports/r-1/accept",
+              "{\"action\":\"REMOVE\",\"version\":1}",
+              Access.permission("report:resolve")),
+          Endpoint.of(
+              HttpMethod.POST,
+              "/api/v1/admin/reports/r-1/dismiss",
+              "{\"note\":\"Đã kiểm tra\"}",
+              Access.permission("report:resolve")),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -312,6 +338,9 @@ class PermissionMatrixTest {
   // Lát 6 · phê duyệt
   @MockitoBean ReviewService reviews;
   @MockitoBean ReviewQueryService reviewQueries;
+  // Lát 7 · đánh giá và báo cáo
+  @MockitoBean RatingService ratings;
+  @MockitoBean ReportService reports;
 
   @BeforeEach
   void stubs() {
@@ -349,6 +378,16 @@ class PermissionMatrixTest {
                     0,
                     Instant.parse("2026-01-15T08:30:12.345Z"),
                     null)));
+    when(map.detail(anyString(), anyString()))
+        .thenAnswer(call ->
+            map.detail(call.getArgument(0, String.class))
+                .map(sign -> new MapService.PersonalDetail(sign, null)));
+    when(reports.create(anyString(), anyString(), any(), any()))
+        .thenReturn(new ReportService.Receipt("r-1", ReportService.Status.PENDING));
+    when(reports.mine(anyString(), anyInt(), anyInt()))
+        .thenReturn(new ReportService.Page<>(List.of(), 0, 20, 0));
+    when(reports.queue(any(), any(), anyInt(), anyInt()))
+        .thenReturn(new ReportService.Page<>(List.of(), 0, 20, 0));
     when(submissions.submit(anyString(), any(), any()))
         .thenReturn(
             new SubmissionService.Result(

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import vn.signa.sign.clustering.RatingValue;
 import vn.signa.sign.internal.map.MapResult.LatLng;
 import vn.signa.sign.internal.map.MapResult.MapCluster;
 import vn.signa.sign.internal.map.MapResult.MapSign;
@@ -39,11 +40,13 @@ public class MapSignRepository {
 
   private static final String DETAIL_SQL =
       """
-      SELECT id, sign_type_code, category_code,
-             ST_Latitude(location) AS lat, ST_Longitude(location) AS lng,
-             heading_deg, status, confidence, confirm_count, deny_count, updated_at, cover_crop_key
-      FROM signs
-      WHERE id = :id AND
+      SELECT s.id, s.sign_type_code, s.category_code,
+             ST_Latitude(s.location) AS lat, ST_Longitude(s.location) AS lng,
+             s.heading_deg, s.status, s.confidence, s.confirm_count, s.deny_count,
+             s.updated_at, s.cover_crop_key, r.value AS my_rating
+      FROM signs s
+      LEFT JOIN sign_ratings r ON r.sign_id = s.id AND r.user_id = :user
+      WHERE s.id = :id AND
       """
           + PUBLISHED;
 
@@ -71,23 +74,34 @@ public class MapSignRepository {
   }
 
   public Optional<DetailRow> findPublished(String id) {
+    return findPublished(id, null).map(RatedDetailRow::sign);
+  }
+
+  Optional<RatedDetailRow> findPublished(String id, String userId) {
     return jdbc.sql(DETAIL_SQL)
         .param("id", id)
-        .query((rs, i) ->
-            new DetailRow(
-                rs.getString("id"),
-                rs.getString("sign_type_code"),
-                rs.getString("category_code"),
-                location(rs),
-                rs.getObject("heading_deg", Integer.class),
-                rs.getString("status"),
-                rs.getDouble("confidence"),
-                rs.getInt("confirm_count"),
-                rs.getInt("deny_count"),
-                utc(rs.getObject("updated_at", LocalDateTime.class)),
-                rs.getString("cover_crop_key")))
+        .param("user", userId)
+        .query((rs, i) -> {
+          var sign =
+              new DetailRow(
+                  rs.getString("id"),
+                  rs.getString("sign_type_code"),
+                  rs.getString("category_code"),
+                  location(rs),
+                  rs.getObject("heading_deg", Integer.class),
+                  rs.getString("status"),
+                  rs.getDouble("confidence"),
+                  rs.getInt("confirm_count"),
+                  rs.getInt("deny_count"),
+                  utc(rs.getObject("updated_at", LocalDateTime.class)),
+                  rs.getString("cover_crop_key"));
+          String value = rs.getString("my_rating");
+          return new RatedDetailRow(sign, value == null ? null : RatingValue.valueOf(value));
+        })
         .optional();
   }
+
+  record RatedDetailRow(DetailRow sign, RatingValue myRating) {}
 
   /** Bản ghi chi tiết; khoá ảnh được dịch vụ đổi thành URL ký. */
   public record DetailRow(

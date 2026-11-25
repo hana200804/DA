@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import vn.signa.shared.storage.Bucket;
 import vn.signa.shared.storage.ObjectStorage;
+import vn.signa.sign.clustering.RatingValue;
 import vn.signa.sign.internal.map.MapResult.MapSign;
 import vn.signa.sign.internal.map.MapSignRepository.DetailRow;
 
@@ -44,6 +45,14 @@ public class MapService {
   public Optional<SignDetail> detail(String id) {
     return repository.findPublished(id).map(this::toDetail);
   }
+
+  public Optional<PersonalDetail> detail(String id, String userId) {
+    return repository
+        .findPublished(id, userId)
+        .map(row -> new PersonalDetail(toDetail(row.sign()), row.myRating()));
+  }
+
+  public record PersonalDetail(SignDetail sign, RatingValue myRating) {}
 
   private SignDetail toDetail(DetailRow row) {
     String coverUrl =
