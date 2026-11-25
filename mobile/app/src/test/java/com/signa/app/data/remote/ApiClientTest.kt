@@ -47,15 +47,17 @@ class ApiClientTest {
             runCurrent()
             val client = ApiClientFactory.client(SessionInterceptor(config, manager))
             val api = ApiClientFactory.retrofit(config, client, json).create(AuthApi::class.java)
-            server.enqueue(MockResponse().setBody("""{"sessionId":"s","expiresAt":"2030-01-01T00:00:00Z","user":{"id":"u","displayName":"An","unknown":true},"extra":1}"""))
-            val response = api.login(LoginRequest("an@example.com", "example-password"))
-            assertEquals("s", response.sessionId)
+            server.enqueue(MockResponse().setBody("""{"token":"s","expiresAt":"2030-01-01T00:00:00Z","user":{"id":"u","displayName":"An","role":"USER","permissions":[]},"extra":1}"""))
+            val response = api.login(LoginRequest("an@example.com", "example-password", client = "MOBILE"))
+            assertEquals("s", response.token)
             val request = server.takeRequest(2, TimeUnit.SECONDS)!!
             assertEquals("/api/v1/auth/login", request.path)
             assertEquals("POST", request.method)
             assertNull(request.getHeader("Authorization"))
             assertNotNull(request.getHeader("X-Request-Id"))
-            assertTrue(request.body.readUtf8().contains("\"email\":\"an@example.com\""))
+            val body = request.body.readUtf8()
+            assertTrue(body.contains("\"email\":\"an@example.com\""))
+            assertTrue(body.contains("\"client\":\"MOBILE\""))
         } finally { server.shutdown() }
     }
 
@@ -177,11 +179,13 @@ class ApiClientTest {
             val config = ApiConfig(server.url("/api/v1/").toString())
             val api = ApiClientFactory.retrofit(config, ApiClientFactory.client(SessionInterceptor(config, manager)), json).create(AuthApi::class.java)
             val repository = RemoteAuthRepository(api, manager, json, clock)
-            server.enqueue(MockResponse().setBody("""{"sessionId":"server-session","expiresAt":"2030-01-01T00:00:00Z","user":{"id":"u","displayName":"An","vehicleType":"CAR"}}"""))
+            server.enqueue(MockResponse().setBody("""{"token":"server-session","expiresAt":"2030-01-01T00:00:00Z","user":{"id":"u","displayName":"An","role":"USER","permissions":["sign:rate"]}}"""))
             repository.login("an@example.com", "password")
             assertEquals("server-session", store.current?.id)
             assertEquals(Instant.parse("2030-01-01T00:00:00Z").toEpochMilli(), store.current?.expiresAtEpochMillis)
             assertEquals(SessionSource.REMOTE, store.current?.source)
+            assertEquals("USER", store.current?.user?.role)
+            assertEquals(listOf("sign:rate"), store.current?.user?.permissions)
             server.enqueue(MockResponse().setResponseCode(401).setBody("""{"code":"UNAUTHENTICATED","message":"Wrong credentials"}"""))
             try {
                 repository.login("an@example.com", "incorrect")

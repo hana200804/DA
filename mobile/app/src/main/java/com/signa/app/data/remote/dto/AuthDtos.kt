@@ -3,7 +3,7 @@ package com.signa.app.data.remote.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class LoginRequest(val email: String, val password: String)
+data class LoginRequest(val email: String, val password: String, val client: String)
 
 @Serializable
 data class RegisterRequest(val displayName: String, val email: String, val password: String)
@@ -27,7 +27,15 @@ data class UserDto(
 )
 
 @Serializable
-data class LoginResponse(val sessionId: String, val expiresAt: String, val user: UserDto)
+data class LoginUserDto(
+    val id: String,
+    val displayName: String,
+    val role: String,
+    val permissions: List<String>
+)
+
+@Serializable
+data class LoginResponse(val token: String, val expiresAt: String, val user: LoginUserDto)
 
 @Serializable
 data class ApiFieldError(val field: String, val issue: String)

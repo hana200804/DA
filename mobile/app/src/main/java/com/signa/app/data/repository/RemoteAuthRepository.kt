@@ -15,7 +15,6 @@ import com.signa.app.domain.model.PasswordResetChallenge
 import com.signa.app.domain.model.Session
 import com.signa.app.domain.model.SessionSource
 import com.signa.app.domain.model.User
-import com.signa.app.domain.model.VehicleType
 import com.signa.app.domain.repository.AuthRepository
 import java.io.IOException
 import java.time.Clock
@@ -38,7 +37,7 @@ class RemoteAuthRepository @Inject constructor(
 
     override suspend fun login(email: String, password: String) {
         val response = try {
-            request { api.login(LoginRequest(email.trim(), password)) }
+            request { api.login(LoginRequest(email.trim(), password, client = "MOBILE")) }
         } catch (error: AuthException) {
             if (error.error == AuthError.Unauthorized) throw AuthException(AuthError.InvalidCredentials, error)
             throw error
@@ -48,14 +47,15 @@ class RemoteAuthRepository @Inject constructor(
         } catch (error: java.time.format.DateTimeParseException) {
             throw AuthException(AuthError.InvalidResponse, error)
         }
-        if (response.sessionId.isBlank() || response.user.id.isBlank() || expires <= clock.millis()) {
+        if (response.token.isBlank() || response.user.id.isBlank() || expires <= clock.millis()) {
             throw AuthException(AuthError.InvalidResponse)
         }
         val user = User(
-            response.user.id, response.user.displayName, response.user.email ?: email.trim(),
-            VehicleType.entries.firstOrNull { it.name == response.user.vehicleType } ?: VehicleType.CAR
+            response.user.id, response.user.displayName, email.trim(),
+            role = response.user.role,
+            permissions = response.user.permissions
         )
-        sessions.save(Session(response.sessionId, user, expires, SessionSource.REMOTE))
+        sessions.save(Session(response.token, user, expires, SessionSource.REMOTE))
     }
 
     override suspend fun logout() {
