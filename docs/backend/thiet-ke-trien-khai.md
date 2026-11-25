@@ -84,6 +84,11 @@ Cách chia module, CSDL và hạ tầng đã được ADR chốt. Câu hỏi cò
 | Kiểm thử | JUnit 5, AssertJ, Testcontainers, WireMock, RestAssured, ArchUnit, JaCoCo | `docs/08 §1` |
 | Log, metric | Log JSON một dòng có `requestId`, `userId`, không ghi mật khẩu hay token. Micrometer qua `/actuator/prometheus`, chỉ mở trong mạng nội bộ | `docs/03 §9`, `docs/08 §7` |
 
+Scraper gọi trực tiếp backend trong mạng nội bộ và phải gửi
+`Authorization: Bearer <token phiên hợp lệ>`. Backend trả `401` nếu thiếu
+token và gateway trả `404` cho tuyến này. Việc cấp và duy trì phiên riêng
+cho scraper còn mở.
+
 Web dev server chuyển tiếp `/api/v1` qua proxy của Vite (`SIGNA_TARGET`), bản demo đi qua nginx cùng origin. Vì vậy backend **không bật CORS**.
 
 ### 5.2. Cấu trúc mã
