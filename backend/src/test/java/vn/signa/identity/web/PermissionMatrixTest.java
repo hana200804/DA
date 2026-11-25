@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 
 import java.io.IOException;
@@ -11,8 +12,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -30,12 +33,19 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.signa.catalog.internal.CatalogAdminService;
+import vn.signa.catalog.internal.CatalogQueryService;
+import vn.signa.catalog.internal.CatalogResponses.AdminSignTypeList;
+import vn.signa.catalog.internal.CatalogResponses.SignCategoryList;
+import vn.signa.catalog.internal.CatalogResponses.SignTypeItem;
+import vn.signa.catalog.internal.CatalogResponses.SignTypesSnapshot;
 import vn.signa.identity.internal.AccountService;
 import vn.signa.identity.internal.AccountService.LoginResult;
 import vn.signa.identity.internal.AccountService.Profile;
@@ -110,16 +120,26 @@ class PermissionMatrixTest {
    * {@code 405}. {@code false} cho quy tắc đặt sẵn của lát sau, chưa có controller nên {@code 404}.
    */
   record Endpoint(
-      HttpMethod method, String path, String body, Access access, boolean hasController) {
+      HttpMethod method,
+      String path,
+      String body,
+      MockMultipartFile file,
+      Access access,
+      boolean hasController) {
 
     /** Endpoint đã có controller. */
     static Endpoint of(HttpMethod method, String path, String body, Access access) {
-      return new Endpoint(method, path, body, access, true);
+      return new Endpoint(method, path, body, null, access, true);
+    }
+
+    static Endpoint withFile(
+        HttpMethod method, String path, MockMultipartFile file, Access access) {
+      return new Endpoint(method, path, null, file, access, true);
     }
 
     /** Quy tắc bảo mật đặt sẵn, chưa có controller. */
     static Endpoint reserved(HttpMethod method, String path, Access access) {
-      return new Endpoint(method, path, null, access, false);
+      return new Endpoint(method, path, null, null, access, false);
     }
 
     @Override
@@ -132,6 +152,9 @@ class PermissionMatrixTest {
       "{\"email\":\"a@b.vn\",\"password\":\"12345678\",\"displayName\":\"A\"}";
   private static final String LOGIN =
       "{\"email\":\"a@b.vn\",\"password\":\"12345678\",\"client\":\"MOBILE\"}";
+  private static final Access MANAGE_CATALOG = Access.permission("catalog:manage");
+  private static final String ADMIN_TYPES = "/api/v1/admin/sign-types";
+  private static final String ADMIN_CATEGORIES = "/api/v1/admin/sign-categories";
 
   static final List<Endpoint> ENDPOINTS =
       List.of(
@@ -147,9 +170,32 @@ class PermissionMatrixTest {
               "/api/v1/me/password",
               "{\"currentPassword\":\"cu-12345\",\"newPassword\":\"moi-12345\"}",
               Access.AUTHENTICATED),
-          // Quy tắc công khai đặt sẵn cho lát 2–4. Lát có controller đổi dòng sang Endpoint.of.
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-types", Access.PUBLIC),
-          Endpoint.reserved(HttpMethod.GET, "/api/v1/sign-categories", Access.PUBLIC),
+          // Lát 2 · tra cứu danh mục (docs/07 §4)
+          Endpoint.of(HttpMethod.GET, "/api/v1/sign-types", null, Access.PUBLIC),
+          Endpoint.of(HttpMethod.GET, "/api/v1/sign-types/P.102", null, Access.PUBLIC),
+          Endpoint.of(HttpMethod.GET, "/api/v1/sign-categories", null, Access.PUBLIC),
+          // Lát 2 · quản trị danh mục (docs/07 §8)
+          Endpoint.of(HttpMethod.GET, ADMIN_TYPES + "?active=false", null, MANAGE_CATALOG),
+          Endpoint.of(
+              HttpMethod.POST,
+              ADMIN_CATEGORIES,
+              "{\"code\":\"OTHER_NEW\",\"name\":\"Biển khác\",\"sortOrder\":5}",
+              MANAGE_CATALOG),
+          Endpoint.of(
+              HttpMethod.PATCH, ADMIN_CATEGORIES + "/OTHER", "{\"sortOrder\":5}", MANAGE_CATALOG),
+          Endpoint.of(
+              HttpMethod.POST,
+              ADMIN_TYPES,
+              "{\"code\":\"T.1\",\"categoryCode\":\"OTHER\",\"name\":\"Biển thử\"}",
+              MANAGE_CATALOG),
+          Endpoint.of(HttpMethod.PATCH, ADMIN_TYPES + "/T.1", "{\"active\":false}", MANAGE_CATALOG),
+          Endpoint.withFile(
+              HttpMethod.PUT,
+              ADMIN_TYPES + "/T.1/icon",
+              new MockMultipartFile(
+                  "icon", "T.1.png", "image/png", HexFormat.of().parseHex("89504e470d0a1a0a")),
+              MANAGE_CATALOG),
+          // Quy tắc công khai đặt sẵn cho lát 3–4. Lát có controller đổi dòng sang Endpoint.of.
           Endpoint.reserved(HttpMethod.GET, "/api/v1/signs", Access.PUBLIC),
           Endpoint.reserved(HttpMethod.GET, "/api/v1/recognition/models", Access.PUBLIC),
           Endpoint.reserved(HttpMethod.POST, "/api/v1/recognition/detect", Access.PUBLIC),
@@ -187,6 +233,8 @@ class PermissionMatrixTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean AccountService accounts;
+  @MockitoBean CatalogQueryService catalog;
+  @MockitoBean CatalogAdminService catalogAdmin;
   @MockitoBean SessionService sessions;
   @MockitoBean RolePermissions rolePermissions;
 
@@ -202,6 +250,15 @@ class PermissionMatrixTest {
         .thenReturn(new LoginResult("tok", Instant.parse("2026-12-01T00:00:00Z"), profile));
     when(accounts.profile(anyString())).thenReturn(profile);
     when(accounts.rename(anyString(), anyString())).thenReturn(profile);
+    when(catalog.categories()).thenReturn(new SignCategoryList(List.of()));
+    when(catalogAdmin.types(false)).thenReturn(new AdminSignTypeList(List.of()));
+    when(catalog.signTypes())
+        .thenReturn(SignTypesSnapshot.of("{\"labelMapVersion\":0,\"items\":[]}"));
+    when(catalog.activeType("P.102"))
+        .thenReturn(
+            Optional.of(
+                new SignTypeItem(
+                    "P.102", "PROHIBITORY", "Cấm đi ngược chiều", null, null, null, true)));
   }
 
   static Stream<Arguments> cases() {
@@ -211,7 +268,10 @@ class PermissionMatrixTest {
   @ParameterizedTest(name = "{0} as {1}")
   @MethodSource("cases")
   void statusFollowsMatrix(Endpoint endpoint, String role) throws Exception {
-    MockHttpServletRequestBuilder request = request(endpoint.method(), endpoint.path());
+    AbstractMockHttpServletRequestBuilder<?> request =
+        endpoint.file() == null
+            ? request(endpoint.method(), endpoint.path())
+            : multipart(endpoint.method(), endpoint.path()).file(endpoint.file());
     if (endpoint.body() != null) {
       request.contentType(MediaType.APPLICATION_JSON).content(endpoint.body());
     }

@@ -133,6 +133,10 @@ Token thiếu, sai hoặc đã thu hồi ở endpoint cần đăng nhập trả 
 
 Ứng dụng tải danh mục một lần, lưu vào Room và chỉ tải lại khi ETag đổi.
 
+Ba endpoint GET công khai của danh mục trả `Cache-Control: no-cache`. `GET /sign-types` trả thêm `ETag` mạnh (băm nội dung). Gửi `If-None-Match` khớp thì nhận `304` không có body. Danh sách chỉ gồm loại đang dùng. `labelMapVersion` là phiên bản danh mục nhãn lớn nhất trong các loại đó, `null` khi chưa nạp nhãn. `iconUrl` là `/icons/{icon_key}` hoặc `null`; `recognizable` là `true` khi loại có trong danh mục nhãn.
+
+`GET /sign-types/{code}` trả một phần tử cùng dạng, `404 NOT_FOUND` nếu không có mã hoặc loại đã ngừng dùng.
+
 `GET /sign-categories` trả `{ "items": [{ "code", "name", "description", "sortOrder" }] }`, sắp theo `sortOrder`.
 
 ## 5. Nhận diện
@@ -457,12 +461,18 @@ Một mô hình lỗi không làm hỏng cả request; kết quả của mô hì
 | POST | `/admin/sign-categories` | `catalog:manage` | Thêm nhóm biển | FR-35 |
 | PATCH | `/admin/sign-categories/{code}` | `catalog:manage` | Sửa nhóm biển | FR-35 |
 | POST | `/admin/sign-types` | `catalog:manage` | Thêm loại biển chỉ nhập tay | FR-35 |
-| PATCH | `/admin/sign-types/{code}` | `catalog:manage` | Sửa tên, ý nghĩa, ảnh, `active` | FR-35 |
+| PATCH | `/admin/sign-types/{code}` | `catalog:manage` | Sửa tên, ý nghĩa, tốc độ, nhóm, `active` | FR-35 |
 | PUT | `/admin/sign-types/{code}/icon` | `catalog:manage` | Tải ảnh minh hoạ | FR-35 |
 | GET | `/admin/users?q=&role=&status=` | `user:manage` | Danh sách người dùng | FR-36 |
 | PATCH | `/admin/users/{id}` | `user:manage` | Đổi `role`, `status` | FR-36 |
 
-Loại biển trong API quản trị có dạng `{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable, active, updatedAt }`. `POST /admin/sign-types` luôn tạo loại `recognizable = false`. Tải ảnh minh hoạ dùng multipart part `icon` (PNG, JPEG hoặc WebP, ≤ 1 MB).
+`GET /admin/sign-types` trả `{ items: [...] }` với mỗi loại có dạng `{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable, active, updatedAt }`. Dùng `active=true` hoặc `active=false` để lọc. Bỏ tham số để lấy tất cả. Ngừng dùng một loại bằng `PATCH` với `active=false`.
+
+Tạo nhóm hoặc loại trả `201`, trùng mã trả `409 CONFLICT`. Mã nhóm được chuẩn hoá chữ hoa và phải khớp `^[A-Z][A-Z0-9_]{0,19}$`. Mã loại dài 1–30 ký tự sau khi bỏ khoảng trắng ở hai đầu. `POST /admin/sign-types` luôn tạo loại `recognizable = false`. Trong `PATCH`, trường bỏ qua giữ giá trị cũ. Gửi `description: null` hoặc `speedKmh: null` để xoá giá trị tương ứng.
+
+Tải ảnh minh hoạ dùng multipart part `icon`. Backend kiểm tra chữ ký tệp và chấp nhận PNG, JPEG hoặc WebP tối đa 1 MB. Thành công trả `204`. Tệp vượt giới hạn trả `413 PAYLOAD_TOO_LARGE`, định dạng không hỗ trợ trả `415 UNSUPPORTED_MEDIA_TYPE`.
+
+Mỗi thay đổi danh mục ghi lịch sử `SIGN_CATEGORY` hoặc `SIGN_TYPE` trong cùng giao dịch, với người thực hiện và giá trị trước, sau. Backend xoá `cache:sign-types` sau khi commit.
 
 Người dùng trong danh sách có dạng `{ id, email, displayName, role, status, createdAt, lastLoginAt }`. `q` tìm theo một phần email. Quản trị viên tự hạ vai trò hoặc tự khoá chính mình thì nhận `422 BUSINESS_RULE`.
 

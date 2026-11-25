@@ -72,3 +72,7 @@ signa:
     bootstrap-admin:
       email: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:}
       password: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:}
+  catalog:
+    # Lát 2. Nạp ai/data/labels.yaml (signa.labels-path) khi khởi động; cũng bật bằng --import-labels.
+    import-on-startup: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:false}
+    sign-types-cache-ttl: 24h

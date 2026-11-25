@@ -177,7 +177,7 @@ Backend kiểm tra **quyền**, không kiểm tra tên vai trò, nên đổi ph�
 
 ## 5. Danh mục biển
 
-Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35.
+Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35. Lệnh nhập không ghi đè `description`, `icon_key`, `active`, không sửa nhóm đã có, và chỉ đổi `name` khi quản trị viên chưa sửa.
 
 ### sign_categories
 
@@ -200,6 +200,7 @@ Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng l�
 | `icon_key` | VARCHAR(255) | NULL | Khoá ảnh minh hoạ trong bucket `sign-icons` |
 | `label_id` | SMALLINT | NULL | `id` lớp trong danh mục nhãn; `NULL` nếu chỉ nhập tay |
 | `label_map_version` | INT | NULL | Phiên bản danh mục nhãn có lớp này |
+| `label_name` | VARCHAR(200) | NULL | Tên lấy từ danh mục nhãn ở lần nạp gần nhất. Lệnh nạp chỉ đổi `name` khi `name` còn bằng giá trị này, tức quản trị viên chưa sửa |
 | `active` | BOOLEAN | NOT NULL, mặc định TRUE | Ngừng dùng thay vì xoá |
 | `created_at`, `updated_at` | DATETIME(3) | NOT NULL | |
 
