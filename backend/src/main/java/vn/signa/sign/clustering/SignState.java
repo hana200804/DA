@@ -21,6 +21,9 @@ import java.util.Set;
  * @param relatedSignId biển đã duyệt mà biển này khác mã
  * @param reviewedAt thời điểm quyết định gần nhất; bắt buộc với {@code REJECTED}
  * @param members các đề xuất đã gán vào biển
+ * @param weightsSinceReview tổng {@code w} theo mã của các đề xuất có {@code receivedAt >
+ *     reviewedAt}; rỗng khi {@code reviewedAt = null}. Dùng cho {@code β} sau quyết định của kiểm
+ *     duyệt viên (docs/04 §6). {@code denySinceReview} là {@code R−} cùng mốc
  */
 public record SignState(
     String id,
@@ -42,7 +45,8 @@ public record SignState(
     String relatedSignId,
     Instant reviewedAt,
     int version,
-    List<MemberSubmission> members) {
+    List<MemberSubmission> members,
+    Map<String, BigDecimal> weightsSinceReview) {
 
   public SignState {
     Objects.requireNonNull(id, "id");
@@ -67,6 +71,13 @@ public record SignState(
     codeWeights = Map.copyOf(codeWeights == null ? Map.of() : codeWeights);
     flags = flags == null || flags.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(flags));
     members = List.copyOf(members == null ? List.of() : members);
+    weightsSinceReview = Map.copyOf(weightsSinceReview == null ? Map.of() : weightsSinceReview);
+    if (reviewedAt == null && !weightsSinceReview.isEmpty()) {
+      throw new IllegalArgumentException("Biển " + id + " chưa duyệt nhưng có weightsSinceReview");
+    }
+    if (weightsSinceReview.values().stream().anyMatch(w -> w.signum() < 0)) {
+      throw new IllegalArgumentException("weightsSinceReview âm ở biển " + id);
+    }
   }
 
   /** Tổng {@code Σ W_c}. */
@@ -108,6 +119,7 @@ public record SignState(
     b.reviewedAt = reviewedAt;
     b.version = version;
     b.members = new ArrayList<>(members);
+    b.weightsSinceReview = new HashMap<>(weightsSinceReview);
     return b;
   }
 
@@ -133,6 +145,7 @@ public record SignState(
     private Instant reviewedAt;
     private int version;
     private List<MemberSubmission> members = new ArrayList<>();
+    private Map<String, BigDecimal> weightsSinceReview = new HashMap<>();
 
     private Builder() {}
 
@@ -246,6 +259,29 @@ public record SignState(
       return this;
     }
 
+    public Builder weightsSinceReview(Map<String, BigDecimal> v) {
+      weightsSinceReview = new HashMap<>(v);
+      return this;
+    }
+
+    /** Cộng {@code w} của một đề xuất nhận sau {@code reviewedAt} vào mã {@code code}. */
+    public Builder addWeightSinceReview(String code, BigDecimal w) {
+      weightsSinceReview.merge(code, w, BigDecimal::add);
+      return this;
+    }
+
+    /**
+     * Quyết định mới (duyệt, giữ, tạo, tự duyệt) tại {@code at}: đặt {@code reviewedAt}, mọi bằng
+     * chứng phản đối trước đó coi như đã xem xét nên {@code weightsSinceReview} rỗng và {@code
+     * denySinceReview = 0}.
+     */
+    public Builder reviewed(Instant at) {
+      reviewedAt = at;
+      weightsSinceReview = new HashMap<>();
+      denySinceReview = 0;
+      return this;
+    }
+
     public SignState build() {
       return new SignState(
           id,
@@ -267,7 +303,8 @@ public record SignState(
           relatedSignId,
           reviewedAt,
           version,
-          members);
+          members,
+          weightsSinceReview);
     }
   }
 }

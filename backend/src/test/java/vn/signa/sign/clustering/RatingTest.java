@@ -13,6 +13,7 @@ import static vn.signa.sign.clustering.Fixtures.pendingSign;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -77,6 +78,8 @@ class RatingTest {
         approvedSign("a", OTHER_CODE, ORIGIN, 90)
             .codeWeight(CODE, new CodeWeight(new BigDecimal("1.8"), 2))
             .codeWeight(OTHER_CODE, new CodeWeight(new BigDecimal("0.5"), 1))
+            // Đề xuất mã CODE đến sau lần duyệt nên vẫn tính vào β.
+            .weightsSinceReview(Map.of(CODE, new BigDecimal("1.8")))
             .distinctSubmitters(3)
             .build();
 

@@ -103,8 +103,7 @@ class RandomizedInvariantsTest {
             .status(approve ? SignStatus.APPROVED : SignStatus.REJECTED)
             .moderatorBoost(approve ? new BigDecimal("2") : sign.moderatorBoost())
             .suggestion(null)
-            .denySinceReview(0)
-            .reviewedAt(now)
+            .reviewed(now)
             .build();
     if (approve) {
       decided =

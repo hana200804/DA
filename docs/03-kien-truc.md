@@ -199,7 +199,7 @@ sequenceDiagram
         BE-->>Web: 409 SIGN_ALREADY_PROCESSED
     else
         BE->>DB: cập nhật trạng thái đề xuất thành viên, INSERT audit_logs (cùng giao dịch)
-        BE-->>Web: 200
+        BE-->>Web: 204 No Content
     end
 ```
 

@@ -92,8 +92,11 @@ public final class ClusteringEngine {
     String rejectReason = null;
 
     if (Suggestions.shouldAutoApprove(sign, sign.signTypeCode(), config)) {
+      SignState decided =
+          sign.toBuilder().status(SignStatus.APPROVED).suggestion(null).reviewed(now).build();
+      // Bằng chứng phản đối trước quyết định không còn tính vào β (docs/04 §6).
       SignState approved =
-          sign.toBuilder().status(SignStatus.APPROVED).suggestion(null).reviewedAt(now).build();
+          decided.toBuilder().confidence(Scoring.score(decided, decided.signTypeCode())).build();
       List<MemberUpdate> all = memberUpdates(approved);
       sign = applyMemberUpdates(approved, all);
       MemberUpdate own =
@@ -226,8 +229,11 @@ public final class ClusteringEngine {
         old == null
             ? new CodeWeight(weight, 1)
             : new CodeWeight(old.weight().add(weight), old.submitterCount() + (newToCode ? 1 : 0));
-    return sign.toBuilder()
-        .codeWeight(code, updated)
+    SignState.Builder b = sign.toBuilder();
+    if (sign.reviewedAt() != null && submission.receivedAt().isAfter(sign.reviewedAt())) {
+      b.addWeightSinceReview(code, weight);
+    }
+    return b.codeWeight(code, updated)
         .distinctSubmitters(sign.distinctSubmitters() + (newToSign ? 1 : 0))
         .addMember(
             new MemberSubmission(
@@ -278,8 +284,9 @@ public final class ClusteringEngine {
     return sign.toBuilder().status(SignStatus.UNDER_REVIEW).suggestion(Suggestion.INSPECT).build();
   }
 
+  /** Sau {@code reviewedAt}, so nghiêm ngặt như SQL {@code updated_at > reviewed_at}. */
   private static boolean sinceReview(Instant at, Instant reviewedAt) {
-    return reviewedAt == null || !at.isBefore(reviewedAt);
+    return reviewedAt == null || at.isAfter(reviewedAt);
   }
 
   private static SignState setMemberStatus(SignState sign, String id, SubmissionStatus status) {

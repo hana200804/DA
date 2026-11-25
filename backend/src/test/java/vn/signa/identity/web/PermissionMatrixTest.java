@@ -60,6 +60,11 @@ import vn.signa.sign.internal.SubmissionService;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
 import vn.signa.sign.internal.map.SignDetail;
+import vn.signa.sign.internal.review.ReviewDetails;
+import vn.signa.sign.internal.review.ReviewQueryService;
+import vn.signa.sign.internal.review.ReviewService;
+import vn.signa.sign.internal.review.ReviewViews.Created;
+import vn.signa.sign.internal.review.ReviewViews.QueuePage;
 
 /**
  * UT-B11: ma trận vai trò × endpoint → mã trả về (docs/08, FR-30). Khung dạng bảng: mỗi endpoint
@@ -164,6 +169,10 @@ class PermissionMatrixTest {
   private static final Access MANAGE_CATALOG = Access.permission("catalog:manage");
   private static final String ADMIN_TYPES = "/api/v1/admin/sign-types";
   private static final String ADMIN_CATEGORIES = "/api/v1/admin/sign-categories";
+  // Lát 6
+  private static final Access REVIEW = Access.permission("review:decide");
+  private static final Access EDIT_SIGN = Access.permission("sign:edit");
+  private static final String ADMIN_SIGNS = "/api/v1/admin/signs";
 
   static final List<Endpoint> ENDPOINTS =
       List.of(
@@ -231,6 +240,32 @@ class PermissionMatrixTest {
               Access.permission("submission:create"),
               true),
           Endpoint.of(HttpMethod.GET, "/api/v1/me/submissions", null, Access.AUTHENTICATED),
+          // Lát 6 · phê duyệt và sửa biển (docs/07 §8)
+          Endpoint.of(HttpMethod.GET, "/api/v1/admin/review-queue", null, REVIEW),
+          Endpoint.of(HttpMethod.GET, ADMIN_SIGNS + "/s-1", null, REVIEW),
+          Endpoint.of(HttpMethod.POST, ADMIN_SIGNS + "/s-1/approve", "{\"version\":1}", REVIEW),
+          Endpoint.of(
+              HttpMethod.POST,
+              ADMIN_SIGNS + "/s-1/reject",
+              "{\"version\":1,\"reason\":\"Sai\"}",
+              REVIEW),
+          Endpoint.of(HttpMethod.POST, ADMIN_SIGNS + "/s-1/keep", "{\"version\":1}", REVIEW),
+          Endpoint.of(
+              HttpMethod.POST,
+              ADMIN_SIGNS,
+              "{\"signTypeCode\":\"P.102\",\"location\":{\"lat\":21.0,\"lng\":105.8},"
+                  + "\"headingDeg\":null}",
+              EDIT_SIGN),
+          Endpoint.of(
+              HttpMethod.PATCH,
+              ADMIN_SIGNS + "/s-1",
+              "{\"version\":1,\"headingDeg\":90}",
+              EDIT_SIGN),
+          Endpoint.of(
+              HttpMethod.POST,
+              ADMIN_SIGNS + "/s-1/remove",
+              "{\"version\":1,\"reason\":\"Sai\"}",
+              EDIT_SIGN),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -274,6 +309,9 @@ class PermissionMatrixTest {
   @MockitoBean RecognitionService recognition;
   // Lát 4 · bản đồ
   @MockitoBean MapService map;
+  // Lát 6 · phê duyệt
+  @MockitoBean ReviewService reviews;
+  @MockitoBean ReviewQueryService reviewQueries;
 
   @BeforeEach
   void stubs() {
@@ -321,6 +359,9 @@ class PermissionMatrixTest {
     when(catalogAdmin.types(false)).thenReturn(new AdminSignTypeList(List.of()));
     when(catalog.signTypes())
         .thenReturn(SignTypesSnapshot.of("{\"labelMapVersion\":0,\"items\":[]}"));
+    when(reviewQueries.queue(any())).thenReturn(new QueuePage(List.of(), 0, 20, 0));
+    when(reviewQueries.detail("s-1")).thenReturn(Optional.of(ReviewDetails.sample("s-1")));
+    when(reviews.create(anyString(), any())).thenReturn(new Created("s-2", 0));
     when(catalog.activeType("P.102"))
         .thenReturn(
             Optional.of(
