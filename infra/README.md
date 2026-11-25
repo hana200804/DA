@@ -106,7 +106,8 @@ Chờ `migrate` thoát mã 0 và backend báo `UP` tại
 Python 3 và dùng gateway `http://localhost:8080` theo mặc định. Script đọc hai
 biến bootstrap từ môi trường hoặc giá trị trên một dòng trong `infra/.env`.
 Với giá trị cần nội suy, truyền hai biến bootstrap đã nội suy qua môi trường.
-Script tạo hai tài khoản, hai đề xuất và một biển đã duyệt trong dữ liệu dev.
+Script tạo hai tài khoản và một biển đã duyệt trong dữ liệu dev. Nếu cặp
+đề xuất không được gom cụm, script có thể gửi cặp mới ở vị trí khác.
 Nếu chạy cùng dịch vụ nhận diện, đặt `SIGNA_SMOKE_EXPECT_RECOGNITION_UNAVAILABLE=false`
 để bỏ qua phép thử phản hồi `503`.
 

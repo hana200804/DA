@@ -133,7 +133,6 @@ import sys
 from uuid import uuid4
 
 print(token_hex(8), token_hex(24))
-print(uuid4(), uuid4())
 for _ in range(8):
     latitude = uniform(20.94, 21.13)
     longitude = uniform(105.69, 105.92)
@@ -141,7 +140,7 @@ for _ in range(8):
     bbox = (f"{longitude - 0.0011:.7f},{latitude - 0.0011:.7f},"
             f"{longitude + 0.0011:.7f},{latitude + 0.0011:.7f}")
     print(f"{latitude:.7f}", f"{longitude:.7f}", f"{latitude + 0.00004:.7f}",
-          f"{longitude + 0.00002:.7f}", bbox)
+          f"{longitude + 0.00002:.7f}", bbox, uuid4(), uuid4())
 
 # Ảnh JPEG 24×24 tự sinh, vẽ một vòng tròn đỏ và nét gạch chéo.
 crop = """
@@ -163,7 +162,6 @@ PY
 
 {
   read -r run password
-  read -r client_first client_second
   cat >"$work/locations"
 } <"$work/run-data"
 
@@ -190,30 +188,22 @@ catalog_version=$(jq -er --arg code "$code" \
   'select(any(.items[]; .code == $code and .recognizable)) | .labelMapVersion' "$response") \
   || fail "c) Thiếu nhãn $code"
 
-select_location() {
-  while read -r lat_first lng_first lat_second lng_second bbox; do
-    request 'd) Kiểm tra vùng trên bản đồ' -G --data-urlencode "bbox=$bbox" \
-      --data-urlencode zoom=17 "$api/signs"
-    expect 'd) Kiểm tra vùng trên bản đồ' 200
-    jq -e '(.items | type == "array") and (.mode == "SIGNS" or .mode == "CLUSTERS")' \
-      "$response" >/dev/null || fail 'd) Bản đồ trả dữ liệu vùng không hợp lệ'
-    if jq -e '.items | length > 0' "$response" >/dev/null; then
-      continue
-    fi
+location_available() {
+  local bbox=$1
+  request 'd) Kiểm tra vùng trên bản đồ' -G --data-urlencode "bbox=$bbox" \
+    --data-urlencode zoom=17 "$api/signs"
+  expect 'd) Kiểm tra vùng trên bản đồ' 200
+  jq -e '(.items | type == "array") and (.mode == "SIGNS" or .mode == "CLUSTERS")' \
+    "$response" >/dev/null || fail 'd) Bản đồ trả dữ liệu vùng không hợp lệ'
+  jq -e '.items | length == 0' "$response" >/dev/null || return 1
 
-    request 'd) Kiểm tra biển chờ duyệt trong vùng' -H "$admin_header" -G \
-      --data-urlencode "bbox=$bbox" --data-urlencode status=PENDING "$api/admin/review-queue"
-    expect 'd) Kiểm tra biển chờ duyệt trong vùng' 200
-    jq -e '.items | type == "array"' "$response" >/dev/null \
-      || fail 'd) Hàng đợi trả dữ liệu vùng không hợp lệ'
-    if jq -e '.items | length == 0' "$response" >/dev/null; then
-      printf 'd) Đã chọn vùng trống quanh hai điểm thử\n'
-      return
-    fi
-  done <"$work/locations"
-  fail 'd) Không tìm được vùng trống sau 8 lần chọn'
+  request 'd) Kiểm tra biển chờ duyệt trong vùng' -H "$admin_header" -G \
+    --data-urlencode "bbox=$bbox" --data-urlencode status=PENDING "$api/admin/review-queue"
+  expect 'd) Kiểm tra biển chờ duyệt trong vùng' 200
+  jq -e '.items | type == "array"' "$response" >/dev/null \
+    || fail 'd) Hàng đợi trả dữ liệu vùng không hợp lệ'
+  jq -e '.items | length == 0' "$response" >/dev/null
 }
-select_location
 
 captured_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 submit() {
@@ -232,12 +222,7 @@ submit() {
   expect "d) Đề xuất $user" 201
   show "d) Đề xuất $user" 'select(.status == "RECEIVED") | {id, status}'
 }
-submit 1 "$lat_first" "$lng_first" "$client_first" 92
-first_id=$(jq -er '.id' "$response")
-submit 2 "$lat_second" "$lng_second" "$client_second" 97
-second_id=$(jq -er '.id' "$response")
-
-wait_for_group() {
+wait_for_submission() {
   local user=$1 id=$2 attempt result status
   for ((attempt = 0; attempt < 30; attempt++)); do
     request "e) Đề xuất $user" -H "@$work/user-$user" "$api/me/submissions"
@@ -246,26 +231,53 @@ wait_for_group() {
       || fail "e) Không thấy đề xuất $user ($id)"
     status=$(jq -er '.status | select(type == "string")' <<<"$result") \
       || fail "e) Đề xuất $user ($id) thiếu trạng thái"
-    case "$status" in
-      GROUPED)
-        jq -e '.signId | type == "string" and length > 0' <<<"$result" >/dev/null \
+    if [[ $status != RECEIVED ]]; then
+      submission_status=$status
+      submission_sign_id=
+      if [[ $status == GROUPED ]]; then
+        submission_sign_id=$(jq -er '.signId | select(type == "string" and length > 0)' <<<"$result") \
           || fail "e) Đề xuất $user ($id) có trạng thái GROUPED nhưng thiếu signId"
-        printf 'e) Đề xuất %s HTTP %s %s\n' "$user" "$http" "$result"
-        return
-        ;;
-      RECEIVED) ;;
-      *) fail "e) Đề xuất $user ($id) có trạng thái $status, cần GROUPED" ;;
-    esac
+      fi
+      printf 'e) Đề xuất %s HTTP %s %s\n' "$user" "$http" "$result"
+      return
+    fi
     sleep 2
   done
-  fail "e) Đề xuất $user không chuyển sang GROUPED trong 60 giây"
+  fail "e) Đề xuất $user vẫn ở trạng thái RECEIVED sau 60 giây"
 }
-wait_for_group 1 "$first_id"
-sign_id=$(jq -er --arg id "$first_id" '.items[] | select(.id == $id) | .signId' "$response")
-wait_for_group 2 "$second_id"
-jq -e --arg id "$second_id" --arg sign "$sign_id" \
-  'any(.items[]; .id == $id and .signId == $sign)' "$response" >/dev/null \
-  || fail 'e) Hai đề xuất thuộc hai biển khác nhau'
+
+attempts=0
+grouped=false
+while read -r lat_first lng_first lat_second lng_second bbox client_first client_second; do
+  location_available "$bbox" || continue
+  attempts=$((attempts + 1))
+  printf 'd) Gửi cặp đề xuất thử lần %s\n' "$attempts"
+
+  submit 1 "$lat_first" "$lng_first" "$client_first" 92
+  first_id=$(jq -er '.id' "$response")
+  submit 2 "$lat_second" "$lng_second" "$client_second" 97
+  second_id=$(jq -er '.id' "$response")
+  wait_for_submission 1 "$first_id"
+  first_status=$submission_status
+  sign_id=$submission_sign_id
+  wait_for_submission 2 "$second_id"
+
+  if [[ $first_status == GROUPED && $submission_status == GROUPED ]]; then
+    [[ $sign_id == "$submission_sign_id" ]] || fail 'e) Hai đề xuất thuộc hai biển khác nhau'
+    grouped=true
+    break
+  fi
+  printf 'e) Cặp thử lần %s có trạng thái %s và %s\n' \
+    "$attempts" "$first_status" "$submission_status" >&2
+  if ((attempts == 5)); then
+    break
+  fi
+done <"$work/locations"
+if ((attempts == 0)); then
+  fail 'd) Không tìm được vùng trống sau 8 lần chọn'
+fi
+[[ $grouped == true ]] \
+  || fail "e) Không gom cụm được sau $attempts lần gửi (lần cuối: $first_status và $submission_status)"
 
 request 'e) Hàng đợi' -H "$admin_header" -G --data-urlencode "bbox=$bbox" "$api/admin/review-queue"
 expect 'e) Hàng đợi' 200
