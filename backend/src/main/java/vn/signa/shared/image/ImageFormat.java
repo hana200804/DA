@@ -1,4 +1,4 @@
-package vn.signa.recognition.internal;
+package vn.signa.shared.image;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -6,7 +6,7 @@ import org.springframework.http.MediaType;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
 
-/** Định dạng ảnh nhận diện được chấp nhận, xác định bằng magic bytes thay vì đuôi file. */
+/** Định dạng ảnh được chấp nhận, xác định bằng magic bytes thay vì đuôi file. */
 public enum ImageFormat {
   JPEG(MediaType.IMAGE_JPEG, "jpg"),
   PNG(MediaType.IMAGE_PNG, "png"),
@@ -51,8 +51,9 @@ public enum ImageFormat {
     throw unsupported();
   }
 
-  static ApiException unsupported() {
-    return new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, "Ảnh phải là JPEG, PNG hoặc WebP");
+  public static ApiException unsupported() {
+    return new ApiException(
+        ErrorCode.UNSUPPORTED_MEDIA_TYPE, "Ảnh phải là JPEG, PNG hoặc WebP hợp lệ");
   }
 
   private static boolean startsWith(byte[] data, int offset, byte[] prefix) {

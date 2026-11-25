@@ -21,6 +21,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
 import vn.signa.shared.web.RequestIdFilter;
 
 /**

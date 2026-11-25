@@ -108,6 +108,17 @@ class CatalogAdminControllerTest {
                         .formatted("X".repeat(31))))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.details[0].field").value("code"));
+    for (String invalid : new String[] {"TEST/A", "TEST,A", ".."}) {
+      mvc.perform(
+              post(TYPES)
+                  .with(admin())
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      "{\"code\":\"%s\",\"name\":\"Mới\",\"categoryCode\":\"OTHER\"}"
+                          .formatted(invalid)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.details[0].field").value("code"));
+    }
     verifyNoInteractions(catalog);
   }
 

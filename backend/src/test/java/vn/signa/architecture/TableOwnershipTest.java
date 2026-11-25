@@ -71,7 +71,7 @@ class TableOwnershipTest {
 
   @Test
   void ownershipCoversEverySchemaTable() {
-    assertThat(ALL_TABLES).hasSize(12);
+    assertThat(ALL_TABLES).hasSize(13);
     assertThat(Map.copyOf(Modules.TABLES)).containsKeys(Modules.NAMES.toArray(String[]::new));
   }
 

@@ -179,7 +179,9 @@ Backend kiểm tra **quyền**, không kiểm tra tên vai trò, nên đổi ph�
 
 ## 5. Danh mục biển
 
-Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35. Lệnh nhập không ghi đè `description`, `icon_key`, `active`, không sửa nhóm đã có, và chỉ đổi `name` khi quản trị viên chưa sửa.
+Bảng `catalog_generation` giữ một bộ đếm tăng trong cùng giao dịch thay đổi loại biển để chọn đúng phiên bản cache danh mục.
+
+Hai bảng danh mục được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35. Lệnh nhập không ghi đè `description`, `icon_key`, `active`, không sửa nhóm đã có, và chỉ đổi `name` khi quản trị viên chưa sửa.
 
 ### sign_categories
 
@@ -365,8 +367,9 @@ Truy vấn áp dụng các bộ lọc nhóm và mã biển khi có tham số. N�
 | `rl:login:{email}:{ip}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn đăng nhập: dùng email trong bản ghi nếu tìm thấy tài khoản, hoặc email nhập đã chuẩn hoá. Mỗi lần thử `INCR` trước BCrypt, lần thứ 11 trả `429`; đúng mật khẩu thì xoá |
 | `rl:password:{userId}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn nhập mật khẩu hiện tại khi đổi mật khẩu, cùng cách đếm với `rl:login` |
 | `rl:recognize:{userId hoặc ip}` | Counter | 1 phút | Giới hạn nhận diện ảnh |
-| `cache:sign-types` | String JSON + ETag | Xoá khi danh mục đổi | FR-08 |
+| `cache:sign-types:{generation}` | String JSON, ETag tính từ nội dung | Phiên bản tăng trong cùng giao dịch đổi loại biển, khoá cũ hết hạn theo TTL | FR-08 |
 | `stream:submissions` | Stream, group `clustering` | Xoá mục sau khi xử lý và xác nhận | Hàng đợi gom cụm ([ADR-0007](adr/0007-gom-cum-tuan-tu-qua-redis-stream.md)) |
+| `{stream:submissions}:queued` | Hash từ ID đề xuất đến ID mục stream | Ghi nguyên tử khi đưa vào stream, xoá cùng `XACK` và `XDEL` | Chống nhân bản khi quét bù |
 
 Mỗi request có phiên Redis đọc phiên bản, trạng thái và vai trò hiện hành từ
 MySQL theo khoá chính. Đọc trực tiếp giúp thu hồi có hiệu lực ngay khi MySQL
@@ -389,7 +392,7 @@ Khi Redis mất dữ liệu, người dùng đăng nhập lại. Worker quét c�
 | --- | --- | --- | --- |
 | `sign-crops` | Ảnh cắt của đề xuất, `{submissionId}.jpg` | Riêng tư; URL ký 10 phút | Theo vòng đời biển; xoá sau 90 ngày nếu biển `REJECTED` |
 | `report-photos` | Ảnh đính kèm báo cáo | Riêng tư; URL ký 10 phút | Xoá 90 ngày sau khi báo cáo được xử lý |
-| `sign-icons` | Ảnh minh hoạ chuẩn của loại biển | Đọc công khai qua nginx `/icons/` | Lâu dài |
+| `sign-icons` | Ảnh minh hoạ chuẩn của loại biển | Đọc công khai qua nginx `/icons/` | Khoá theo phiên bản, xoá bản cũ sau commit và xoá bản mới khi rollback |
 
 Ảnh gửi để nhận diện (FR-02) **không** có bucket: chỉ nằm trong bộ nhớ của request (NFR-09).
 

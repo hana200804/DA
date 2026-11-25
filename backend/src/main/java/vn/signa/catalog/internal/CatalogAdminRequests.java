@@ -48,8 +48,10 @@ public final class CatalogAdminRequests {
     }
   }
 
+  static final String SIGN_TYPE_CODE = "[A-Za-z0-9][A-Za-z0-9._~-]{0,29}";
+
   public record NewType(
-      @NotBlank @Size(max = 30) String code,
+      @NotBlank @Pattern(regexp = SIGN_TYPE_CODE) String code,
       @NotBlank @Pattern(regexp = CATEGORY_CODE) String categoryCode,
       @NotBlank @Size(max = 200) String name,
       String description,

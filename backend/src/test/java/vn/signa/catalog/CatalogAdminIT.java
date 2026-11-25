@@ -2,6 +2,8 @@ package vn.signa.catalog;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static vn.signa.shared.storage.Bucket.SIGN_ICONS;
 
 import java.awt.image.BufferedImage;
@@ -18,10 +20,12 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.AopTestUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.signa.audit.api.AuditRecorder;
 import vn.signa.shared.storage.ObjectStorage;
 import vn.signa.support.IntegrationTest;
 
@@ -31,19 +35,18 @@ class CatalogAdminIT extends IntegrationTest {
   private static final String CATEGORIES = "/api/v1/admin/sign-categories";
   private static final String TYPES = "/api/v1/admin/sign-types";
   private static final String PUBLIC_TYPES = "/api/v1/sign-types";
-  private static final String CACHE_KEY = "cache:sign-types";
   private static final byte[] PNG =
       Base64.getDecoder()
           .decode(
-              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jM1sAAAAASUVORK5CYII=");
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==");
 
   private final HttpClient http = HttpClient.newHttpClient();
 
   @LocalServerPort int port;
   @Autowired JsonMapper json;
   @Autowired JdbcTemplate jdbc;
-  @Autowired StringRedisTemplate redis;
   @Autowired ObjectStorage storage;
+  @MockitoSpyBean AuditRecorder audit;
 
   record Session(String userId, String token) {}
 
@@ -165,31 +168,69 @@ class CatalogAdminIT extends IntegrationTest {
     String fake =
         assertStatus(upload(admin, code, "fake.png", "image/png", "fake".getBytes(UTF_8)), 415);
     assertThat(json.readTree(fake).get("code").asString()).isEqualTo("UNSUPPORTED_MEDIA_TYPE");
-    assertThat(storage.exists(SIGN_ICONS, code + ".png")).isFalse();
+    assertThat(storage.list(SIGN_ICONS, code)).isEmpty();
 
-    redis.opsForValue().set(CACHE_KEY, "{}");
     assertStatus(upload(admin, code, "one.png", "image/png", PNG), 204);
-    assertThat(redis.hasKey(CACHE_KEY)).isFalse();
-    assertThat(storage.exists(SIGN_ICONS, code + ".png")).isTrue();
+    String firstKey = currentIconKey(code);
+    assertThat(firstKey).startsWith(code + "-").endsWith(".png");
+    assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
+    assertStatus(
+        upload(admin, code, "truncated.png", "image/png", java.util.Arrays.copyOf(PNG, 8)), 415);
+    assertThat(currentIconKey(code)).isEqualTo(firstKey);
+    assertThat(storage.exists(SIGN_ICONS, firstKey)).isTrue();
+
+    assertStatus(upload(admin, code, "another.png", "image/png", PNG), 204);
+    String secondKey = currentIconKey(code);
+    assertThat(secondKey).startsWith(code + "-").endsWith(".png").isNotEqualTo(firstKey);
+    assertThat(storage.exists(SIGN_ICONS, firstKey)).isFalse();
 
     var jpeg = new ByteArrayOutputStream();
     assertThat(ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "jpeg", jpeg))
         .isTrue();
     assertStatus(upload(admin, code, "two.jpg", "image/jpeg", jpeg.toByteArray()), 204);
-    assertThat(storage.exists(SIGN_ICONS, code + ".jpg")).isTrue();
-    assertThat(storage.exists(SIGN_ICONS, code + ".png")).isFalse();
+    String jpegKey = currentIconKey(code);
+    assertThat(jpegKey).startsWith(code + "-").endsWith(".jpg");
+    assertThat(storage.exists(SIGN_ICONS, jpegKey)).isTrue();
+    assertThat(storage.exists(SIGN_ICONS, secondKey)).isFalse();
     String detail = assertStatus(call("GET", PUBLIC_TYPES + "/" + code, null, null), 200);
-    assertThat(json.readTree(detail).get("iconUrl").asString())
-        .isEqualTo("/icons/" + code + ".jpg");
+    assertThat(json.readTree(detail).get("iconUrl").asString()).isEqualTo("/icons/" + jpegKey);
 
     List<Map<String, Object>> history = history("SIGN_TYPE", code, admin.userId());
     assertThat(history)
         .extracting(row -> row.get("action"))
-        .containsExactly("CREATED", "UPDATED", "UPDATED");
+        .containsExactly("CREATED", "UPDATED", "UPDATED", "UPDATED");
     assertThat(value(history.getLast(), "before_value").get("iconKey").asString())
-        .isEqualTo(code + ".png");
+        .isEqualTo(secondKey);
     assertThat(value(history.getLast(), "after_value").get("iconKey").asString())
-        .isEqualTo(code + ".jpg");
+        .isEqualTo(jpegKey);
+  }
+
+  @Test
+  void rollbackKeepsThePreviousIconAndDeletesTheUncommittedVersion() throws Exception {
+    Session admin = signIn("ADMIN");
+    String category = "CAT_" + suffix();
+    String code = "IT." + suffix();
+    createCategory(admin, category);
+    change(admin, "POST", TYPES, typeInput(code, category), 201);
+
+    assertStatus(upload(admin, code, "one.png", "image/png", PNG), 204);
+    String original = currentIconKey(code);
+    // Stub trên spy đích: gọi qua proxy @Transactional(MANDATORY) ngoài giao dịch sẽ ném lỗi.
+    AuditRecorder spy = AopTestUtils.getUltimateTargetObject(audit);
+    doThrow(new IllegalStateException("Lỗi ghi lịch sử thử nghiệm"))
+        .when(spy)
+        .record(argThat(entry -> entry.entityId().equals(code)));
+
+    assertStatus(upload(admin, code, "replacement.png", "image/png", PNG), 500);
+    assertThat(currentIconKey(code)).isEqualTo(original);
+    assertThat(storage.list(SIGN_ICONS, code))
+        .extracting(ObjectStorage.StoredObject::key)
+        .containsExactly(original);
+  }
+
+  private String currentIconKey(String code) {
+    return jdbc.queryForObject(
+        "SELECT icon_key FROM sign_types WHERE code = ?", String.class, code);
   }
 
   private Session signIn(String role) throws Exception {
@@ -233,9 +274,7 @@ class CatalogAdminIT extends IntegrationTest {
 
   private JsonNode change(Session admin, String method, String path, String body, int status)
       throws Exception {
-    redis.opsForValue().set(CACHE_KEY, "{}");
     String result = assertStatus(call(method, path, admin.token(), body), status);
-    assertThat(redis.hasKey(CACHE_KEY)).isFalse();
     return json.readTree(result);
   }
 

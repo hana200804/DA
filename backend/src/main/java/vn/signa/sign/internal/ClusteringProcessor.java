@@ -12,6 +12,7 @@ import vn.signa.audit.api.AuditEntityType;
 import vn.signa.audit.api.AuditEntry;
 import vn.signa.audit.api.AuditRecorder;
 import vn.signa.catalog.api.SignCatalog;
+import vn.signa.catalog.api.SignTypeView;
 import vn.signa.sign.clustering.ClusteringConfig;
 import vn.signa.sign.clustering.ClusteringEngine;
 import vn.signa.sign.clustering.SignState;
@@ -53,7 +54,11 @@ class ClusteringProcessor {
     var submission = submissions.lock(id).orElse(null);
     if (submission == null || submission.status() != SubmissionStatus.RECEIVED) return;
 
-    String category = catalog.categoryOf(submission.signTypeCode()).orElseThrow();
+    String category =
+        catalog
+            .findTypeForSignWrite(submission.signTypeCode())
+            .map(SignTypeView::categoryCode)
+            .orElseThrow();
     var input = submission.input(category);
     var now = clock.instant().truncatedTo(ChronoUnit.MILLIS);
     var config = engine.config();

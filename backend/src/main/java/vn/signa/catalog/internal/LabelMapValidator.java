@@ -15,7 +15,9 @@ public final class LabelMapValidator {
 
   static final Pattern CATEGORY_CODE = Pattern.compile("^[A-Z][A-Z0-9_]{0,19}$");
   static final int MAX_LABEL_ID = Short.MAX_VALUE;
-  static final int MAX_CODE = 30;
+  private static final int MAX_CODE = 30;
+  private static final Pattern SIGN_TYPE_CODE =
+      Pattern.compile(CatalogAdminRequests.SIGN_TYPE_CODE);
   static final int MAX_CATEGORY_NAME = 100;
   static final int MAX_TYPE_NAME = 200;
 
@@ -61,6 +63,8 @@ public final class LabelMapValidator {
         problems.add(at + "lớp thiếu `code`");
       } else if (c.code().length() > MAX_CODE) {
         problems.add(at + "`code` dài quá " + MAX_CODE + " ký tự");
+      } else if (!SIGN_TYPE_CODE.matcher(c.code()).matches()) {
+        problems.add(at + "`code` phải khớp " + SIGN_TYPE_CODE.pattern());
       } else {
         Integer first = codeLines.putIfAbsent(c.code(), c.line());
         if (first != null) problems.add(at + "`code` " + c.code() + " trùng với dòng " + first);

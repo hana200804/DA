@@ -3,7 +3,6 @@ package vn.signa.sign.internal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import org.springframework.data.domain.Range;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
@@ -22,13 +21,32 @@ import org.springframework.stereotype.Component;
 class SubmissionStream {
 
   static final String KEY = "stream:submissions";
+  static final String QUEUED = "{stream:submissions}:queued";
   static final String GROUP = "clustering";
+
+  private static final DefaultRedisScript<Long> ADD =
+      new DefaultRedisScript<>(
+          """
+          local record = redis.call('HGET', KEYS[2], ARGV[1])
+          if record then
+            local entry = redis.call('XRANGE', KEYS[1], record, record)[1]
+            if entry and entry[2][2] == ARGV[1] then return 0 end
+          end
+          record = redis.call('XADD', KEYS[1], '*', 'id', ARGV[1])
+          redis.call('HSET', KEYS[2], ARGV[1], record)
+          return 1
+          """,
+          Long.class);
 
   private static final DefaultRedisScript<Long> COMPLETE =
       new DefaultRedisScript<>(
           """
           redis.call('XACK', KEYS[1], ARGV[1], ARGV[2])
-          return redis.call('XDEL', KEYS[1], ARGV[2])
+          redis.call('XDEL', KEYS[1], ARGV[2])
+          if ARGV[3] ~= '' and redis.call('HGET', KEYS[2], ARGV[3]) == ARGV[2] then
+            redis.call('HDEL', KEYS[2], ARGV[3])
+          end
+          return 1
           """,
           Long.class);
 
@@ -41,7 +59,7 @@ class SubmissionStream {
   }
 
   void add(String submissionId) {
-    streams.add(KEY, Map.of("id", submissionId));
+    redis.execute(ADD, List.of(KEY, QUEUED), submissionId);
   }
 
   void createGroup() {
@@ -79,13 +97,18 @@ class SubmissionStream {
     var records =
         streams.read(
             Consumer.from(GROUP, consumer),
-            StreamReadOptions.empty().count(1).block(Duration.ofSeconds(1)),
+            StreamReadOptions.empty().count(32).block(Duration.ofSeconds(1)),
             StreamOffset.create(KEY, ReadOffset.lastConsumed()));
     return records == null ? List.of() : records;
   }
 
-  void complete(RecordId id) {
-    redis.execute(COMPLETE, List.of(KEY), GROUP, id.getValue());
+  void complete(RecordId id, String submissionId) {
+    redis.execute(
+        COMPLETE,
+        List.of(KEY, QUEUED),
+        GROUP,
+        id.getValue(),
+        submissionId == null ? "" : submissionId);
   }
 
   long length() {

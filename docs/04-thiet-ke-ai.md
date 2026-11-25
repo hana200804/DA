@@ -260,7 +260,7 @@ stateDiagram-v2
 
 Khi biển chuyển trạng thái, các đề xuất thành viên cập nhật theo: biển `APPROVED` → đề xuất cùng mã `ACCEPTED`, khác mã `REJECTED`; biển `REJECTED` → mọi đề xuất `REJECTED`.
 
-**Vị trí biển** là trung vị có trọng số theo `w` của vị trí các đề xuất mang mã dẫn đầu, tính lại khi có đề xuất mới, cho tới khi kiểm duyệt viên chốt vị trí.
+**Vị trí biển** là trung vị có trọng số theo `w` của vị trí các đề xuất mang mã dẫn đầu, tính lại khi có đề xuất mới, cho tới khi kiểm duyệt viên chốt vị trí. Tính riêng vĩ độ và kinh độ. Trải kinh độ quanh kinh độ hiện tại của biển trước khi tính trung vị, rồi chuẩn hoá kết quả về miền WGS84.
 
 ### Đánh giá hiệu quả — mục tiêu G4
 

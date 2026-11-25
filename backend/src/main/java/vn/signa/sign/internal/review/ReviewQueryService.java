@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.catalog.api.SignCatalog;
 import vn.signa.catalog.api.SignTypeView;
 import vn.signa.shared.storage.Bucket;
@@ -37,14 +40,27 @@ public class ReviewQueryService {
   private final ReviewQueryRepository repository;
   private final SignCatalog catalog;
   private final ObjectStorage storage;
+  private final TransactionTemplate snapshotTx;
 
-  ReviewQueryService(ReviewQueryRepository repository, SignCatalog catalog, ObjectStorage storage) {
+  ReviewQueryService(
+      ReviewQueryRepository repository,
+      SignCatalog catalog,
+      ObjectStorage storage,
+      PlatformTransactionManager transactionManager) {
     this.repository = repository;
     this.catalog = catalog;
     this.storage = storage;
+    this.snapshotTx = new TransactionTemplate(transactionManager);
+    this.snapshotTx.setReadOnly(true);
+    this.snapshotTx.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+    this.snapshotTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
   }
 
   public QueuePage queue(QueueQuery query) {
+    return snapshotTx.execute(status -> readQueue(query));
+  }
+
+  private QueuePage readQueue(QueueQuery query) {
     Map<String, String> names = new HashMap<>();
     List<QueueItem> items =
         repository.queue(query).stream()
@@ -67,22 +83,29 @@ public class ReviewQueryService {
   }
 
   public Optional<Detail> detail(String id) {
-    return repository.find(id).map(this::detail);
+    Optional<DetailSnapshot> snapshot =
+        snapshotTx.execute(status -> repository.find(id).map(this::readDetail));
+    return snapshot.map(this::detail);
   }
 
-  private Detail detail(SignRow row) {
+  private DetailSnapshot readDetail(SignRow row) {
+    String signName = name(row.signTypeCode());
     Map<String, Double> weights = new LinkedHashMap<>();
     repository.codeWeights(row.id()).forEach((code, w) -> weights.put(code, w.doubleValue()));
-    List<SubmissionView> submissions =
-        repository.submissions(row.id()).stream().map(this::submission).toList();
+    List<SubmissionRow> submissions = repository.submissions(row.id());
     List<NearbySign> nearby =
         repository.nearby(row.id(), row.location(), NEARBY_RADIUS_M, NEARBY_LIMIT).stream()
             .map(n -> new NearbySign(n.id(), n.signTypeCode(), latLng(n.location()), n.status()))
             .toList();
+    return new DetailSnapshot(row, signName, weights, submissions, nearby);
+  }
+
+  private Detail detail(DetailSnapshot snapshot) {
+    SignRow row = snapshot.sign();
     return new Detail(
         row.id(),
         row.signTypeCode(),
-        name(row.signTypeCode()),
+        snapshot.signName(),
         row.categoryCode(),
         latLng(row.location()),
         row.headingDeg(),
@@ -98,10 +121,17 @@ public class ReviewQueryService {
         cropUrl(row.coverCropKey()),
         row.confirmCount(),
         row.denyCount(),
-        weights,
-        submissions,
-        nearby);
+        snapshot.weights(),
+        snapshot.submissions().stream().map(this::submission).toList(),
+        snapshot.nearby());
   }
+
+  private record DetailSnapshot(
+      SignRow sign,
+      String signName,
+      Map<String, Double> weights,
+      List<SubmissionRow> submissions,
+      List<NearbySign> nearby) {}
 
   private SubmissionView submission(SubmissionRow row) {
     BigDecimal weight = row.weight();

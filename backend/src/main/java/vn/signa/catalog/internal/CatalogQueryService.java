@@ -34,10 +34,11 @@ public class CatalogQueryService {
 
   /** Toàn bộ loại đang dùng, lấy từ {@code cache:sign-types} nếu có. */
   public SignTypesSnapshot signTypes() {
-    Optional<String> cached = cache.get();
+    long generation = repository.generation();
+    Optional<String> cached = cache.get(generation);
     if (cached.isPresent()) return SignTypesSnapshot.of(cached.get());
     String body = json.writeValueAsString(buildSignTypes(repository.activeTypes()));
-    cache.put(body);
+    cache.put(generation, body);
     return SignTypesSnapshot.of(body);
   }
 

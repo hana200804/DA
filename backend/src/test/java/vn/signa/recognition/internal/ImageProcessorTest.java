@@ -6,10 +6,12 @@ import static org.assertj.core.api.Assertions.within;
 
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
+import java.util.concurrent.Semaphore;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
 
 class ImageProcessorTest {
 
@@ -36,6 +38,19 @@ class ImageProcessorTest {
 
     assertThat(prepared.sentWidth()).isEqualTo(427);
     assertThat(prepared.sentHeight()).isEqualTo(1280);
+  }
+
+  @Test
+  void wideAndTallImagesArePaddedToTheAiMinimumEdge() throws Exception {
+    PreparedImage wide = processor.prepare(TestImages.png(4096, 20));
+    PreparedImage tall = processor.prepare(TestImages.png(20, 4096));
+
+    assertThat(TestImages.decode(wide.payload()).getHeight()).isEqualTo(8);
+    assertThat(TestImages.decode(tall.payload()).getWidth()).isEqualTo(8);
+    assertThat(wide.sentWidth()).isEqualTo(1280);
+    assertThat(tall.sentHeight()).isEqualTo(1280);
+    assertThat(wide.toOriginal(new Box(5, 3, 10, 5))).isEqualTo(new Box(16, 10, 32, 10));
+    assertThat(tall.toOriginal(new Box(3, 5, 5, 10))).isEqualTo(new Box(10, 16, 10, 32));
   }
 
   @Test
@@ -76,6 +91,26 @@ class ImageProcessorTest {
     assertThatThrownBy(() -> processor.prepare(bomb))
         .isInstanceOfSatisfying(
             ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.PAYLOAD_TOO_LARGE));
+  }
+
+  @Test
+  void returnsRetryAfterWhileOtherDecodesUseThePixelBudget() throws Exception {
+    var budget = new Semaphore(2_000_000);
+    var limited = new ImageProcessor(budget);
+    byte[] large = TestImages.png(1600, 1000);
+    budget.acquire(500_000);
+
+    assertThatThrownBy(() -> limited.prepare(large))
+        .isInstanceOfSatisfying(
+            ApiException.class,
+            e -> {
+              assertThat(e.code()).isEqualTo(ErrorCode.RECOGNITION_UNAVAILABLE);
+              assertThat(e.retryAfterSeconds()).isEqualTo(1);
+            });
+    budget.release(500_000);
+
+    assertThat(limited.prepare(large).sentWidth()).isEqualTo(1280);
+    assertThat(budget.availablePermits()).isEqualTo(2_000_000);
   }
 
   @Test

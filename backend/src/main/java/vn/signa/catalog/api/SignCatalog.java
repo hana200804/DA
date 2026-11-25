@@ -13,6 +13,9 @@ public interface SignCatalog {
   /** Loại biển theo mã, kể cả loại đã ngừng dùng (xem {@link SignTypeView#active()}). */
   Optional<SignTypeView> findType(String code);
 
+  /** Đọc loại và giữ khoá chia sẻ đến khi hoàn tất giao dịch ghi biển. */
+  Optional<SignTypeView> findTypeForSignWrite(String code);
+
   /** Mã nhóm của loại biển, kể cả loại đã ngừng dùng; rỗng nếu không có mã này. */
   Optional<String> categoryOf(String code);
 

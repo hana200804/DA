@@ -10,15 +10,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.audit.api.AuditEntityType;
 import vn.signa.audit.api.AuditEntry;
 import vn.signa.audit.api.AuditRecorder;
+import vn.signa.catalog.api.SignTypeCategoryChanged;
 import vn.signa.catalog.internal.CatalogRepository.CategoryRow;
 import vn.signa.catalog.internal.CatalogRepository.TypeRow;
 
@@ -51,19 +52,19 @@ public class LabelImporter {
 
   private final CatalogRepository repository;
   private final AuditRecorder audit;
-  private final SignTypesCache cache;
+  private final ApplicationEventPublisher events;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   LabelImporter(
       CatalogRepository repository,
       AuditRecorder audit,
-      SignTypesCache cache,
+      ApplicationEventPublisher events,
       TransactionTemplate tx,
       Clock clock) {
     this.repository = repository;
     this.audit = audit;
-    this.cache = cache;
+    this.events = events;
     this.tx = tx;
     this.clock = clock;
   }
@@ -105,15 +106,15 @@ public class LabelImporter {
       categoriesCreated++;
     }
 
-    Map<String, TypeRow> existing =
-        repository.allTypes().stream()
-            .collect(Collectors.toMap(TypeRow::code, Function.identity()));
+    Set<String> importedCodes =
+        map.classes().stream().map(LabelMap.LabelClass::code).collect(Collectors.toSet());
     int created = 0;
     int updated = 0;
     int unchanged = 0;
     for (LabelMap.LabelClass c : map.classes()) {
       String categoryCode = codeByKey.get(c.categoryKey());
-      TypeRow old = existing.remove(c.code());
+      TypeRow old =
+          repository.lockType(c.code()).map(CatalogRepository.AdminTypeRow::type).orElse(null);
       if (old == null) {
         TypeRow row =
             new TypeRow(
@@ -160,6 +161,9 @@ public class LabelImporter {
       before.keySet().removeAll(same);
       after.keySet().removeAll(same);
       repository.updateLabelFields(row, now);
+      if (!categoryCode.equals(old.categoryCode())) {
+        events.publishEvent(new SignTypeCategoryChanged(row.code(), categoryCode, now));
+      }
       audit.record(
           AuditEntry.bySystem(
               AuditEntityType.SIGN_TYPE, row.code(), "UPDATED", before, after, null));
@@ -167,11 +171,11 @@ public class LabelImporter {
     }
 
     List<String> notInFile = new ArrayList<>();
-    existing.values().stream()
-        .filter(t -> t.labelId() != null && t.active())
+    repository.allTypes().stream()
+        .filter(t -> !importedCodes.contains(t.code()) && t.labelId() != null && t.active())
         .forEach(t -> notInFile.add(t.code()));
 
-    cache.evictAfterCommit();
+    if (created + updated > 0) repository.advanceGeneration();
     return new Result(version, categoriesCreated, created, updated, unchanged, notInFile);
   }
 

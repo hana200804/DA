@@ -3,6 +3,7 @@ package vn.signa.sign.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
+import static org.mockito.Mockito.doAnswer;
 import static vn.signa.sign.internal.ReviewItSupport.ADMIN;
 import static vn.signa.sign.internal.ReviewItSupport.assertStatus;
 import static vn.signa.sign.internal.ReviewItSupport.north;
@@ -23,8 +24,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.signa.catalog.api.SignCatalog;
 import vn.signa.sign.clustering.GeoPoint;
 import vn.signa.sign.internal.ReviewItSupport.Session;
 import vn.signa.support.IntegrationTest;
@@ -36,6 +39,7 @@ class ReviewIT extends IntegrationTest {
   @Autowired JsonMapper json;
   @Autowired JdbcTemplate jdbc;
   @Autowired ClusteringProcessor processor;
+  @MockitoSpyBean SignCatalog catalog;
 
   private ReviewItSupport it;
   private String category;
@@ -179,7 +183,9 @@ class ReviewIT extends IntegrationTest {
     String sign = it.submissionRow(other).get("sign_id").toString();
     assertThat(leading)
         .allSatisfy(id -> assertThat(it.submissionRow(id)).containsEntry("sign_id", sign));
-    assertThat(it.signRow(sign)).containsEntry("sign_type_code", codeA);
+    assertThat(it.signRow(sign))
+        .containsEntry("sign_type_code", codeA)
+        .containsEntry("cover_crop_key", leading.getFirst() + ".jpg");
 
     assertStatus(
         it.approve(moderator, sign, Map.of("version", it.version(sign), "signTypeCode", codeB)),
@@ -202,7 +208,10 @@ class ReviewIT extends IntegrationTest {
                 .containsEntry("status", "REJECTED")
                 .containsEntry("reject_reason", "Biển được duyệt với mã khác"));
     assertThat(it.submissionRow(other)).containsEntry("status", "ACCEPTED");
-    assertThat(it.detail(moderator, sign).get("confidence").asDouble()).isGreaterThanOrEqualTo(0.5);
+    assertThat(row).containsEntry("cover_crop_key", other + ".jpg");
+    JsonNode detail = it.body(it.send("GET", "/api/v1/signs/" + sign, null, null), 200);
+    assertThat(detail.get("confidence").asDouble()).isGreaterThanOrEqualTo(0.5);
+    assertThat(detail.get("coverCropUrl").asString()).contains(other + ".jpg");
   }
 
   @Test
@@ -250,6 +259,30 @@ class ReviewIT extends IntegrationTest {
             + (at.lat() + 0.0001);
     JsonNode boxed = it.body(it.send("GET", queue + "&bbox=" + bbox, moderator.token(), null), 200);
     assertThat(ids(boxed)).containsExactly(waitHigh);
+  }
+
+  @Test
+  void queueCountUsesTheSnapshotFromBeforeAConcurrentApproval() throws Exception {
+    Session moderator = it.moderator();
+    String sign = it.sign(codeA, category, somewhere(), "PENDING", "0.7", "WAIT", Instant.now());
+    doAnswer(
+            invocation -> {
+              CompletableFuture.runAsync(
+                      () -> jdbc.update("UPDATE signs SET status = 'APPROVED' WHERE id = ?", sign))
+                  .get(10, TimeUnit.SECONDS);
+              return invocation.callRealMethod();
+            })
+        .when(catalog)
+        .findType(codeA);
+
+    String path =
+        ADMIN + "/review-queue?status=PENDING&bbox=-180,-90,180,90&categories=" + category;
+    JsonNode before = it.body(it.send("GET", path, moderator.token(), null), 200);
+    assertThat(ids(before)).containsExactly(sign);
+    assertThat(before.get("total").asLong()).isEqualTo(1);
+    JsonNode after = it.body(it.send("GET", path, moderator.token(), null), 200);
+    assertThat(ids(after)).isEmpty();
+    assertThat(after.get("total").asLong()).isZero();
   }
 
   @Test
@@ -321,6 +354,33 @@ class ReviewIT extends IntegrationTest {
     assertThat(it.history(review))
         .extracting(row -> row.get("action"))
         .containsExactly("EDITED", "KEPT");
+  }
+
+  @Test
+  void keepSelectsTheNewCodesCropAndPatchClearsItWhenNoCropMatches() throws Exception {
+    Session moderator = it.moderator();
+    GeoPoint at = somewhere();
+    String sign = it.sign(codeA, category, at, "UNDER_REVIEW", "0.4", "INSPECT", Instant.now());
+    String old = it.member(sign, it.submitter(), codeA, "0.9000", at);
+    String replacement = it.member(sign, it.submitter(), codeB, "0.8000", at);
+    jdbc.update("UPDATE signs SET cover_crop_key = ? WHERE id = ?", old + ".jpg", sign);
+    String path = ADMIN + "/signs/" + sign;
+
+    assertStatus(
+        it.send(
+            "POST", path + "/keep", moderator.token(), Map.of("version", 0, "signTypeCode", codeB)),
+        204);
+    assertThat(it.signRow(sign)).containsEntry("cover_crop_key", replacement + ".jpg");
+
+    String codeWithoutCrop = it.type("C", category);
+    assertStatus(
+        it.send(
+            "PATCH",
+            path,
+            moderator.token(),
+            Map.of("version", 1, "signTypeCode", codeWithoutCrop)),
+        204);
+    assertThat(it.signRow(sign)).containsEntry("cover_crop_key", null);
   }
 
   @Test

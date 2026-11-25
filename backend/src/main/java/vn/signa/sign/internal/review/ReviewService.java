@@ -108,7 +108,9 @@ public class ReviewService {
   private void write(String actor, String id, Function<SignState, Outcome> operation, Instant now) {
     SignState sign = signs.lock(id).orElseThrow(ApiException::notFound);
     Outcome outcome = operation.apply(sign);
-    if (!signs.update(outcome.sign(), sign.version(), outcome.reviewed() ? actor : null, now)) {
+    boolean codeChanged = !outcome.sign().signTypeCode().equals(sign.signTypeCode());
+    if (!signs.update(
+        outcome.sign(), sign.version(), outcome.reviewed() ? actor : null, now, codeChanged)) {
       throw new ApiException(ErrorCode.SIGN_ALREADY_PROCESSED);
     }
     signs.updateMembers(id, outcome.members());
@@ -134,7 +136,7 @@ public class ReviewService {
     if (code == null) return null;
     SignTypeView type =
         catalog
-            .findType(code)
+            .findTypeForSignWrite(code)
             .filter(SignTypeView::active)
             .orElseThrow(() ->
                 new ApiException(

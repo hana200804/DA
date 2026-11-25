@@ -3,10 +3,8 @@ package vn.signa.sign.internal.feedback;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.json.JsonMapper;
 import vn.signa.shared.error.ApiException;
@@ -50,19 +48,14 @@ class ReportInputTest {
             ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR));
   }
 
-  @ParameterizedTest
-  @CsvSource({"ffd8ff, JPEG", "89504e470d0a1a0a, PNG", "524946462400000057454250, WEBP"})
-  void detectsAllowedMagicBytes(String hex, ReportPhoto expected) {
-    assertThat(ReportPhoto.detect(HexFormat.of().parseHex(hex))).isEqualTo(expected);
-  }
-
   @Test
   void rejectsInvalidOrOversizedPhoto() {
-    assertThatThrownBy(() -> ReportPhoto.detect(new byte[] {1, 2, 3}))
+    assertThatThrownBy(() -> ReportService.validatePhoto(new byte[] {1, 2, 3}))
         .isInstanceOfSatisfying(
             ApiException.class,
             e -> assertThat(e.code()).isEqualTo(ErrorCode.UNSUPPORTED_MEDIA_TYPE));
-    assertThatThrownBy(() -> ReportPhoto.detect(new byte[ReportPhoto.MAX_BYTES + 1]))
+    assertThatThrownBy(
+            () -> ReportService.validatePhoto(new byte[ReportService.MAX_PHOTO_BYTES + 1]))
         .isInstanceOfSatisfying(
             ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.PAYLOAD_TOO_LARGE));
   }

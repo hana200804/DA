@@ -65,6 +65,21 @@ class ClusteringEngineTest {
   }
 
   @Test
+  void equalWeightsAcrossDatelineKeepTheThirdSubmissionInTheSameCluster() {
+    var east = new GeoPoint(0, 179.99995);
+    var west = new GeoPoint(0, -179.99995);
+    var first = world.submit(sub("s1", "u1").at(east).build());
+    var second = world.submit(sub("s2", "u2").at(west).build());
+    assertThat(second.sign().id()).isEqualTo(first.sign().id());
+    assertThat(second.sign().location().lng()).isCloseTo(180, within());
+
+    var third = world.submit(sub("s3", "u3").at(west).build());
+    assertThat(third.signCreated()).isFalse();
+    assertThat(third.sign().id()).isEqualTo(first.sign().id());
+    assertThat(Geo.distanceMeters(third.sign().location(), west)).isLessThan(12);
+  }
+
+  @Test
   @DisplayName("docs/04 §6: một người p = 0,9 → 0,74, Chờ thêm")
   void onePerson() {
     ClusteringOutcome outcome = world.submit(sub("s1", "u1").build());

@@ -2,16 +2,11 @@ package vn.signa.catalog.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -21,10 +16,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -42,18 +37,15 @@ class LabelImporterTest {
 
   private final FakeRepository repository = new FakeRepository();
   private final List<AuditEntry> audit = new ArrayList<>();
-  private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
   private LabelImporter importer;
 
   @BeforeEach
   void setUp() {
-    SignTypesCache cache =
-        new SignTypesCache(redis, new CatalogProperties(false, Duration.ofHours(1)));
     importer =
         new LabelImporter(
             repository,
             audit::add,
-            cache,
+            event -> {},
             new TransactionTemplate(new NoOpTransactionManager()),
             Clock.fixed(Instant.parse("2026-11-23T00:00:00Z"), ZoneOffset.UTC));
   }
@@ -99,17 +91,24 @@ class LabelImporterTest {
     assertThat(repository.types).isEqualTo(snapshot);
     assertThat(repository.updates).isZero();
     assertThat(audit).isEmpty();
-    verify(redis, times(2)).delete(SignTypesCache.KEY);
+    assertThat(repository.generation()).isEqualTo(2);
   }
 
   @Test
   void keepsAdminEditsAndUpdatesUntouchedName(@TempDir Path dir) throws IOException {
     repository.categories.put("OTHER", new CategoryRow("OTHER", "Tên admin sửa", "Mô tả", 9));
-    // Tên đã sửa: name khác label_name.
     repository.types.put(
-        "A.1",
-        new TypeRow(
-            "A.1", "OTHER", "Tên admin", "Mô tả admin", null, "a.png", 0, 1, "A cũ", false));
+        "A.1", new TypeRow("A.1", "OTHER", "A cũ", null, null, "a.png", 0, 1, "A cũ", false));
+    // Mô phỏng PATCH hoàn tất sau khi bắt đầu nạp, trước lúc khoá loại biển.
+    repository.beforeLock =
+        code -> {
+          if (code.equals("A.1")) {
+            repository.types.put(
+                code,
+                new TypeRow(
+                    code, "OTHER", "Tên admin", "Mô tả admin", null, "a.png", 0, 1, "A cũ", false));
+          }
+        };
     // Tên chưa sửa: name bằng label_name.
     repository.types.put(
         "A.2", new TypeRow("A.2", "OTHER", "B cũ", "Mô tả 2", null, null, 1, 1, "B cũ", true));
@@ -188,19 +187,23 @@ class LabelImporterTest {
     assertThat(repository.types).isEmpty();
   }
 
-  @Test
-  void redisFailureDoesNotFailImport() {
-    when(redis.delete(SignTypesCache.KEY))
-        .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("down"));
-
-    assertThat(importer.importFrom(LabelsYamlParserTest.REAL_FILE).typesCreated()).isEqualTo(46);
-  }
-
   /** Kho trong bộ nhớ thay cho MySQL. */
   static final class FakeRepository extends CatalogRepository {
     final Map<String, CategoryRow> categories = new TreeMap<>();
     final Map<String, TypeRow> types = new TreeMap<>();
     int updates;
+    Consumer<String> beforeLock = code -> {};
+    long generation = 1;
+
+    @Override
+    long generation() {
+      return generation;
+    }
+
+    @Override
+    void advanceGeneration() {
+      generation++;
+    }
 
     FakeRepository() {
       super(null);
@@ -214,6 +217,12 @@ class LabelImporterTest {
     @Override
     public void insertCategory(CategoryRow row) {
       assertThat(categories.putIfAbsent(row.code(), row)).isNull();
+    }
+
+    @Override
+    Optional<AdminTypeRow> lockType(String code) {
+      beforeLock.accept(code);
+      return type(code).map(row -> new AdminTypeRow(row, Instant.EPOCH));
     }
 
     @Override

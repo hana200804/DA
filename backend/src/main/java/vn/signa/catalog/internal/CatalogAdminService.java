@@ -14,8 +14,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.signa.audit.api.AuditEntityType;
 import vn.signa.audit.api.AuditEntry;
 import vn.signa.audit.api.AuditRecorder;
+import vn.signa.catalog.api.SignTypeCategoryChanged;
 import vn.signa.catalog.internal.CatalogAdminRequests.EditCategory;
 import vn.signa.catalog.internal.CatalogAdminRequests.EditType;
 import vn.signa.catalog.internal.CatalogAdminRequests.NewCategory;
@@ -41,6 +44,8 @@ import vn.signa.catalog.internal.CatalogResponses.AdminSignTypeList;
 import vn.signa.catalog.internal.CatalogResponses.SignCategoryItem;
 import vn.signa.shared.error.ApiException;
 import vn.signa.shared.error.ErrorCode;
+import vn.signa.shared.image.ImageFormat;
+import vn.signa.shared.image.ImageValidation;
 import vn.signa.shared.storage.ObjectStorage;
 import vn.signa.shared.storage.ObjectStorageException;
 
@@ -48,11 +53,13 @@ import vn.signa.shared.storage.ObjectStorageException;
 @Service
 public class CatalogAdminService {
 
+  private static final int MAX_ICON_EDGE = 4096;
+  private static final long MAX_ICON_PIXELS = 4_000_000L;
   private static final Logger log = LoggerFactory.getLogger(CatalogAdminService.class);
 
   private final CatalogRepository repository;
   private final AuditRecorder audit;
-  private final SignTypesCache cache;
+  private final ApplicationEventPublisher events;
   private final ObjectStorage storage;
   private final TransactionTemplate cleanupTx;
   private final Clock clock;
@@ -60,13 +67,13 @@ public class CatalogAdminService {
   CatalogAdminService(
       CatalogRepository repository,
       AuditRecorder audit,
-      SignTypesCache cache,
+      ApplicationEventPublisher events,
       ObjectStorage storage,
       PlatformTransactionManager transactionManager,
       Clock clock) {
     this.repository = repository;
     this.audit = audit;
-    this.cache = cache;
+    this.events = events;
     this.storage = storage;
     this.cleanupTx = new TransactionTemplate(transactionManager);
     this.cleanupTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -157,6 +164,9 @@ public class CatalogAdminService {
 
     Instant now = now();
     repository.updateAdminFields(row, now);
+    if (!category.equals(old.categoryCode())) {
+      events.publishEvent(new SignTypeCategoryChanged(row.code(), category, now));
+    }
     String action = old.active() && !row.active() ? "DEACTIVATED" : "UPDATED";
     recordUpdate(actorId, SIGN_TYPE, row.code(), action, fields(old), fields(row));
     return AdminSignTypeItem.of(new AdminTypeRow(row, now));
@@ -164,11 +174,11 @@ public class CatalogAdminService {
 
   @Transactional
   public void uploadIcon(String actorId, String code, byte[] bytes) {
-    CatalogIcon format = CatalogIcon.detect(bytes);
+    ImageFormat format = ImageValidation.validate(bytes, MAX_ICON_EDGE, MAX_ICON_PIXELS);
     TypeRow row = lockType(code).type();
-    String key = row.code() + "." + format.extension;
-    storage.put(SIGN_ICONS, key, bytes, format.contentType);
+    String key = row.code() + "-" + UUID.randomUUID() + "." + format.extension();
     scheduleIconCleanup(row.code(), row.iconKey(), key);
+    storage.put(SIGN_ICONS, key, bytes, format.mediaType().toString());
     repository.updateIcon(row.code(), key, now());
     Map<String, Object> before = new LinkedHashMap<>();
     before.put("iconKey", row.iconKey());
@@ -197,7 +207,7 @@ public class CatalogAdminService {
       Map<String, ?> before,
       Map<String, ?> after) {
     audit.record(AuditEntry.byUser(actorId, entity, code, action, before, after, null));
-    cache.evictAfterCommit();
+    if (entity == SIGN_TYPE) repository.advanceGeneration();
   }
 
   private void recordUpdate(
@@ -215,7 +225,6 @@ public class CatalogAdminService {
   }
 
   private void scheduleIconCleanup(String code, String oldKey, String newKey) {
-    if (newKey.equals(oldKey)) return;
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override

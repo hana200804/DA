@@ -17,6 +17,14 @@ public record BoundingBox(double minLng, double minLat, double maxLng, double ma
    */
   static final double MAX_EDGE_LNG = 90;
 
+  boolean touchesDateline() {
+    return minLng == -180 || maxLng == 180;
+  }
+
+  boolean coversAllLongitudes() {
+    return minLng == -180 && maxLng == 180;
+  }
+
   /** Đa giác WKT theo thứ tự trục kinh độ trước, ngược chiều kim đồng hồ, khép kín. */
   public String toWkt() {
     int steps = Math.max(1, (int) Math.ceil((maxLng - minLng) / MAX_EDGE_LNG));

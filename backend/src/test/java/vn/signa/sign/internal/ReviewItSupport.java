@@ -200,7 +200,7 @@ final class ReviewItSupport {
     return jdbc.queryForMap(
         """
         SELECT status, sign_type_code, category_code, confidence, moderator_boost, version,
-               reviewed_by, reviewed_at, location_locked, heading_deg, suggestion,
+               reviewed_by, reviewed_at, location_locked, heading_deg, suggestion, cover_crop_key,
                ST_Latitude(location) AS lat, ST_Longitude(location) AS lng
         FROM signs WHERE id = ?
         """,

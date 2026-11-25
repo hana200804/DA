@@ -7,6 +7,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import vn.signa.catalog.api.SignCatalog;
 import vn.signa.catalog.api.SignTypeView;
 import vn.signa.catalog.internal.CatalogRepository.CategoryRow;
@@ -25,6 +27,12 @@ class JdbcSignCatalog implements SignCatalog {
   public Optional<SignTypeView> findType(String code) {
     if (code == null) return Optional.empty();
     return repository.type(code).map(JdbcSignCatalog::view);
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public Optional<SignTypeView> findTypeForSignWrite(String code) {
+    return repository.shareType(code).map(JdbcSignCatalog::view);
   }
 
   @Override

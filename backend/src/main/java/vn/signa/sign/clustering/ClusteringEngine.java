@@ -117,7 +117,8 @@ public final class ClusteringEngine {
       sign = setMemberStatus(sign, submission.id(), status);
     }
 
-    Optional<SignEvent> review = reviewEvent(sign);
+    Optional<SignEvent> review =
+        reviewEvent(base.status() == SignStatus.APPROVED ? base : sign, sign);
     if (review.isPresent()) {
       sign = markUnderReview(sign);
       events.add(review.get());
@@ -166,7 +167,7 @@ public final class ClusteringEngine {
             .build();
     SignState updated = recompute(rated, sign.version() + 1, false);
     List<SignEvent> events = new ArrayList<>();
-    Optional<SignEvent> review = reviewEvent(updated);
+    Optional<SignEvent> review = reviewEvent(sign, updated);
     if (review.isPresent()) {
       updated = markUnderReview(updated);
       events.add(review.get());
@@ -270,13 +271,13 @@ public final class ClusteringEngine {
         .build();
   }
 
-  private Optional<SignEvent> reviewEvent(SignState sign) {
-    return Suggestions.reviewReason(sign, config)
+  private Optional<SignEvent> reviewEvent(SignState before, SignState after) {
+    return Suggestions.reviewReason(after, config)
         .map(reason ->
             new SignEvent(
                 SignEventType.MARKED_UNDER_REVIEW,
-                Map.of("status", SignStatus.APPROVED.name(), "confidence", sign.confidence()),
-                Map.of("status", SignStatus.UNDER_REVIEW.name(), "confidence", sign.confidence()),
+                Map.of("status", before.status().name(), "confidence", before.confidence()),
+                Map.of("status", SignStatus.UNDER_REVIEW.name(), "confidence", after.confidence()),
                 reason));
   }
 

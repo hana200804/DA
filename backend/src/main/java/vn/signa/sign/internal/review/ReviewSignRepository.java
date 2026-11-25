@@ -18,6 +18,7 @@ import vn.signa.sign.clustering.SignState;
 import vn.signa.sign.clustering.SignStatus;
 import vn.signa.sign.clustering.SubmissionStatus;
 import vn.signa.sign.clustering.Suggestion;
+import vn.signa.sign.internal.SubmissionRepository;
 
 /**
  * Ghi biển cho thao tác của kiểm duyệt viên. Khoá dòng {@code signs} trước khi đụng tới đề xuất
@@ -28,9 +29,11 @@ import vn.signa.sign.clustering.Suggestion;
 class ReviewSignRepository {
 
   private final JdbcClient jdbc;
+  private final SubmissionRepository submissions;
 
-  ReviewSignRepository(JdbcClient jdbc) {
+  ReviewSignRepository(JdbcClient jdbc, SubmissionRepository submissions) {
     this.jdbc = jdbc;
+    this.submissions = submissions;
   }
 
   /**
@@ -66,12 +69,16 @@ class ReviewSignRepository {
    * không có dòng nào được cập nhật.
    *
    * @param reviewedBy người quyết định, hoặc {@code null} để giữ {@code reviewed_by}
+   * @param codeChanged chọn lại ảnh đại diện khi mã đã thay đổi
    */
-  boolean update(SignState sign, int expectedVersion, String reviewedBy, Instant now) {
+  boolean update(
+      SignState sign, int expectedVersion, String reviewedBy, Instant now, boolean codeChanged) {
+    String cover = codeChanged ? submissions.bestCrop(sign.id(), null, sign.signTypeCode()) : null;
     return jdbc.sql(
                 """
                 UPDATE signs SET
                   status = :status, sign_type_code = :code, category_code = :category,
+                  cover_crop_key = CASE WHEN :codeChanged THEN :cover ELSE cover_crop_key END,
                   location = ST_GeomFromText(:location, 4326, 'axis-order=long-lat'),
                   heading_deg = :heading, location_locked = :locked,
                   deny_since_review = :deniesSinceReview, moderator_boost = :boost,
@@ -82,6 +89,8 @@ class ReviewSignRepository {
                 """)
             .params(values(sign, reviewedBy, now))
             .param("expectedVersion", expectedVersion)
+            .param("codeChanged", codeChanged)
+            .param("cover", cover)
             .update()
         == 1;
   }
