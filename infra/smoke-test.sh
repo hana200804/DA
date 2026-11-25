@@ -67,7 +67,7 @@ request 'a) Readiness' "$gateway/actuator/health/readiness"
 expect 'a) Readiness' 200
 show 'a) Readiness' 'select(.status == "UP") | {status}'
 
-# Hai điểm cách nhau khoảng 5 m. Toạ độ gốc và tài khoản thay đổi mỗi lần chạy.
+# Mỗi cặp điểm cách nhau khoảng 5 m.
 python3 - "$work" >"$work/run-data" <<'PY'
 import base64
 from pathlib import Path
@@ -76,13 +76,16 @@ from secrets import token_hex
 import sys
 from uuid import uuid4
 
-latitude = uniform(20.94, 21.13)
-longitude = uniform(105.69, 105.92)
 print(token_hex(8), token_hex(24))
-print(f"{longitude - 0.0004:.7f},{latitude - 0.0004:.7f},"
-      f"{longitude + 0.0004:.7f},{latitude + 0.0004:.7f}")
-print(f"{latitude:.7f}", f"{longitude:.7f}", uuid4())
-print(f"{latitude + 0.00004:.7f}", f"{longitude + 0.00002:.7f}", uuid4())
+print(uuid4(), uuid4())
+for _ in range(8):
+    latitude = uniform(20.94, 21.13)
+    longitude = uniform(105.69, 105.92)
+    # Hộp bao phủ ít nhất 100 m tính từ mỗi điểm trong cặp.
+    bbox = (f"{longitude - 0.0011:.7f},{latitude - 0.0011:.7f},"
+            f"{longitude + 0.0011:.7f},{latitude + 0.0011:.7f}")
+    print(f"{latitude:.7f}", f"{longitude:.7f}", f"{latitude + 0.00004:.7f}",
+          f"{longitude + 0.00002:.7f}", bbox)
 
 # Ảnh JPEG 24×24 tự sinh, vẽ một vòng tròn đỏ và nét gạch chéo.
 crop = """
@@ -104,9 +107,8 @@ PY
 
 {
   read -r run password
-  read -r bbox
-  read -r lat_first lng_first client_first
-  read -r lat_second lng_second client_second
+  read -r client_first client_second
+  cat >"$work/locations"
 } <"$work/run-data"
 
 for user in 1 2; do
@@ -132,6 +134,31 @@ catalog_version=$(jq -er --arg code "$code" \
   'select(any(.items[]; .code == $code and .recognizable)) | .labelMapVersion' "$response") \
   || fail "c) Thiếu nhãn $code"
 
+select_location() {
+  while read -r lat_first lng_first lat_second lng_second bbox; do
+    request 'd) Kiểm tra vùng trên bản đồ' -G --data-urlencode "bbox=$bbox" \
+      --data-urlencode zoom=17 "$api/signs"
+    expect 'd) Kiểm tra vùng trên bản đồ' 200
+    jq -e '(.items | type == "array") and (.mode == "SIGNS" or .mode == "CLUSTERS")' \
+      "$response" >/dev/null || fail 'd) Bản đồ trả dữ liệu vùng không hợp lệ'
+    if jq -e '.items | length > 0' "$response" >/dev/null; then
+      continue
+    fi
+
+    request 'd) Kiểm tra biển chờ duyệt trong vùng' -H "$admin_header" -G \
+      --data-urlencode "bbox=$bbox" --data-urlencode status=PENDING "$api/admin/review-queue"
+    expect 'd) Kiểm tra biển chờ duyệt trong vùng' 200
+    jq -e '.items | type == "array"' "$response" >/dev/null \
+      || fail 'd) Hàng đợi trả dữ liệu vùng không hợp lệ'
+    if jq -e '.items | length == 0' "$response" >/dev/null; then
+      printf 'd) Đã chọn vùng trống quanh hai điểm thử\n'
+      return
+    fi
+  done <"$work/locations"
+  fail 'd) Không tìm được vùng trống sau 8 lần chọn'
+}
+select_location
+
 captured_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 submit() {
   local user=$1 lat=$2 lng=$3 client_id=$4 heading=$5
@@ -155,17 +182,24 @@ submit 2 "$lat_second" "$lng_second" "$client_second" 97
 second_id=$(jq -er '.id' "$response")
 
 wait_for_group() {
-  local user=$1 id=$2 attempt
+  local user=$1 id=$2 attempt result status
   for ((attempt = 0; attempt < 30; attempt++)); do
     request "e) Đề xuất $user" -H "@$work/user-$user" "$api/me/submissions"
     expect "e) Đề xuất $user" 200
-    if jq -e --arg id "$id" 'any(.items[]; .id == $id and .status == "GROUPED" and .signId)' \
-      "$response" >/dev/null; then
-      local result
-      result=$(jq -c --arg id "$id" '.items[] | select(.id == $id) | {id, status, signId}' "$response")
-      printf 'e) Đề xuất %s HTTP %s %s\n' "$user" "$http" "$result"
-      return
-    fi
+    result=$(jq -ce --arg id "$id" '.items[] | select(.id == $id) | {id, status, signId}' "$response") \
+      || fail "e) Không thấy đề xuất $user ($id)"
+    status=$(jq -er '.status | select(type == "string")' <<<"$result") \
+      || fail "e) Đề xuất $user ($id) thiếu trạng thái"
+    case "$status" in
+      GROUPED)
+        jq -e '.signId | type == "string" and length > 0' <<<"$result" >/dev/null \
+          || fail "e) Đề xuất $user ($id) có trạng thái GROUPED nhưng thiếu signId"
+        printf 'e) Đề xuất %s HTTP %s %s\n' "$user" "$http" "$result"
+        return
+        ;;
+      RECEIVED) ;;
+      *) fail "e) Đề xuất $user ($id) có trạng thái $status, cần GROUPED" ;;
+    esac
     sleep 2
   done
   fail "e) Đề xuất $user không chuyển sang GROUPED trong 60 giây"
