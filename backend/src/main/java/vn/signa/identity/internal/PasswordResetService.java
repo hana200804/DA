@@ -88,14 +88,15 @@ public class PasswordResetService {
     UserRecord user = activeUser(email).orElseThrow(PasswordResetService::invalidCode);
     String passwordHash = encoder.encode(newPassword);
     transactions.executeWithoutResult(status -> {
-      if (!users.updateActivePasswordHash(user.id(), passwordHash, clock.instant())) {
+      if (!users.updateActivePasswordHash(
+          user.id(), user.credentialVersion(), passwordHash, null, clock.instant())) {
         throw invalidCode();
       }
       // Nếu một request khác đã dùng, thay hoặc làm mã hết lượt, rollback mật khẩu.
       if (!applyAttempt(emailHash, challenge, true)) {
         throw invalidCode();
       }
-      sessions.revokeAll(user.id());
+      sessions.revokeOlderAfterCommit(user.id(), user.credentialVersion() + 1);
     });
   }
 

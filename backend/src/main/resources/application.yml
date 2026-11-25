@@ -9,6 +9,8 @@ spring:
   # Migration chạy riêng bằng profile migrate (application-migrate.yml).
   flyway:
     enabled: ${SIGNA_MIGRATE:false}
+    # Profile thường không quét R__demo_data.sql, kể cả khi đã nạp demo trên volume này.
+    ignore-migration-patterns: ["*:future", "repeatable:missing"]
     placeholders:
       app_user: "'${spring.datasource.username}'@'%'"
   data:

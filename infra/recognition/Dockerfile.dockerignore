@@ -1,0 +1,10 @@
+**
+!pyproject.toml
+!src/
+!src/**
+!service/
+!service/**
+!data/
+!data/labels.yaml
+**/__pycache__/
+**/*.pyc

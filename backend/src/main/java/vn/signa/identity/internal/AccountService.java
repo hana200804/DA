@@ -84,33 +84,37 @@ public class AccountService {
   }
 
   public LoginResult login(String email, String password, Client client, String ip) {
-    String limitKey = LoginRateLimiter.loginKey(email, ip);
-    limiter.acquire(limitKey);
     UserRecord user = users.findByEmail(email).orElse(null);
+    // Các chuỗi email được MySQL coi là tương đương cùng dùng email chuẩn trong bản ghi.
+    String limitKey = LoginRateLimiter.loginKey(user == null ? email : user.email(), ip);
+    limiter.acquire(limitKey);
     boolean matches = matches(password, user == null ? dummyHash : user.passwordHash());
     if (user == null || !matches) {
       throw new ApiException(ErrorCode.UNAUTHENTICATED, BAD_CREDENTIALS);
     }
     limiter.reset(limitKey);
-    // Chỉ báo trạng thái tài khoản cho người đã nhập đúng mật khẩu.
-    if (user.status() == UserStatus.LOCKED) {
-      throw new ApiException(ErrorCode.FORBIDDEN, "Tài khoản đã bị khoá");
-    }
-    Set<String> permissions = rolePermissions.of(user.role());
-    if (client == Client.WEB && !permissions.contains(WEB_PERMISSION)) {
-      throw new ApiException(
-          ErrorCode.FORBIDDEN, "Chỉ kiểm duyệt viên và quản trị viên được vào web quản trị");
-    }
-    IssuedSession session =
+    LoginResult result =
         transactions.execute(status -> {
-          // Khoá hàng đến khi cấp phiên xong để đặt lại mật khẩu thu hồi được cả phiên này.
-          if (!users.touchLastLogin(user.id(), user.passwordHash(), clock.instant())) {
-            throw new ApiException(ErrorCode.UNAUTHENTICATED, BAD_CREDENTIALS);
+          // Đọc lại sau BCrypt và giữ khoá đến khi ghi xong phiên.
+          UserRecord current =
+              users
+                  .findByIdForUpdate(user.id())
+                  .filter(row -> row.credentialVersion() == user.credentialVersion())
+                  .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED, BAD_CREDENTIALS));
+          if (current.status() == UserStatus.LOCKED) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Tài khoản đã bị khoá");
           }
-          return sessions.issue(user.id(), user.role(), client);
+          Set<String> permissions = rolePermissions.of(current.role());
+          if (client == Client.WEB && !permissions.contains(WEB_PERMISSION)) {
+            throw new ApiException(
+                ErrorCode.FORBIDDEN, "Chỉ kiểm duyệt viên và quản trị viên được vào web quản trị");
+          }
+          users.touchLastLogin(current.id(), clock.instant());
+          IssuedSession session = sessions.issue(current.id(), current.credentialVersion(), client);
+          return new LoginResult(session.token(), session.expiresAt(), profile(current));
         });
     log.info("Đăng nhập userId={} client={}", user.id(), client);
-    return new LoginResult(session.token(), session.expiresAt(), profile(user));
+    return result;
   }
 
   public void logout(String sessionId) {
@@ -141,11 +145,14 @@ public class AccountService {
       throw new ApiException(ErrorCode.BUSINESS_RULE, "Mật khẩu hiện tại không đúng");
     }
     limiter.reset(limitKey);
-    if (!users.updatePasswordHash(
-        userId, user.passwordHash(), encoder.encode(newPassword), clock.instant())) {
-      throw new ApiException(ErrorCode.BUSINESS_RULE, "Mật khẩu hiện tại không đúng");
-    }
-    sessions.revokeOthers(userId, currentSessionId);
+    String hash = encoder.encode(newPassword);
+    transactions.executeWithoutResult(status -> {
+      if (!users.updateActivePasswordHash(
+          userId, user.credentialVersion(), hash, currentSessionId, clock.instant())) {
+        throw new ApiException(ErrorCode.BUSINESS_RULE, "Mật khẩu hiện tại không đúng");
+      }
+      sessions.keepAfterCommit(userId, user.credentialVersion() + 1, currentSessionId);
+    });
     log.info("Đổi mật khẩu userId={}, đã thu hồi các phiên khác", userId);
   }
 

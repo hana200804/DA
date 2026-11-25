@@ -16,7 +16,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Gọi API thật trong test {@code *IT}: đăng ký, đăng nhập, gọi có token. Vai trò ban đầu đặt bằng
- * {@code UPDATE users} với {@code signa_app}, trước khi đăng nhập vì phiên giữ vai trò lúc tạo.
+ * {@code UPDATE users} với {@code signa_app}, trước khi đăng nhập.
  */
 public final class ApiClient {
 

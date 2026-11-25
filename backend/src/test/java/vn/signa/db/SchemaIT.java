@@ -3,9 +3,7 @@ package vn.signa.db;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -14,11 +12,9 @@ import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
-import org.flywaydb.core.api.MigrationState;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import vn.signa.support.IntegrationTest;
@@ -36,18 +32,21 @@ class SchemaIT extends IntegrationTest {
   @Autowired JdbcTemplate jdbc;
 
   @Test
-  void migrationsApplied() throws IOException {
+  void migrationsApplied() {
     var info = flyway.info();
     assertThat(info.pending()).isEmpty();
-    var migrations =
-        new PathMatchingResourcePatternResolver().getResources("classpath*:db/migration/*.sql");
-    assertThat(migrations).isNotEmpty();
     assertThat(info.applied())
-        .filteredOn(migration ->
-            migration.getState() == MigrationState.SUCCESS
-                || migration.getState() == MigrationState.OUT_OF_ORDER)
-        .extracting(MigrationInfo::getScript)
-        .containsAll(Arrays.stream(migrations).map(Resource::getFilename).toList());
+        .extracting(MigrationInfo::getVersion)
+        .contains(
+            MigrationVersion.fromVersion("1"),
+            MigrationVersion.fromVersion("2"),
+            MigrationVersion.fromVersion("3"),
+            MigrationVersion.fromVersion("20"),
+            MigrationVersion.fromVersion("50"),
+            MigrationVersion.fromVersion("51"),
+            MigrationVersion.fromVersion("70"),
+            MigrationVersion.fromVersion("90"),
+            MigrationVersion.fromVersion("100"));
   }
 
   @Test

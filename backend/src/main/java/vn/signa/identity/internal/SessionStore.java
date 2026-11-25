@@ -13,12 +13,18 @@ interface SessionStore {
    */
   void create(String sessionId, Session session);
 
-  /** Đọc phiên và gia hạn TTL theo client; rỗng nếu không có hoặc đã hết hạn. */
-  Optional<Session> findAndTouch(String sessionId);
+  /** Đọc phiên; rỗng nếu không có hoặc đã hết hạn. */
+  Optional<Session> find(String sessionId);
+
+  /** Gia hạn phiên còn tồn tại. */
+  boolean touch(String sessionId, Client client);
 
   /** Xoá một phiên. */
   void delete(String sessionId);
 
-  /** Xoá mọi phiên của người dùng, trừ {@code keepSessionId} nếu khác {@code null}. */
-  void deleteAllOf(String userId, String keepSessionId);
+  /** Chuyển phiên hiện tại từ phiên bản liền trước, nếu phiên vẫn còn. */
+  void promote(String userId, String sessionId, int credentialVersion);
+
+  /** Xoá các phiên cũ hơn phiên bản đã commit. */
+  void deleteOlder(String userId, int credentialVersion);
 }

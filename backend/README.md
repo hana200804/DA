@@ -119,13 +119,18 @@ Profile `demo` thêm 30 biển mẫu quanh Hà Nội (`db/demo/R__demo_data.sql`
 ./gradlew bootRun --args='--spring.profiles.active=migrate,demo'
 ```
 
+Có thể chạy lại profile `migrate` trên cùng volume sau khi nạp demo. Flyway
+bỏ qua repeatable migration đã áp dụng nhưng vắng ở locations hiện hành
+(`repeatable:missing`). Hiện chỉ `R__demo_data.sql` dùng locations riêng.
+Các migration có số phiên bản vẫn được kiểm tra như trước.
+
 ## Lưu ảnh
 
 Khi khởi động, backend tạo các bucket còn thiếu: `sign-crops`, `report-photos` (riêng tư, đọc qua URL ký) và `sign-icons` (đọc công khai). URL ký dùng `SIGNA_MINIO_PUBLIC_ENDPOINT` và được ký offline. Chữ ký gắn với host, nên proxy đứng trước MinIO phải giữ nguyên header `Host` của URL đó. Ảnh gửi chỉ để nhận diện không bao giờ được ghi vào MinIO (NFR-09).
 
 ## Tài khoản và phân quyền
 
-API ở [`docs/07 §3`](../docs/07-api.md#3-tài-khoản). Token phiên là 32 byte ngẫu nhiên (base64url), gửi bằng `Authorization: Bearer`. Redis chỉ giữ SHA-256 của token: `session:{hash}` (hash `userId`, `role`, `client`, `createdAt`; TTL 30 ngày với `MOBILE`, 8 giờ với `WEB`, gia hạn mỗi lần dùng) và `user-sessions:{userId}`. Đổi mật khẩu thu hồi các phiên khác; module khác thu hồi mọi phiên qua `identity.api.SessionRevoker`.
+API ở [`docs/07 §3`](../docs/07-api.md#3-tài-khoản). Token phiên là 32 byte ngẫu nhiên (base64url), gửi bằng `Authorization: Bearer`. Redis chỉ giữ SHA-256 của token: `session:{hash}` (hash `userId`, `credentialVersion`, `client`, `createdAt`; TTL 30 ngày với `MOBILE`, 8 giờ với `WEB`, gia hạn mỗi lần dùng) và `user-sessions:{userId}`. Mỗi request có phiên đọc trạng thái, vai trò và phiên bản xác thực hiện hành từ MySQL. Khi chuyển sang V100, các phiên Redis cũ cần đăng nhập lại. [CSDL §10](../docs/06-co-so-du-lieu.md#10-redis).
 
 Quyền theo vai trò nạp từ `role_permissions` khi khởi động. Endpoint kiểm tra bằng `@PreAuthorize("hasAuthority('<mã quyền>')")` và lấy người dùng bằng `@AuthenticationPrincipal AuthenticatedUser`. Endpoint mới phải có dòng trong `PermissionMatrixTest` (UT-B11). Lỗi `401`, `403` của Spring Security và của `@PreAuthorize` cùng định dạng lỗi chung.
 

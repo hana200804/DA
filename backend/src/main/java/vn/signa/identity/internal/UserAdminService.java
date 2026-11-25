@@ -55,23 +55,13 @@ public class UserAdminService {
 
   /**
    * Đổi {@code role} và/hoặc {@code status} ({@code null} là giữ nguyên). Không đổi gì thì không
-   * ghi lịch sử. Khoá hoặc đổi vai trò thu hồi mọi phiên của người đó: một lần trong giao dịch
-   * (Redis lỗi thì rollback), một lần sau commit để xoá phiên được tạo trong lúc giao dịch chưa
-   * commit, khi đăng nhập còn đọc trạng thái cũ.
+   * ghi lịch sử. Khoá hoặc đổi vai trò tăng phiên bản xác thực và dọn phiên sau commit.
    */
   public void update(String actorId, String targetId, String role, UserStatus status) {
-    Boolean revoke = tx.execute(s -> apply(actorId, targetId, role, status));
-    if (Boolean.TRUE.equals(revoke)) {
-      try {
-        sessions.revokeAll(targetId);
-      } catch (RuntimeException e) {
-        // Phiên cũ đã bị xoá trong giao dịch; chỉ phiên tạo ra trong khoảng chưa commit còn sót.
-        log.error("Không thu hồi lại được phiên sau commit userId={}", targetId, e);
-      }
-    }
+    tx.executeWithoutResult(s -> apply(actorId, targetId, role, status));
   }
 
-  private boolean apply(String actorId, String targetId, String role, UserStatus status) {
+  private void apply(String actorId, String targetId, String role, UserStatus status) {
     int activeAdmins = users.lockActiveAdmins().size();
     UserRecord target = users.findByIdForUpdate(targetId).orElseThrow(ApiException::notFound);
     String newRole = role == null ? target.role() : role;
@@ -79,11 +69,12 @@ public class UserAdminService {
     boolean roleChanged = !newRole.equals(target.role());
     boolean statusChanged = newStatus != target.status();
     if (!roleChanged && !statusChanged) {
-      return false;
+      return;
     }
     checkRules(actorId, target, newRole, newStatus, activeAdmins);
 
-    users.updateRoleAndStatus(targetId, newRole, newStatus, clock.instant());
+    boolean revoke = roleChanged || newStatus == UserStatus.LOCKED;
+    users.updateRoleAndStatus(targetId, newRole, newStatus, revoke, clock.instant());
     if (roleChanged) {
       audit.record(
           AuditEntry.byUser(
@@ -106,9 +97,8 @@ public class UserAdminService {
               Map.of("status", newStatus.name()),
               null));
     }
-    boolean revoke = roleChanged || newStatus == UserStatus.LOCKED;
     if (revoke) {
-      sessions.revokeAll(targetId);
+      sessions.revokeOlderAfterCommit(targetId, target.credentialVersion() + 1);
     }
     log.info(
         "Quản trị người dùng actorId={} userId={} role={} status={}",
@@ -116,7 +106,6 @@ public class UserAdminService {
         targetId,
         newRole,
         newStatus);
-    return revoke;
   }
 
   /**
