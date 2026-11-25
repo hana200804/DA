@@ -20,6 +20,8 @@ fun AccountRoute(
         onProfile = onProfilePreview,
         onLogout = viewModel::logout,
         onContributions = onContributions,
-        onChangePassword = onChangePassword
+        onChangePassword = onChangePassword,
+        onOpenProfile = viewModel::refreshProfile,
+        onUpdateProfile = viewModel::updateProfile
     )
 }

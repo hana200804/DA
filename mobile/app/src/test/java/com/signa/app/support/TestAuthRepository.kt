@@ -26,6 +26,8 @@ class TestAuthRepository : AuthRepository {
         session.value = Session("test-session", User("u", "An", email), Long.MAX_VALUE, SessionSource.FAKE)
     }
     override suspend fun register(displayName: String, email: String, password: String) { checkFailure(); registerCount++ }
+    override suspend fun refreshProfile() { checkFailure() }
+    override suspend fun updateProfile(displayName: String) { checkFailure() }
     override suspend fun logout() { session.value = null }
     override suspend fun requestPasswordReset(email: String): PasswordResetChallenge {
         checkFailure()

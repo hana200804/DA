@@ -22,24 +22,39 @@ class AccountViewModel @Inject constructor(
 ) : ViewModel() {
     private val operationError = MutableStateFlow<AuthError?>(null)
     private val signingOut = MutableStateFlow(false)
-    val state = combine(repository.session, operationError, signingOut, settings.settings.catch { emit(com.signa.app.domain.model.AppSettings()) }) { session, error, busy, preferences ->
-        AccountUiState(user = session?.user, vehicleType = preferences.vehicleType, isLoading = false, operationError = error, isSigningOut = busy)
+    private val updatingProfile = MutableStateFlow(false)
+    val state = combine(
+        repository.session, operationError, signingOut, updatingProfile,
+        settings.settings.catch { emit(com.signa.app.domain.model.AppSettings()) }
+    ) { session, error, signingOut, updatingProfile, preferences ->
+        AccountUiState(
+            user = session?.user, vehicleType = preferences.vehicleType, isLoading = false,
+            operationError = error, isSigningOut = signingOut, isUpdatingProfile = updatingProfile
+        )
     }.catch { emit(AccountUiState(isLoading = false, hasError = true)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountUiState())
 
-    fun logout() {
-        if (signingOut.value) return
-        signingOut.value = true
+    fun refreshProfile() = perform(updatingProfile, repository::refreshProfile)
+
+    fun updateProfile(displayName: String) = perform(updatingProfile) {
+        repository.updateProfile(displayName)
+    }
+
+    fun logout() = perform(signingOut, repository::logout)
+
+    private fun perform(busy: MutableStateFlow<Boolean>, action: suspend () -> Unit) {
+        if (signingOut.value || updatingProfile.value) return
+        busy.value = true
         operationError.value = null
         viewModelScope.launch {
             try {
-                repository.logout()
+                action()
             } catch (error: AuthException) {
                 operationError.value = error.error
             } catch (_: IOException) {
                 operationError.value = AuthError.Storage
             } finally {
-                signingOut.value = false
+                busy.value = false
             }
         }
     }

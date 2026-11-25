@@ -6,9 +6,11 @@ import com.signa.app.data.remote.dto.LoginRequest
 import com.signa.app.data.remote.dto.LoginResponse
 import com.signa.app.data.remote.dto.RegisterRequest
 import com.signa.app.data.remote.dto.ResetPasswordRequest
+import com.signa.app.data.remote.dto.UpdateProfileRequest
 import com.signa.app.data.remote.dto.UserDto
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 
@@ -19,5 +21,6 @@ interface AuthApi {
     @POST("auth/password/forgot") suspend fun forgotPassword(@Body request: ForgotPasswordRequest)
     @POST("auth/password/reset") suspend fun resetPassword(@Body request: ResetPasswordRequest)
     @PUT("users/me/password") suspend fun changePassword(@Body request: ChangePasswordRequest)
-    @GET("users/me") suspend fun currentUser(): UserDto
+    @GET("me") suspend fun currentUser(): UserDto
+    @PATCH("me") suspend fun updateProfile(@Body request: UpdateProfileRequest): UserDto
 }

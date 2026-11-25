@@ -128,8 +128,9 @@ BasicTextField để hỗ trợ dán mã, xóa và đọc bằng trợ năng. G�
 AuthViewModel → AuthRepository; chỉ xóa mã đang nhập khi gửi lại thành công.
 
 `AccountViewModel` kết hợp phiên với SettingsRepository để hiển thị loại xe đã lưu.
-ProfileScreen chỉ nhận dữ liệu/callback, quản lý trạng thái mở/đóng hộp thoại
-thông tin cá nhân và trợ giúp. Thông tin hiện chỉ đọc, chưa có API sửa hồ sơ.
+ProfileScreen nhận dữ liệu/callback và quản lý hộp thoại thông tin cá nhân
+và trợ giúp. Mở thông tin cá nhân tải hồ sơ qua `GET /me`; lưu tên hiển thị
+qua `PATCH /me`. Loại xe lấy từ cài đặt cục bộ.
 ContributionSummary chứa các quan sát có biển, trạng thái và thời điểm; UI
 ánh xạ thành nhãn trạng thái và ngày, không tự gán kết quả xác minh.
 FakeData cung cấp các quan sát minh họa từ danh mục biển mẫu hiện có.

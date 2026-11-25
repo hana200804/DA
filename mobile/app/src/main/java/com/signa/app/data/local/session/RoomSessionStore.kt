@@ -41,16 +41,27 @@ class RoomSessionStore @Inject constructor(
     }
 
     override suspend fun save(session: Session) {
-        val payload = try {
-            cipher.encrypt(json.encodeToString(SessionRecord.serializer(), SessionRecord.from(session)))
-        } catch (error: GeneralSecurityException) {
-            throw IOException("Cannot encrypt session", error)
-        }
+        val payload = encrypt(session)
         try {
             dao.save(SessionEntity(userId = session.user.id, tokenHash = tokenHash(session.id), source = session.source.name, encryptedPayload = payload))
         } catch (error: SQLiteException) {
             throw IOException("Cannot persist session", error)
         }
+    }
+
+    override suspend fun updateProfile(session: Session) {
+        val payload = encrypt(session)
+        try {
+            dao.updateProfile(tokenHash(session.id), payload)
+        } catch (error: SQLiteException) {
+            throw IOException("Cannot update session profile", error)
+        }
+    }
+
+    private fun encrypt(session: Session): String = try {
+        cipher.encrypt(json.encodeToString(SessionRecord.serializer(), SessionRecord.from(session)))
+    } catch (error: GeneralSecurityException) {
+        throw IOException("Cannot encrypt session", error)
     }
 
     override suspend fun clear(expectedSessionId: String?) {

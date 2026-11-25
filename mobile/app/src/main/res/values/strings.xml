@@ -160,6 +160,7 @@
   <string name="back_to_login">Quay lại đăng nhập</string>
   <string name="demo_mode_short">Chế độ thử nghiệm</string>
   <string name="personal_information">Thông tin cá nhân</string>
+  <string name="save_profile">Lưu</string>
   <string name="help">Trợ giúp</string>
   <string name="help_account_message">Bạn có thể sử dụng Bản đồ, Lái xe và Tra cứu ở chế độ khách. Đăng nhập để quản lý tài khoản và xem đóng góp. Thay đổi phương tiện trong Cài đặt. Để khôi phục mật khẩu, chọn Quên mật khẩu ở màn đăng nhập.</string>
   <string name="contribution_subtitle">Cùng xây dựng bản đồ biển báo</string>

@@ -20,7 +20,9 @@ fun AccountScreen(
     onProfile: () -> Unit,
     onLogout: () -> Unit,
     onContributions: () -> Unit,
-    onChangePassword: () -> Unit
+    onChangePassword: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onUpdateProfile: (String) -> Unit
 ) {
     val user = state.user
     if (!state.isLoading && user != null) {
@@ -28,7 +30,10 @@ fun AccountScreen(
             user, onLogout, onContributions, onChangePassword,
             errorMessage = state.operationError?.let(::authErrorMessage),
             isSigningOut = state.isSigningOut,
-            vehicleType = state.vehicleType
+            vehicleType = state.vehicleType,
+            onOpenProfile = onOpenProfile,
+            onUpdateProfile = onUpdateProfile,
+            isUpdatingProfile = state.isUpdatingProfile
         )
         return
     }

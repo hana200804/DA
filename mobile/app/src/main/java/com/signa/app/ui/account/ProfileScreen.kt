@@ -23,7 +23,10 @@ import com.signa.app.ui.components.SignaStatusLabel
 fun ProfileScreen(
     user: User, onClose: () -> Unit, onContributions: () -> Unit, onChangePassword: () -> Unit,
     isPreview: Boolean = false, errorMessage: Int? = null, isSigningOut: Boolean = false,
-    vehicleType: VehicleType = user.vehicleType
+    vehicleType: VehicleType = user.vehicleType,
+    onOpenProfile: () -> Unit = {},
+    onUpdateProfile: ((String) -> Unit)? = null,
+    isUpdatingProfile: Boolean = false
 ) {
     var showInformation by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
@@ -33,30 +36,59 @@ fun ProfileScreen(
         if (isPreview) SignaStatusLabel(stringResource(R.string.sample_profile_label))
         Spacer(Modifier.height(4.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AccountRow(stringResource(R.string.personal_information), R.drawable.ic_account) { showInformation = true }
+            AccountRow(stringResource(R.string.personal_information), R.drawable.ic_account) {
+                showInformation = true
+                onOpenProfile()
+            }
             AccountRow(stringResource(R.string.my_contributions), R.drawable.ic_location, onContributions)
             AccountRow(stringResource(R.string.change_password), R.drawable.ic_lock, onChangePassword)
             AccountRow(stringResource(R.string.help), R.drawable.ic_help) { showHelp = true }
         }
-        errorMessage?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
-        TextButton(onClick = onClose, enabled = !isSigningOut, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+        if (!showInformation) errorMessage?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+        TextButton(onClick = onClose, enabled = !isSigningOut && !isUpdatingProfile, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             Icon(painterResource(R.drawable.ic_logout), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error)
             Spacer(Modifier.width(16.dp))
             Text(stringResource(if (isPreview) R.string.leave_profile_preview else R.string.logout), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
         }
     }
-    if (showInformation) AlertDialog(
-        onDismissRequest = { showInformation = false },
-        title = { Text(stringResource(R.string.personal_information)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                InformationValue(stringResource(R.string.display_name), user.displayName)
-                InformationValue(stringResource(R.string.email), user.email)
-                InformationValue(stringResource(R.string.vehicle_type), stringResource(vehicleLabel(vehicleType)))
+    if (showInformation) {
+        var displayName by rememberSaveable(user.id, user.displayName) { mutableStateOf(user.displayName) }
+        AlertDialog(
+            onDismissRequest = { showInformation = false },
+            title = { Text(stringResource(R.string.personal_information)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (onUpdateProfile == null) {
+                        InformationValue(stringResource(R.string.display_name), user.displayName)
+                    } else {
+                        OutlinedTextField(
+                            value = displayName,
+                            onValueChange = { displayName = it.take(100) },
+                            label = { Text(stringResource(R.string.display_name)) },
+                            enabled = !isUpdatingProfile && !isSigningOut,
+                            singleLine = true
+                        )
+                    }
+                    InformationValue(stringResource(R.string.email), user.email)
+                    InformationValue(stringResource(R.string.vehicle_type), stringResource(vehicleLabel(vehicleType)))
+                    if (isUpdatingProfile) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    errorMessage?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                if (onUpdateProfile != null) {
+                    val name = displayName.trim()
+                    TextButton(
+                        onClick = { onUpdateProfile(name) },
+                        enabled = !isUpdatingProfile && !isSigningOut && name.isNotEmpty() && name != user.displayName
+                    ) { Text(stringResource(R.string.save_profile)) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showInformation = false }) { Text(stringResource(R.string.close)) }
             }
-        },
-        confirmButton = { TextButton(onClick = { showInformation = false }) { Text(stringResource(R.string.close)) } }
-    )
+        )
+    }
     if (showHelp) AlertDialog(
         onDismissRequest = { showHelp = false }, title = { Text(stringResource(R.string.help)) },
         text = { Text(stringResource(R.string.help_account_message)) },

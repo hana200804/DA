@@ -74,6 +74,7 @@ class SessionManagerTest {
         val store = object : SessionStore {
             override val sessions = state
             override suspend fun save(session: Session) { state.value = session }
+            override suspend fun updateProfile(session: Session) { throw IOException("Storage unavailable") }
             override suspend fun clear(expectedSessionId: String?) { throw IOException("Storage unavailable") }
         }
         val manager = SessionManager(store, Clock.fixed(Instant.ofEpochMilli(base), ZoneOffset.UTC), SessionSource.FAKE, backgroundScope)

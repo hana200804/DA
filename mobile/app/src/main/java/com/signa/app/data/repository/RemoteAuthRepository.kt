@@ -9,6 +9,8 @@ import com.signa.app.data.remote.dto.ForgotPasswordRequest
 import com.signa.app.data.remote.dto.LoginRequest
 import com.signa.app.data.remote.dto.RegisterRequest
 import com.signa.app.data.remote.dto.ResetPasswordRequest
+import com.signa.app.data.remote.dto.UpdateProfileRequest
+import com.signa.app.data.remote.dto.UserDto
 import com.signa.app.domain.model.AuthError
 import com.signa.app.domain.model.AuthException
 import com.signa.app.domain.model.PasswordResetChallenge
@@ -56,6 +58,24 @@ class RemoteAuthRepository @Inject constructor(
             permissions = response.user.permissions
         )
         sessions.save(Session(response.token, user, expires, SessionSource.REMOTE))
+    }
+
+    override suspend fun refreshProfile() = syncProfile { api.currentUser() }
+
+    override suspend fun updateProfile(displayName: String) = syncProfile {
+        api.updateProfile(UpdateProfileRequest(displayName.trim()))
+    }
+
+    private suspend fun syncProfile(call: suspend () -> UserDto) {
+        val current = sessions.current ?: throw AuthException(AuthError.NotSignedIn)
+        val profile = request(call)
+        if (profile.id != current.user.id) throw AuthException(AuthError.InvalidResponse)
+        sessions.updateProfile(current.copy(user = current.user.copy(
+            displayName = profile.displayName,
+            email = profile.email,
+            role = profile.role,
+            permissions = profile.permissions
+        )))
     }
 
     override suspend fun logout() {

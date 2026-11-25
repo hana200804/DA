@@ -18,12 +18,15 @@ data class ResetPasswordRequest(val email: String, val code: String, val newPass
 data class ChangePasswordRequest(val oldPassword: String, val newPassword: String)
 
 @Serializable
+data class UpdateProfileRequest(val displayName: String)
+
+@Serializable
 data class UserDto(
     val id: String,
     val displayName: String,
-    val email: String? = null,
-    val role: String = "DRIVER",
-    val vehicleType: String = "CAR"
+    val email: String,
+    val role: String,
+    val permissions: List<String>
 )
 
 @Serializable
