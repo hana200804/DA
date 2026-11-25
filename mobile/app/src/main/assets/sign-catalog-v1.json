@@ -1,0 +1,314 @@
+{
+  "categories": [
+    {
+      "code": "PROHIBITORY",
+      "name": "Biển cấm",
+      "sortOrder": 1
+    },
+    {
+      "code": "MANDATORY",
+      "name": "Biển hiệu lệnh",
+      "sortOrder": 2
+    },
+    {
+      "code": "WARNING",
+      "name": "Biển nguy hiểm và cảnh báo",
+      "sortOrder": 3
+    },
+    {
+      "code": "AUXILIARY",
+      "name": "Biển phụ",
+      "sortOrder": 4
+    },
+    {
+      "code": "OTHER",
+      "name": "Biển chỉ dẫn và biển khác",
+      "sortOrder": 5
+    }
+  ],
+  "types": {
+    "labelMapVersion": 1,
+    "items": [
+      {
+        "code": "I.407a",
+        "categoryCode": "OTHER",
+        "name": "Đường một chiều",
+        "recognizable": true
+      },
+      {
+        "code": "I.409",
+        "categoryCode": "OTHER",
+        "name": "Chỗ quay xe",
+        "recognizable": true
+      },
+      {
+        "code": "I.423",
+        "categoryCode": "OTHER",
+        "name": "Vị trí người đi bộ sang ngang",
+        "recognizable": true
+      },
+      {
+        "code": "I.434a",
+        "categoryCode": "OTHER",
+        "name": "Bến xe buýt",
+        "recognizable": true
+      },
+      {
+        "code": "other_indication",
+        "categoryCode": "OTHER",
+        "name": "Biển chỉ dẫn khác",
+        "recognizable": true
+      },
+      {
+        "code": "other_mandatory",
+        "categoryCode": "MANDATORY",
+        "name": "Biển hiệu lệnh khác",
+        "recognizable": true
+      },
+      {
+        "code": "other_prohibitory",
+        "categoryCode": "PROHIBITORY",
+        "name": "Biển cấm khác",
+        "recognizable": true
+      },
+      {
+        "code": "other_warning",
+        "categoryCode": "WARNING",
+        "name": "Biển cảnh báo khác",
+        "recognizable": true
+      },
+      {
+        "code": "P.102",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm đi ngược chiều",
+        "recognizable": true
+      },
+      {
+        "code": "P.103a",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm xe ô tô",
+        "recognizable": true
+      },
+      {
+        "code": "P.103c",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm xe ô tô rẽ trái",
+        "recognizable": true
+      },
+      {
+        "code": "P.104",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm xe máy",
+        "recognizable": true
+      },
+      {
+        "code": "P.105",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm xe ô tô và xe máy",
+        "recognizable": true
+      },
+      {
+        "code": "P.106a",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm xe ô tô tải",
+        "recognizable": true
+      },
+      {
+        "code": "P.117",
+        "categoryCode": "PROHIBITORY",
+        "name": "Hạn chế chiều cao",
+        "recognizable": true
+      },
+      {
+        "code": "P.123a",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm rẽ trái",
+        "recognizable": true
+      },
+      {
+        "code": "P.123b",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm rẽ phải",
+        "recognizable": true
+      },
+      {
+        "code": "P.124a",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm quay đầu xe",
+        "recognizable": true
+      },
+      {
+        "code": "P.124c",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm rẽ trái và quay đầu xe",
+        "recognizable": true
+      },
+      {
+        "code": "P.124d",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm rẽ phải và quay đầu xe",
+        "recognizable": true
+      },
+      {
+        "code": "P.127_40",
+        "categoryCode": "PROHIBITORY",
+        "name": "Tốc độ tối đa cho phép 40 km/h",
+        "speedKmh": 40,
+        "recognizable": true
+      },
+      {
+        "code": "P.127_50",
+        "categoryCode": "PROHIBITORY",
+        "name": "Tốc độ tối đa cho phép 50 km/h",
+        "speedKmh": 50,
+        "recognizable": true
+      },
+      {
+        "code": "P.127_60",
+        "categoryCode": "PROHIBITORY",
+        "name": "Tốc độ tối đa cho phép 60 km/h",
+        "speedKmh": 60,
+        "recognizable": true
+      },
+      {
+        "code": "P.127_80",
+        "categoryCode": "PROHIBITORY",
+        "name": "Tốc độ tối đa cho phép 80 km/h",
+        "speedKmh": 80,
+        "recognizable": true
+      },
+      {
+        "code": "P.130",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm dừng xe và đỗ xe",
+        "recognizable": true
+      },
+      {
+        "code": "P.131a",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm đỗ xe",
+        "recognizable": true
+      },
+      {
+        "code": "P.135",
+        "categoryCode": "PROHIBITORY",
+        "name": "Hết tất cả các lệnh cấm",
+        "recognizable": true
+      },
+      {
+        "code": "P.137",
+        "categoryCode": "PROHIBITORY",
+        "name": "Cấm rẽ trái, rẽ phải",
+        "recognizable": true
+      },
+      {
+        "code": "R.302a",
+        "categoryCode": "MANDATORY",
+        "name": "Hướng phải đi vòng chướng ngại vật sang phải",
+        "recognizable": true
+      },
+      {
+        "code": "R.303",
+        "categoryCode": "MANDATORY",
+        "name": "Nơi giao nhau chạy theo vòng xuyến",
+        "recognizable": true
+      },
+      {
+        "code": "R.415a",
+        "categoryCode": "MANDATORY",
+        "name": "Biển gộp làn đường theo phương tiện",
+        "recognizable": true
+      },
+      {
+        "code": "R.420",
+        "categoryCode": "MANDATORY",
+        "name": "Bắt đầu khu đông dân cư",
+        "recognizable": true
+      },
+      {
+        "code": "W.201a",
+        "categoryCode": "WARNING",
+        "name": "Chỗ ngoặt nguy hiểm vòng bên trái",
+        "recognizable": true
+      },
+      {
+        "code": "W.201b",
+        "categoryCode": "WARNING",
+        "name": "Chỗ ngoặt nguy hiểm vòng bên phải",
+        "recognizable": true
+      },
+      {
+        "code": "W.202",
+        "categoryCode": "WARNING",
+        "name": "Nhiều chỗ ngoặt nguy hiểm liên tiếp",
+        "recognizable": true
+      },
+      {
+        "code": "W.203a",
+        "categoryCode": "WARNING",
+        "name": "Đường bị thu hẹp cả hai bên",
+        "recognizable": true
+      },
+      {
+        "code": "W.203c",
+        "categoryCode": "WARNING",
+        "name": "Đường bị thu hẹp về phía phải",
+        "recognizable": true
+      },
+      {
+        "code": "W.205",
+        "categoryCode": "WARNING",
+        "name": "Đường giao nhau",
+        "recognizable": true
+      },
+      {
+        "code": "W.207",
+        "categoryCode": "WARNING",
+        "name": "Giao nhau với đường không ưu tiên",
+        "recognizable": true
+      },
+      {
+        "code": "W.208",
+        "categoryCode": "WARNING",
+        "name": "Giao nhau với đường ưu tiên",
+        "recognizable": true
+      },
+      {
+        "code": "W.210",
+        "categoryCode": "WARNING",
+        "name": "Giao nhau với đường sắt có rào chắn",
+        "recognizable": true
+      },
+      {
+        "code": "W.220",
+        "categoryCode": "WARNING",
+        "name": "Dốc lên nguy hiểm",
+        "recognizable": true
+      },
+      {
+        "code": "W.224",
+        "categoryCode": "WARNING",
+        "name": "Đường người đi bộ cắt ngang",
+        "recognizable": true
+      },
+      {
+        "code": "W.225",
+        "categoryCode": "WARNING",
+        "name": "Trẻ em",
+        "recognizable": true
+      },
+      {
+        "code": "W.239b",
+        "categoryCode": "WARNING",
+        "name": "Chiều cao tĩnh không thực tế",
+        "recognizable": true
+      },
+      {
+        "code": "W.245a",
+        "categoryCode": "WARNING",
+        "name": "Đi chậm",
+        "recognizable": true
+      }
+    ]
+  }
+}
