@@ -96,7 +96,8 @@ services:
       SIGNA_MINIO_SECRET_KEY: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
       SIGNA_RECOGNITION_URL: http://recognition:8000
       SIGNA_LABELS_PATH: /app/catalog/labels.yaml
-      SIGNA_CATALOG_IMPORT_ON_STARTUP: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:-false}
+      # Khi chạy nhiều bản sao backend, chỉ bật nạp danh mục trên một bản sao.
+      SIGNA_CATALOG_IMPORT_ON_STARTUP: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:-true}
       # Chỉ bật worker trên một bản sao backend trong mỗi môi trường (ADR-0007).
       SIGNA_CLUSTERING_WORKER_ENABLED: ${SIGNA_CLUSTERING_WORKER_ENABLED:-true}
       # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).

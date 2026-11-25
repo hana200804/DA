@@ -98,7 +98,7 @@ Profile `local` ghi log dạng chữ và bật Swagger UI ở `/api/v1/swagger-u
 | `SIGNA_RECOGNITION_URL` | `http://localhost:8000` | Dịch vụ nhận diện FastAPI |
 | `SIGNA_CLUSTERING_WORKER_ENABLED` | `false` (Gradle), `true` (Compose) | Bật worker gom cụm trên một bản sao backend trong mỗi môi trường theo ADR-0007 |
 | `SIGNA_LABELS_PATH` | `../ai/data/labels.yaml` | Danh mục nhãn cho `import-labels` (lát 2) |
-| `SIGNA_CATALOG_IMPORT_ON_STARTUP` | `false` | Nạp danh mục nhãn mỗi lần khởi động |
+| `SIGNA_CATALOG_IMPORT_ON_STARTUP` | `false` (Gradle), `true` (Compose) | Nạp danh mục nhãn mỗi lần khởi động |
 | `SIGNA_PORT` | `8080` | Cổng HTTP |
 | `SIGNA_TRUSTED_PROXIES` | dải IP riêng | Biểu thức chính quy các proxy được tin `X-Forwarded-For`, ví dụ `172\.18\.0\.5` |
 | `SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` | (trống) | Quản trị viên đầu tiên, xem dưới |

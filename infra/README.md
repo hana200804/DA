@@ -12,6 +12,11 @@ cp infra/.env.example infra/.env
 `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` nếu cần tạo
 quản trị viên đầu tiên. Giữ `infra/.env` ngoài Git.
 
+Máy chạy Compose, kể cả demo, cần có `ai/data/labels.yaml` từ repo. Compose
+mount tệp ở chế độ chỉ đọc và yêu cầu tệp đã tồn tại. Backend mặc định nạp
+danh mục lên MySQL khi khởi động. Đặt `SIGNA_CATALOG_IMPORT_ON_STARTUP=false`
+để tắt. Khi triển khai nhiều bản sao backend, chỉ bật nạp trên một bản sao.
+
 Compose mặc định bật worker gom cụm cho backend ở các profile `app`, `dev`
 và `demo`. Đặt `SIGNA_CLUSTERING_WORKER_ENABLED=false` trong `infra/.env`
 để tắt. Chỉ bật worker trên một bản sao backend trong mỗi môi trường theo
@@ -70,10 +75,8 @@ nằm trong mạng Docker riêng cùng backend và chỉ nghe cổng 8000 trong 
 
 ### Kiểm tra nhanh backend
 
-Đặt `SIGNA_CATALOG_IMPORT_ON_STARTUP=true` và hai biến
-`SIGNA_BOOTSTRAP_ADMIN_EMAIL`, `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` trong
-`infra/.env` trước khi dựng stack dev. Compose mount `ai/data/labels.yaml` ở
-chế độ chỉ đọc để backend nạp danh mục khi khởi động.
+Đặt `SIGNA_BOOTSTRAP_ADMIN_EMAIL` và `SIGNA_BOOTSTRAP_ADMIN_PASSWORD` trong
+`infra/.env` trước khi dựng stack dev để có tài khoản quản trị cho smoke test.
 
 Khi thiếu checkpoint, lưu cấu hình sau vào một tệp tạm ngoài repo để chạy
 dev mà không build dịch vụ nhận diện.
