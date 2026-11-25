@@ -249,6 +249,12 @@ crop=<ảnh cắt JPEG, ≤ 200 KB>
 
 `201` trả `{ id, status: "RECEIVED" }` sau khi ảnh đã lưu và bản ghi đã commit. Gửi lại cùng `clientId` trong cùng tài khoản trả `200` với đề xuất đã có, kể cả khi hai yêu cầu đến đồng thời. Hàng đợi trên ứng dụng gửi tuần tự từng đề xuất.
 
+`metadata` là đối tượng JSON. Mã biển phải đang dùng và phiên bản danh mục trong `model.labelMapVersion` phải được hỗ trợ. Trường sai trả `400 VALIDATION_ERROR` kèm `details`, phiên bản chưa hỗ trợ trả `422 BUSINESS_RULE`. Ảnh được nhận dạng theo chữ ký JPEG. Ảnh quá 200 KiB trả `413 PAYLOAD_TOO_LARGE`, ảnh sai định dạng trả `415 UNSUPPORTED_MEDIA_TYPE`.
+
+### Đề xuất của tôi
+
+`GET /api/v1/me/submissions?page=0&size=20` chỉ trả đề xuất của tài khoản đang đăng nhập, theo `receivedAt` giảm dần. Kết quả theo phân trang ở §1. Mỗi mục gồm `id`, `signTypeCode`, `status` (`RECEIVED`, `GROUPED`, `ACCEPTED`, `REJECTED`), `rejectReason`, `signId`, `location`, `receivedAt` và `capturedAt`. `signId` và `rejectReason` có thể là `null`.
+
 ### Đánh giá và báo cáo
 
 ```json

@@ -2,6 +2,7 @@ package vn.signa.identity.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -54,6 +55,8 @@ import vn.signa.identity.internal.SessionService;
 import vn.signa.recognition.internal.DetectResult;
 import vn.signa.recognition.internal.ModelList;
 import vn.signa.recognition.internal.RecognitionService;
+import vn.signa.sign.clustering.SubmissionStatus;
+import vn.signa.sign.internal.SubmissionService;
 import vn.signa.sign.internal.map.MapResult;
 import vn.signa.sign.internal.map.MapService;
 import vn.signa.sign.internal.map.SignDetail;
@@ -213,6 +216,21 @@ class PermissionMatrixTest {
           Endpoint.of(
               HttpMethod.GET, "/api/v1/signs?bbox=105.8,21.02,105.81,21.03", null, Access.PUBLIC),
           Endpoint.of(HttpMethod.GET, "/api/v1/signs/s-1", null, Access.PUBLIC),
+          // Lát 5 · đề xuất (docs/07 §6)
+          new Endpoint(
+              HttpMethod.POST,
+              "/api/v1/submissions",
+              """
+              {"clientId":"abcdb1d7-3813-44d1-a641-e474c16010fe","signTypeCode":"P.102",
+               "confidence":0.9,"location":{"lat":21.04,"lng":105.8},"source":"CAMERA",
+               "model":{"name":"yolov8n","version":"1.0","labelMapVersion":1},
+               "capturedAt":"2026-11-24T00:00:00Z"}
+              """,
+              new MockMultipartFile(
+                  "crop", "crop.jpg", "image/jpeg", HexFormat.of().parseHex("ffd8ff")),
+              Access.permission("submission:create"),
+              true),
+          Endpoint.of(HttpMethod.GET, "/api/v1/me/submissions", null, Access.AUTHENTICATED),
           // Actuator không nạp trong @WebMvcTest; ApplicationIT kiểm /actuator/health thật.
           Endpoint.reserved(HttpMethod.GET, "/actuator/health", Access.PUBLIC),
           // Đường dẫn chưa khai báo công khai thì cần đăng nhập.
@@ -250,6 +268,7 @@ class PermissionMatrixTest {
   @MockitoBean CatalogQueryService catalog;
   @MockitoBean CatalogAdminService catalogAdmin;
   @MockitoBean SessionService sessions;
+  @MockitoBean SubmissionService submissions;
   @MockitoBean RolePermissions rolePermissions;
   // Lát 3 · nhận diện
   @MockitoBean RecognitionService recognition;
@@ -292,6 +311,12 @@ class PermissionMatrixTest {
                     0,
                     Instant.parse("2026-01-15T08:30:12.345Z"),
                     null)));
+    when(submissions.submit(anyString(), any(), any()))
+        .thenReturn(
+            new SubmissionService.Result(
+                new SubmissionService.Receipt("submission-1", SubmissionStatus.RECEIVED), true));
+    when(submissions.list(anyString(), anyInt(), anyInt()))
+        .thenReturn(new SubmissionService.Page(List.of(), 0, 20, 0));
     when(catalog.categories()).thenReturn(new SignCategoryList(List.of()));
     when(catalogAdmin.types(false)).thenReturn(new AdminSignTypeList(List.of()));
     when(catalog.signTypes())
@@ -314,7 +339,17 @@ class PermissionMatrixTest {
         endpoint.file() == null
             ? request(endpoint.method(), endpoint.path())
             : multipart(endpoint.method(), endpoint.path()).file(endpoint.file());
-    if (endpoint.body() != null) {
+    if (endpoint.file() != null && endpoint.body() != null) {
+      request =
+          multipart(endpoint.method(), endpoint.path())
+              .file(endpoint.file())
+              .file(
+                  new MockMultipartFile(
+                      "metadata",
+                      "",
+                      MediaType.APPLICATION_JSON_VALUE,
+                      endpoint.body().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    } else if (endpoint.body() != null) {
       request.contentType(MediaType.APPLICATION_JSON).content(endpoint.body());
     }
     if (!role.equals(GUEST)) {

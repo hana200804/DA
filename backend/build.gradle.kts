@@ -46,6 +46,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-security-test") // lát 1
     implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.3") // lát 3
     testImplementation("org.wiremock:wiremock-standalone:3.13.2") // lát 3
+    implementation("io.micrometer:micrometer-registry-prometheus") // lát 5
 }
 
 tasks.withType<JavaCompile> {
@@ -82,5 +83,20 @@ spotless {
     java {
         googleJavaFormat()
         target("src/**/*.java")
+    }
+}
+
+// lát 5: lõi gom cụm vn.signa.sign.clustering phải phủ ≥ 90% dòng bằng unit test.
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    violationRules {
+        rule {
+            element = "PACKAGE"
+            includes = listOf("vn.signa.sign.clustering")
+            limit {
+                counter = "LINE"
+                minimum = "0.90".toBigDecimal()
+            }
+        }
     }
 }
