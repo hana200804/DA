@@ -1,0 +1,65 @@
+# Hạ tầng cho máy dev: MySQL, Redis, MinIO. Chạy từ gốc repo:
+#   cp infra/.env.example infra/.env   # rồi đổi mật khẩu
+#   docker compose -f infra/compose.yaml up -d
+# Cổng chỉ mở trên 127.0.0.1. Phiên bản ảnh khớp backend/src/test/.../support/Containers.java.
+#
+# Backend chưa nằm trong Compose (thêm ở lát 1 cùng image). Khi chạy lâu dài, backend chỉ nhận
+# SIGNA_DB_APP_*; migration chạy riêng bằng profile migrate với SIGNA_DB_MIGRATOR_*
+# (xem backend/README.md). Lát 1 sẽ thêm service migrate chạy một lần.
+name: signa
+
+services:
+  mysql:
+    image: mysql:8.4.13
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Đặt MYSQL_ROOT_PASSWORD trong infra/.env}
+      # Đọc bởi mysql/init/01-users.sh khi khởi tạo volume lần đầu.
+      SIGNA_MIGRATOR_PASSWORD: ${SIGNA_DB_MIGRATOR_PASSWORD:?Đặt SIGNA_DB_MIGRATOR_PASSWORD trong infra/.env}
+      SIGNA_APP_PASSWORD: ${SIGNA_DB_APP_PASSWORD:?Đặt SIGNA_DB_APP_PASSWORD trong infra/.env}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # Server tạm lúc khởi tạo không mở TCP, nên ping qua 127.0.0.1 chỉ đạt khi init xong.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:7.4.12-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    # Bản cộng đồng của MinIO; ảnh minio/minio chính thức không còn công khai.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${SIGNA_MINIO_ACCESS_KEY:?Đặt SIGNA_MINIO_ACCESS_KEY trong infra/.env}
+      MINIO_ROOT_PASSWORD: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:

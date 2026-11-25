@@ -1,0 +1,10 @@
+# Profile cho máy dev: log dạng chữ, bật Swagger UI.
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /api/v1/swagger-ui
+
+logging:
+  structured:
+    format:
+      console: ""
