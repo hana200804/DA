@@ -73,7 +73,7 @@ class RemoteAuthRepository @Inject constructor(
     }
 
     override suspend fun resetPassword(email: String, otp: String, newPassword: String) = request {
-        api.resetPassword(ResetPasswordRequest(email.trim(), otp, newPassword))
+        api.resetPassword(ResetPasswordRequest(email.trim(), code = otp, newPassword = newPassword))
     }
 
     override suspend fun changePassword(oldPassword: String, newPassword: String) {

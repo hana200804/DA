@@ -12,7 +12,7 @@ data class RegisterRequest(val displayName: String, val email: String, val passw
 data class ForgotPasswordRequest(val email: String)
 
 @Serializable
-data class ResetPasswordRequest(val email: String, val otp: String, val newPassword: String)
+data class ResetPasswordRequest(val email: String, val code: String, val newPassword: String)
 
 @Serializable
 data class ChangePasswordRequest(val oldPassword: String, val newPassword: String)
