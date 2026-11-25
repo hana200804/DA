@@ -71,7 +71,10 @@ public class LabelImporter {
 
   /** Đọc, kiểm tra rồi nạp file; file sai thì ném {@link LabelsFileException}, không ghi gì. */
   public Result importFrom(Path path) {
-    LabelMap map = LabelsYamlParser.load(path);
+    return importParsed(path, LabelsYamlParser.load(path));
+  }
+
+  Result importParsed(Path path, LabelMap map) {
     Result result = tx.execute(status -> apply(map));
     log.info(
         "Nạp danh mục nhãn {} v{}: thêm {} nhóm, thêm {} loại, cập nhật {} loại, giữ nguyên {}",

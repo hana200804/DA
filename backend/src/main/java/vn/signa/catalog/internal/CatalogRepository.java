@@ -145,6 +145,15 @@ public class CatalogRepository {
         .optional();
   }
 
+  /** Phiên bản nhãn lớn nhất đã lưu, kể cả trên loại biển đã ngừng dùng. */
+  Optional<Integer> latestLabelMapVersion() {
+    return jdbc.sql(
+            "SELECT label_map_version FROM sign_types WHERE label_map_version IS NOT NULL"
+                + " ORDER BY label_map_version DESC LIMIT 1")
+        .query(Integer.class)
+        .optional();
+  }
+
   /** Phiên bản danh mục nhãn của các loại đang dùng và nhận diện được. */
   public Set<Integer> recognizableVersions() {
     return new TreeSet<>(
