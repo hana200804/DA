@@ -89,6 +89,8 @@ Content-Type: application/json
 }
 ```
 
+`GET /me` trả trực tiếp đối tượng `user` như trên, thêm trường `email`. Đối tượng này không được bọc trong `{ "user": … }`.
+
 `client` là `MOBILE` hoặc `WEB`, quyết định thời hạn phiên. Web quản trị chỉ chấp nhận đăng nhập của tài khoản có `review:decide`. Sai mật khẩu quá 10 lần trong 15 phút theo email + IP thì trả `429`.
 
 ## 4. Danh mục biển
@@ -117,6 +119,8 @@ Content-Type: application/json
 ```
 
 Ứng dụng tải danh mục một lần, lưu vào Room và chỉ tải lại khi ETag đổi.
+
+`GET /sign-categories` trả `{ "items": [{ "code", "name", "description", "sortOrder" }] }`, sắp theo `sortOrder`.
 
 ## 5. Nhận diện
 
@@ -188,6 +192,8 @@ Chi tiết biển công khai áp dụng cùng trạng thái hiển thị như b�
 ```
 
 `categories` và `signTypeCodes` là các danh sách tuỳ chọn, phân cách bằng dấu phẩy. Nếu gửi cả hai, mỗi biển phải khớp cả nhóm lẫn mã. Khi còn hơn 500 biển sau khi lọc, API trả `"mode": "CLUSTERS"` với `items` gồm `{ location, count }` theo ô lưới.
+
+Ô lưới là hình vuông theo độ, cạnh `360 / 2^zoom / 8`, với `zoom` là số nguyên từ 0 tới 22. `location` của một ô là trung bình toạ độ các biển trong ô. Tổng `count` của các ô bằng số biển khớp bộ lọc trong `bbox`.
 
 ### Gửi đề xuất
 
@@ -264,7 +270,7 @@ thời gian chờ slot. Xem [cấu hình dịch vụ](../ai/README.md#cách-dị
 | GET | `/admin/signs/{id}` | `review:decide` | Chi tiết đầy đủ: đề xuất thành viên, URL ảnh cắt, phân bố mã, biển gần, `version` | FR-31 |
 | POST | `/admin/signs/{id}/approve` | `review:decide` | Duyệt; tuỳ chọn đổi `signTypeCode`, `location` | FR-31 |
 | POST | `/admin/signs/{id}/reject` | `review:decide` | Từ chối, bắt buộc `reason` | FR-31 |
-| POST | `/admin/signs/{id}/keep` | `review:decide` | Giữ biển `UNDER_REVIEW` | FR-31 |
+| POST | `/admin/signs/{id}/keep` | `review:decide` | Giữ biển `UNDER_REVIEW`; tuỳ chọn sửa mã, vị trí, hướng trong cùng thao tác | FR-31 |
 | POST | `/admin/signs` | `sign:edit` | Thêm biển trực tiếp | FR-33 |
 | PATCH | `/admin/signs/{id}` | `sign:edit` | Sửa mã, vị trí, hướng | FR-33 |
 | POST | `/admin/signs/{id}/remove` | `sign:edit` | Gỡ biển, bắt buộc `reason` | FR-33 |
@@ -280,6 +286,70 @@ POST /api/v1/admin/signs/{id}/approve
 
 `version` lệch: `409 SIGN_ALREADY_PROCESSED`, web tải lại biển và báo cho kiểm duyệt viên.
 
+Mọi thao tác trên một biển đã có đều gửi `version`. Bảng dưới liệt kê nội dung request của từng thao tác:
+
+| Thao tác | Nội dung |
+| --- | --- |
+| `approve` | `version`; tuỳ chọn `signTypeCode`, `location` |
+| `reject`, `remove` | `version`, `reason` (1–1000 ký tự) |
+| `keep` | `version`; tuỳ chọn `signTypeCode`, `location`, `headingDeg`. Có thay đổi thì sửa và giữ trong một giao dịch, ghi lịch sử `EDITED` rồi `KEPT` |
+| `PATCH /admin/signs/{id}` | `version` và ít nhất một trong `signTypeCode`, `location`, `headingDeg` (`null` để xoá hướng) |
+| `POST /admin/signs` | `signTypeCode`, `location`, `headingDeg` (có thể `null`). Trả `201` với `{ id, version }` |
+
+Các thao tác ghi khác trả `204`.
+
+**Hàng đợi.** `GET /admin/review-queue` trả trang `{ items, page, size, total }`. Mỗi mục có dạng:
+
+```json
+{
+  "id": "c1a9…",
+  "signTypeCode": "P.123a",
+  "signName": "Cấm rẽ trái",
+  "categoryCode": "PROHIBITORY",
+  "location": { "lat": 21.0285, "lng": 105.8048 },
+  "headingDeg": 92,
+  "status": "PENDING",
+  "confidence": 0.82,
+  "suggestion": "APPROVE",
+  "distinctSubmitters": 2,
+  "flags": [],
+  "createdAt": "2026-01-15T08:30:12.345Z"
+}
+```
+
+**Chi tiết.** `GET /admin/signs/{id}` gồm mọi trường của mục hàng đợi, thêm các trường sau:
+
+```json
+{
+  "version": 7,
+  "locationLocked": false,
+  "relatedSignId": null,
+  "coverCropUrl": "https://…(URL ký 10 phút)",
+  "confirmCount": 0,
+  "denyCount": 0,
+  "codeWeights": { "P.123a": 1.8, "P.123b": 0.4 },
+  "submissions": [
+    {
+      "id": "0b8f…",
+      "signTypeCode": "P.123a",
+      "confidence": 0.9,
+      "weight": 0.9,
+      "source": "CAMERA",
+      "flags": [],
+      "headingDeg": 92,
+      "location": { "lat": 21.02851, "lng": 105.80479 },
+      "receivedAt": "2026-01-15T08:30:13.002Z",
+      "cropUrl": "https://…(URL ký 10 phút)"
+    }
+  ],
+  "nearbySigns": [
+    { "id": "77d2…", "signTypeCode": "P.123b", "location": { "lat": 21.0286, "lng": 105.8049 }, "status": "APPROVED" }
+  ]
+}
+```
+
+`flags` của biển có thể chứa `DIFFERS_FROM_APPROVED`; khi đó `relatedSignId` trỏ tới biển đã duyệt mà biển này khác mã. `nearbySigns` gồm các biển `APPROVED` và `UNDER_REVIEW` trong bán kính 50 m.
+
 ### Báo cáo
 
 | Method | Đường dẫn | Quyền | Mô tả | FR |
@@ -287,6 +357,42 @@ POST /api/v1/admin/signs/{id}/approve
 | GET | `/admin/reports?status=&reason=` | `report:resolve` | Báo cáo, gom theo biển | FR-32 |
 | POST | `/admin/reports/{id}/accept` | `report:resolve` | Chấp nhận kèm `action`: `EDIT` (với thay đổi) hoặc `REMOVE` | FR-32 |
 | POST | `/admin/reports/{id}/dismiss` | `report:resolve` | Từ chối, bắt buộc `note` | FR-32 |
+
+`GET /admin/reports` trả trang theo biển. `status` mặc định là `PENDING`. Mỗi mục có dạng:
+
+```json
+{
+  "sign": {
+    "id": "c1a9…",
+    "signTypeCode": "P.123a",
+    "signName": "Cấm rẽ trái",
+    "location": { "lat": 21.0285, "lng": 105.8048 },
+    "status": "APPROVED",
+    "version": 7
+  },
+  "reports": [
+    {
+      "id": "5e21…",
+      "reason": "WRONG_TYPE",
+      "description": "Biển là cấm rẽ phải",
+      "photoUrl": null,
+      "reporterName": "Nguyễn Văn A",
+      "createdAt": "2026-01-16T02:10:00.000Z",
+      "status": "PENDING",
+      "resolution": null,
+      "resolutionNote": null
+    }
+  ]
+}
+```
+
+| Thao tác | Nội dung |
+| --- | --- |
+| `accept` sửa biển | `{ "action": "EDIT", "version": 7, "changes": { "signTypeCode": "P.123b", "location": { … } } }`, cần ít nhất một thay đổi |
+| `accept` gỡ biển | `{ "action": "REMOVE", "version": 7 }` |
+| `dismiss` | `{ "note": "…" }`, 1–1000 ký tự |
+
+Chấp nhận một báo cáo sẽ sửa hoặc gỡ biển và ghi lịch sử trong cùng giao dịch. Các báo cáo khác đang chờ của biển đó vẫn ở trạng thái chờ. `version` lệch thì trả `409 SIGN_ALREADY_PROCESSED`.
 
 ### Lịch sử, thống kê, so sánh mô hình
 
@@ -296,10 +402,45 @@ POST /api/v1/admin/signs/{id}/approve
 | GET | `/admin/stats?from=&to=` | `stats:read` | Thống kê | FR-38 |
 | POST | `/admin/recognition/compare` | `recognition:compare` | Một ảnh, trả kết quả của cả ba mô hình | FR-37 |
 
+Mỗi dòng lịch sử có dạng `{ id, entityType, entityId, action, actorType, actorId, actorName, beforeValue, afterValue, reason, requestId, createdAt }`. `actorId` và `actorName` là `null` khi `actorType = SYSTEM`. `from` và `to` là thời điểm ISO-8601.
+
+`/admin/stats` trả:
+
+```json
+{
+  "submissionsByDay": [{ "date": "2026-01-15", "count": 42 }],
+  "decisions": { "approved": 30, "rejected": 4 },
+  "processingTime": { "averageMs": 5400000, "samples": 34 },
+  "signsByCategory": [{ "categoryCode": "PROHIBITORY", "name": "Biển cấm", "count": 120 }],
+  "densityCells": [{ "location": { "lat": 21.03, "lng": 105.80 }, "count": 18 }]
+}
+```
+
+`processingTime` đo từ đề xuất đầu tiên của biển tới quyết định duyệt hoặc từ chối. `densityCells` dùng cùng ô lưới với bản đồ ở mức zoom 12.
+
+`/admin/recognition/compare` nhận multipart `image` như `/recognition/detect`, rồi gọi lần lượt ba mô hình:
+
+```json
+{
+  "image": { "width": 1280, "height": 960 },
+  "results": [
+    {
+      "model": { "name": "yolov8", "version": "yolov8s-v1.0", "labelMapVersion": 1 },
+      "inferenceMs": 142,
+      "detections": [{ "box": { "x": 812, "y": 233, "width": 64, "height": 66 }, "signTypeCode": "P.123a", "confidence": 0.93 }]
+    },
+    { "model": { "name": "detr" }, "error": { "message": "Dịch vụ nhận diện quá tải" } }
+  ]
+}
+```
+
+Một mô hình lỗi không làm hỏng cả request; kết quả của mô hình đó mang `error`.
+
 ### Danh mục và người dùng
 
 | Method | Đường dẫn | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
+| GET | `/admin/sign-types?active=` | `catalog:manage` | Mọi loại biển, kể cả loại đã ngừng dùng | FR-35 |
 | POST | `/admin/sign-categories` | `catalog:manage` | Thêm nhóm biển | FR-35 |
 | PATCH | `/admin/sign-categories/{code}` | `catalog:manage` | Sửa nhóm biển | FR-35 |
 | POST | `/admin/sign-types` | `catalog:manage` | Thêm loại biển chỉ nhập tay | FR-35 |
@@ -307,6 +448,10 @@ POST /api/v1/admin/signs/{id}/approve
 | PUT | `/admin/sign-types/{code}/icon` | `catalog:manage` | Tải ảnh minh hoạ | FR-35 |
 | GET | `/admin/users?q=&role=&status=` | `user:manage` | Danh sách người dùng | FR-36 |
 | PATCH | `/admin/users/{id}` | `user:manage` | Đổi `role`, `status` | FR-36 |
+
+Loại biển trong API quản trị có dạng `{ code, categoryCode, name, description, speedKmh, iconUrl, recognizable, active, updatedAt }`. `POST /admin/sign-types` luôn tạo loại `recognizable = false`. Tải ảnh minh hoạ dùng multipart part `icon` (PNG, JPEG hoặc WebP, ≤ 1 MB).
+
+Người dùng trong danh sách có dạng `{ id, email, displayName, role, status, createdAt, lastLoginAt }`. `q` tìm theo một phần email. Quản trị viên tự hạ vai trò hoặc tự khoá chính mình thì nhận `422 BUSINESS_RULE`.
 
 ## 9. Tài liệu OpenAPI
 
