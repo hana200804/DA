@@ -97,9 +97,8 @@ class RemoteAuthRepository @Inject constructor(
     }
 
     override suspend fun changePassword(oldPassword: String, newPassword: String) {
-        val current = sessions.current ?: throw AuthException(AuthError.NotSignedIn)
-        request { api.changePassword(ChangePasswordRequest(oldPassword, newPassword)) }
-        sessions.clear(current.id)
+        if (sessions.current == null) throw AuthException(AuthError.NotSignedIn)
+        request { api.changePassword(ChangePasswordRequest(currentPassword = oldPassword, newPassword = newPassword)) }
     }
 
     private suspend fun <T> request(call: suspend () -> T): T {

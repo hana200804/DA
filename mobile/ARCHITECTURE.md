@@ -102,7 +102,8 @@ kiểm thử khung ứng dụng, không dùng làm dữ liệu cảnh báo ngoà
 2. Đăng ký thành công trở về đăng nhập; email trùng và sai mật khẩu có lỗi riêng.
 3. Đăng nhập thành công mở khung các tab, bắt đầu ở Bản đồ. Đóng/mở app sẽ kiểm tra và khôi phục phiên Room hợp lệ trước khi hiển thị khung chính.
 4. Quên mật khẩu → Gửi OTP → đọc **mã thử nghiệm** trên màn hình → nhập mã và mật khẩu mới.
-5. Đổi mật khẩu cần mật khẩu hiện tại. Đặt lại/đổi thành công yêu cầu đăng nhập lại.
+5. Đổi mật khẩu cần mật khẩu hiện tại. Backend giữ phiên hiện tại khi đổi thành công
+   và thu hồi các phiên khác. Đặt lại mật khẩu hoặc đổi trong chế độ fake yêu cầu đăng nhập lại.
 6. Đăng xuất hoặc hết hạn phiên sẽ xóa khung chính và trở về Đăng nhập; nút Back không quay lại các tab.
 7. Chế độ khách chỉ mở khi người dùng chủ động chọn “Tiếp tục với khách”. Từ Tài khoản → Đăng nhập sẽ trở lại khung xác thực.
 

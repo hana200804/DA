@@ -140,6 +140,7 @@
   <string name="auth_register_success">Đăng ký thành công. Hãy đăng nhập bằng tài khoản vừa tạo.</string>
   <string name="auth_reset_success">Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.</string>
   <string name="auth_change_success">Đã đổi mật khẩu. Vui lòng đăng nhập lại.</string>
+  <string name="auth_change_success_keep_session">Đã đổi mật khẩu.</string>
   <string name="auth_forbidden">Tài khoản chưa được phép thực hiện thao tác này.</string>
   <string name="auth_validation_error">Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.</string>
   <string name="hint_display_name">Nhập tên hiển thị</string>

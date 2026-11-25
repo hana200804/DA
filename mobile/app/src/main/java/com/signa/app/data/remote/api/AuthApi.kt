@@ -20,7 +20,7 @@ interface AuthApi {
     @POST("auth/logout") suspend fun logout()
     @POST("auth/password/forgot") suspend fun forgotPassword(@Body request: ForgotPasswordRequest)
     @POST("auth/password/reset") suspend fun resetPassword(@Body request: ResetPasswordRequest)
-    @PUT("users/me/password") suspend fun changePassword(@Body request: ChangePasswordRequest)
+    @PUT("me/password") suspend fun changePassword(@Body request: ChangePasswordRequest)
     @GET("me") suspend fun currentUser(): UserDto
     @PATCH("me") suspend fun updateProfile(@Body request: UpdateProfileRequest): UserDto
 }
