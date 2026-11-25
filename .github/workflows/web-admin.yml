@@ -1,0 +1,43 @@
+name: Web quản trị
+
+on:
+  pull_request:
+    paths:
+      - 'web-admin/**'
+      - '.github/workflows/web-admin.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web-admin/**'
+      - '.github/workflows/web-admin.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-admin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Biên dịch và kiểm thử web quản trị
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web-admin
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v6
+      - name: Thiết lập Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web-admin/package-lock.json
+      - name: Cài đặt phụ thuộc
+        run: npm ci
+      - name: Biên dịch web quản trị
+        run: npm run build
+      - name: Chạy kiểm thử
+        run: npm test
