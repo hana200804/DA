@@ -124,9 +124,18 @@ test('đăng nhập web lấy Bearer token và kiểm tra quyền duyệt', asyn
   );
 });
 
-test('hàng đợi gửi trang từ 0 và chi tiết giữ ảnh của từng đề xuất', async () => {
+test('FR-31 lấy ảnh đề xuất, số người đề xuất, cờ và biển liên quan', async () => {
+  const review = {
+    ...pending,
+    distinctSubmitters: 1,
+    flags: ['DIFFERS_FROM_APPROVED'],
+    relatedSignId: 'sign-2',
+    nearbySigns: [
+      { id: 'sign-2', signTypeCode: 'P.102', location: pending.location },
+    ],
+  } satisfies ReviewDetail;
   await mockFetch(
-    [Response.json({ items: [pending], total: 13 }), Response.json(pending)],
+    [Response.json({ items: [review], total: 13 }), Response.json(review)],
     async (calls) => {
       const queue = await api.queue('token', {
         page: 2,
@@ -144,8 +153,7 @@ test('hàng đợi gửi trang từ 0 và chi tiết giữ ảnh của từng đ
       });
       const detail = await api.detail('token', pending.id);
       assert.equal(calls[1].path, '/api/v1/admin/signs/sign-1');
-      assert.equal(detail.version, 7);
-      assert.deepEqual(detail.submissions, pending.submissions);
+      assert.deepEqual(detail, review);
     },
   );
 });
@@ -1390,8 +1398,8 @@ test('FR-38 gọi thống kê với quyền Bearer và ngày UTC, giữ dữ li�
     assert.equal(url.pathname, '/api/v1/admin/stats');
     assert.equal(calls[0].auth, 'Bearer token');
     assert.deepEqual(Object.fromEntries(url.searchParams), {
-      from: '2026-11-20T17:00:00.000Z',
-      to: '2026-11-21T16:59:59.999Z',
+      from: '2026-11-21T00:00:00.000Z',
+      to: '2026-11-21T23:59:59.999Z',
     });
   });
 });
@@ -1436,7 +1444,7 @@ test('FR-38 biểu đồ điền ngày trống và tỉ lệ chỉ tính trên s
   assert.equal(decisionRates({ approved: 0, rejected: 0 }), null);
 });
 
-test('demo FR-38 lọc đề xuất theo ngày Việt Nam và tính độ phủ trên mọi biển đã duyệt', () =>
+test('demo FR-38 đếm đề xuất theo ngày UTC, đếm biển theo ngày xử lý và giữ độ phủ', () =>
   withDemoStorage(async () => {
     const db = readDemo();
     const baseUpload = db.uploads[0];
@@ -1446,7 +1454,7 @@ test('demo FR-38 lọc đề xuất theo ngày Việt Nam và tính độ phủ 
         id: 'a',
         status: 'APPROVAL',
         createdAt: '2026-11-20T17:00:00Z',
-        decision: { status: 'APPROVED', at: '2026-11-20T18:00:00Z' },
+        decision: { status: 'APPROVED', at: '2026-11-21T01:00:00Z' },
       },
       {
         ...baseUpload,
@@ -1479,9 +1487,9 @@ test('demo FR-38 lọc đề xuất theo ngày Việt Nam và tính độ phủ 
       {
         ...baseUpload,
         id: 'f',
-        status: 'APPROVAL',
-        createdAt: '2026-11-21T01:00:00Z',
-        decision: undefined,
+        status: 'REJECTED',
+        createdAt: '2026-11-21T23:59:59.999Z',
+        decision: { status: 'REJECTED', at: '2026-11-22T00:00:00Z' },
       },
     ];
     db.auditLogs = [
@@ -1493,6 +1501,15 @@ test('demo FR-38 lọc đề xuất theo ngày Việt Nam và tính độ phủ 
         actorType: 'USER',
         actorId: 'admin.demo',
         createdAt: '2026-11-21T03:45:00Z',
+      },
+      {
+        id: 'manual-event',
+        entityType: 'SIGN',
+        entityId: 'manual',
+        action: 'CREATED',
+        actorType: 'USER',
+        actorId: 'admin.demo',
+        createdAt: '2026-11-21T04:00:00Z',
       },
     ];
     const signs: ReviewDetail[] = [
@@ -1532,24 +1549,32 @@ test('demo FR-38 lọc đề xuất theo ngày Việt Nam và tính độ phủ 
         createdAt: '2026-11-20T16:59:59.999Z',
         location: { lat: 21.002, lng: 105.802 },
       },
+      {
+        ...pending,
+        id: 'manual',
+        status: 'APPROVED',
+        signTypeCode: 'P.130',
+        submissions: [],
+        location: { lat: 21.002, lng: 105.802 },
+      },
     ];
     const stats = demoStatistics(db, signs, {
       fromDate: '2026-11-21',
       toDate: '2026-11-21',
     });
     assert.deepEqual(stats.submissionsByDay, [
-      { date: '2026-11-21', count: 5 },
+      { date: '2026-11-21', count: 3 },
     ]);
-    assert.deepEqual(stats.decisions, { approved: 3, rejected: 1 });
+    assert.deepEqual(stats.decisions, { approved: 2, rejected: 0 });
     assert.deepEqual(stats.processingTime, {
-      averageMs: 7_200_000,
-      samples: 3,
+      averageMs: 28_800_000,
+      samples: 1,
     });
     assert.deepEqual(stats.signsByCategory, [
-      { categoryCode: 'PROHIBITORY', name: 'Biển cấm', count: 2 },
+      { categoryCode: 'PROHIBITORY', name: 'Biển cấm', count: 3 },
     ]);
     assert.equal(stats.densityCells.length, 1);
-    assert.equal(stats.densityCells[0].count, 2);
+    assert.equal(stats.densityCells[0].count, 3);
   }));
 
 test('demo FR-38 giữ thời gian xử lý cho dữ liệu mẫu từ bản cũ', () =>
@@ -1558,8 +1583,8 @@ test('demo FR-38 giữ thời gian xử lý cho dữ liệu mẫu từ bản cũ
     db.uploads = db.uploads.map(({ decision: _decision, ...row }) => row);
     writeDemo(db);
     const stats = await reviewDemo.statistics('demo', {});
-    assert.equal(stats.decisions.approved + stats.decisions.rejected, 23);
-    assert.equal(stats.processingTime.samples, 23);
+    assert.deepEqual(stats.decisions, { approved: 16, rejected: 4 });
+    assert.equal(stats.processingTime.samples, 20);
     assert.ok(stats.processingTime.averageMs! > 0);
   }));
 
