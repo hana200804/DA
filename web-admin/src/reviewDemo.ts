@@ -60,6 +60,7 @@ function seedReviews({ uploads }: DemoDB): ReviewDetail[] {
         signName: row.trafficSignName,
         createdAt: row.createdAt,
         confidence: hasConflict ? 0.65 : index % 3 === 1 ? 0.84 : 0.72,
+        distinctSubmitters: 1,
         suggestion:
           status === 'APPROVED'
             ? null
@@ -255,6 +256,7 @@ export const reviewDemo = {
       signName: type.name,
       createdAt: new Date().toISOString(),
       confidence: 2.5 / 3,
+      distinctSubmitters: 0,
       suggestion: null,
       submissions: [],
       codeWeights: {},

@@ -17,7 +17,9 @@ export interface Statistics {
   densityCells: MapCluster[];
 }
 
-export const statisticsRange = dateRangeUtc;
+export function statisticsRange(filters: StatisticsFilters) {
+  return dateRangeUtc(filters, 'Z');
+}
 
 export function decisionRates({ approved, rejected }: Statistics['decisions']) {
   const total = approved + rejected;

@@ -20,6 +20,8 @@ export interface ReviewSign extends NearbySign {
   headingDeg?: number | null;
   confidence: number;
   suggestion: ReviewSuggestion | null;
+  distinctSubmitters?: number;
+  flags?: string[];
   createdAt?: string;
   signName?: string;
 }
@@ -31,6 +33,7 @@ export interface ReviewSubmission {
 }
 export interface ReviewDetail extends ReviewSign {
   version: number;
+  relatedSignId?: string | null;
   submissions: ReviewSubmission[];
   codeWeights: Record<string, number>;
   nearbySigns: NearbySign[];
@@ -65,6 +68,10 @@ export const suggestionLabels: Record<ReviewSuggestion, string> = {
   APPROVE: 'Nên duyệt',
   WAIT: 'Chờ thêm',
 };
+
+export function reviewFlagLabel(flag: string) {
+  return flag === 'DIFFERS_FROM_APPROVED' ? 'Khác mã với biển đã duyệt' : flag;
+}
 
 export function isReviewable(status: ReviewStatus) {
   return status === 'PENDING' || status === 'UNDER_REVIEW';

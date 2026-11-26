@@ -21,6 +21,7 @@ import { errorMessage, SessionExpiredError } from '../domain';
 import { ReviewApiError } from '../reviewApi';
 import {
   isReviewable,
+  reviewFlagLabel,
   reviewReasonProblem,
   suggestionLabels,
   type Location,
@@ -346,6 +347,9 @@ function ReviewForm({
     coordinate.lat !== sign.location.lat ||
     coordinate.lng !== sign.location.lng;
   const submission = sign.submissions[photo];
+  const relatedSign = sign.nearbySigns.find(
+    (row) => row.id === sign.relatedSignId,
+  );
   const actions: Action[] =
     sign.status === 'PENDING'
       ? ['reject', 'correct', 'approve']
@@ -437,6 +441,29 @@ function ReviewForm({
               <dt>Gợi ý</dt>
               <dd>
                 {sign.suggestion ? suggestionLabels[sign.suggestion] : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Người đề xuất khác nhau</dt>
+              <dd>{sign.distinctSubmitters ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Cờ cảnh báo</dt>
+              <dd>
+                {sign.flags?.length
+                  ? sign.flags.map(reviewFlagLabel).join(' · ')
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Biển liên quan</dt>
+              <dd
+                style={{ overflowWrap: 'anywhere' }}
+                title={sign.relatedSignId ?? undefined}
+              >
+                {relatedSign
+                  ? `${relatedSign.signTypeCode} · ${position(relatedSign.location)}`
+                  : (sign.relatedSignId ?? '—')}
               </dd>
             </div>
             <div>

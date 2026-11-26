@@ -92,11 +92,11 @@ export function StatisticsPage({ token }: { token: string }) {
           }}
         >
           <label className="field">
-            Từ ngày
+            Từ ngày (UTC)
             <input type="date" name="fromDate" />
           </label>
           <label className="field">
-            Đến ngày
+            Đến ngày (UTC)
             <input type="date" name="toDate" />
           </label>
           <div className="audit-filter-actions">
@@ -137,9 +137,7 @@ export function StatisticsPage({ token }: { token: string }) {
                 {
                   label: 'Tỉ lệ duyệt',
                   value: rates ? percent.format(rates.approved) : '—',
-                  note:
-                    formatCount(data.decisions.approved) +
-                    ' đề xuất được duyệt',
+                  note: formatCount(data.decisions.approved) + ' biển đã duyệt',
                   color: 'green',
                   Icon: Check,
                 },
@@ -147,8 +145,7 @@ export function StatisticsPage({ token }: { token: string }) {
                   label: 'Tỉ lệ từ chối',
                   value: rates ? percent.format(rates.rejected) : '—',
                   note:
-                    formatCount(data.decisions.rejected) +
-                    ' đề xuất bị từ chối',
+                    formatCount(data.decisions.rejected) + ' biển bị từ chối',
                   color: 'red',
                   Icon: X,
                 },
@@ -157,7 +154,7 @@ export function StatisticsPage({ token }: { token: string }) {
                   value: formatDuration(data.processingTime.averageMs),
                   note:
                     formatCount(data.processingTime.samples) +
-                    ' đề xuất có thời điểm quyết định',
+                    ' biển có đề xuất tại thời điểm xử lý',
                   color: 'amber',
                   Icon: Clock3,
                 },
@@ -179,8 +176,8 @@ export function StatisticsPage({ token }: { token: string }) {
                 <div>
                   <h2>Số đề xuất theo ngày</h2>
                   <p>
-                    Ngày theo UTC+7. Tỉ lệ duyệt và từ chối tính trên các đề
-                    xuất đã có quyết định.
+                    Ngày theo UTC. Tỉ lệ duyệt và từ chối tính trên số biển có
+                    quyết định trong khoảng đã chọn.
                   </p>
                 </div>
               </div>
