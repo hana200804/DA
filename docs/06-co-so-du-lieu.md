@@ -172,12 +172,22 @@ Backend kiểm tra **quyền**, không kiểm tra tên vai trò, nên đổi ph�
 | `display_name` | VARCHAR(100) | NOT NULL | |
 | `role_code` | VARCHAR(20) | FK → `roles.code`, NOT NULL, mặc định `USER` | |
 | `status` | ENUM('ACTIVE','LOCKED') | NOT NULL, mặc định `ACTIVE` | |
+| `credential_version` | INT | NOT NULL, mặc định 0 | Tăng khi đổi hoặc đặt lại mật khẩu, đổi vai trò hay khoá |
+| `retained_session_hash` | CHAR(64) | NULL | Mã băm phiên hiện tại được giữ khi đổi mật khẩu |
 | `last_login_at` | DATETIME(3) | NULL | |
 | `created_at`, `updated_at` | DATETIME(3) | NOT NULL | |
 
 ## 5. Danh mục biển
 
-Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35.
+Bảng `catalog_generation` giữ một bộ đếm tăng trong cùng giao dịch thay đổi loại biển để chọn đúng phiên bản cache danh mục.
+
+Hai bảng danh mục được nạp và cập nhật từ `ai/data/labels.yaml` bằng lệnh nhập của backend (upsert theo `code`); quản trị viên sửa nội dung hiển thị và thêm loại biển chỉ nhập tay qua FR-35. Lệnh nhập không ghi đè `description`, `icon_key`, `active`, không sửa nhóm đã có, và chỉ đổi `name` khi quản trị viên chưa sửa.
+
+Khi bật nạp danh mục lúc khởi động, backend khoá hàng `catalog_generation`,
+đọc `label_map_version` lớn nhất đã lưu và xử lý trong cùng một giao dịch.
+CSDL chưa có phiên bản hoặc YAML mới hơn thì đồng bộ như lệnh nhập.
+Cùng phiên bản thì chỉ chèn nhóm và loại còn thiếu, với audit `CREATED`
+và tăng bộ đếm khi có chèn. YAML cũ hơn thì bỏ qua và ghi cảnh báo.
 
 ### sign_categories
 
@@ -200,6 +210,7 @@ Hai bảng được nạp và cập nhật từ `ai/data/labels.yaml` bằng l�
 | `icon_key` | VARCHAR(255) | NULL | Khoá ảnh minh hoạ trong bucket `sign-icons` |
 | `label_id` | SMALLINT | NULL | `id` lớp trong danh mục nhãn; `NULL` nếu chỉ nhập tay |
 | `label_map_version` | INT | NULL | Phiên bản danh mục nhãn có lớp này |
+| `label_name` | VARCHAR(200) | NULL | Tên lấy từ danh mục nhãn ở lần nạp gần nhất. Lệnh nạp chỉ đổi `name` khi `name` còn bằng giá trị này, tức quản trị viên chưa sửa |
 | `active` | BOOLEAN | NOT NULL, mặc định TRUE | Ngừng dùng thay vì xoá |
 | `created_at`, `updated_at` | DATETIME(3) | NOT NULL | |
 
@@ -266,7 +277,7 @@ Chỉ mục: `SPATIAL(location)`; `(status, suggestion, confidence)` cho hàng �
 | `status` | ENUM('RECEIVED','GROUPED','ACCEPTED','REJECTED') | NOT NULL | |
 | `reject_reason` | VARCHAR(500) | NULL | |
 
-Chỉ mục: `(sign_id, user_id, received_at)` cho luật chống lặp 12 giờ; `(user_id, received_at)` cho FR-11; `(status)`.
+Chỉ mục: `(sign_id, user_id, received_at)` cho luật chống lặp 12 giờ; `(user_id, received_at)` cho FR-11; `(status, received_at)` cho quét lại đề xuất chờ; `(crop_key)` cho đối chiếu ảnh trong MinIO.
 
 ## 7. Đánh giá và báo cáo
 
@@ -321,7 +332,7 @@ Chỉ mục: `(entity_type, entity_id, created_at)`, `(actor_id, created_at)`, `
 
 | `entity_type` | `action` |
 | --- | --- |
-| `SIGN` | `CREATED`, `LEADING_CODE_CHANGED`, `APPROVED`, `AUTO_APPROVED`, `REJECTED`, `EDITED`, `MARKED_UNDER_REVIEW`, `KEPT`, `REMOVED` |
+| `SIGN` | `CREATED`, `LEADING_CODE_CHANGED`, `LOCATION_RECOMPUTED`, `APPROVED`, `AUTO_APPROVED`, `REJECTED`, `EDITED`, `MARKED_UNDER_REVIEW`, `KEPT`, `REMOVED` |
 | `REPORT` | `ACCEPTED`, `DISMISSED` |
 | `SIGN_TYPE`, `SIGN_CATEGORY` | `CREATED`, `UPDATED`, `DEACTIVATED` |
 | `USER` | `ROLE_CHANGED`, `LOCKED`, `UNLOCKED` |
@@ -349,19 +360,35 @@ LIMIT 501;
 
 Truy vấn áp dụng các bộ lọc nhóm và mã biển khi có tham số. Nếu tìm được 501 dòng, backend chạy truy vấn gom theo ô lưới với cùng bộ lọc trên toàn vùng. Số đếm mỗi ô lấy từ toàn bộ kết quả, kể cả các biển nằm ngoài 501 dòng đầu.
 
-**Biển gần một đề xuất** (gom cụm, bán kính 20 m): lọc thô bằng `MBRContains` với hình chữ nhật ±0,0002° quanh điểm (dùng chỉ mục), rồi lọc chính xác `ST_Distance_Sphere(location, :p) <= 20`.
+**Biển gần một đề xuất** (gom cụm, bán kính 20 m): lọc thô bằng `MBRContains` với nửa cạnh `Δlat = 20 / 111 320` và `Δlng = 20 / (111 320 · cos(lat))` độ, mở biên nhỏ theo hình cầu. Qua kinh tuyến đổi ngày thì tách khung và xét cả biên. Nếu vòng tròn chạm cực, chỉ lọc thô theo vĩ độ. Lọc chính xác bằng `ST_Distance_Sphere(location, :p, 6370986) <= 20` để cùng bán kính Trái Đất với lõi gom cụm.
 
 ## 10. Redis
 
 | Khoá | Kiểu | TTL | Mục đích |
 | --- | --- | --- | --- |
-| `session:{token}` | Hash `userId`, `role`, `createdAt` | 30 ngày (ứng dụng), 8 giờ (web); gia hạn khi dùng | Phiên đăng nhập |
-| `user-sessions:{userId}` | Set token | Không | Thu hồi mọi phiên khi đổi mật khẩu, khoá tài khoản |
-| `otp:{email}` | Hash `codeHash`, `attempts` | 10 phút | FR-13 |
-| `rl:login:{email}:{ip}` | Counter | 15 phút | Giới hạn đăng nhập sai |
+| `session:{sha256(token)}` | Hash `userId`, `credentialVersion`, `client`, `createdAt` | 30 ngày (`MOBILE`), 8 giờ (`WEB`); gia hạn đủ thời hạn mỗi lần dùng | Phiên đăng nhập. Khoá là SHA-256 hex của token, Redis không giữ token thô |
+| `user-sessions:{userId}` | Set `sha256(token)` | Không; mục đã hết hạn được dọn mỗi lần tạo phiên mới | Dọn các phiên có phiên bản cũ sau commit |
+| `otp:{sha256(email)}` | Hash `codeHash` (HMAC-SHA256 dạng hex), `attempts` | 10 phút, tính từ lần cấp mã gần nhất | FR-13, email đã chuẩn hoá. Xoá khi dùng thành công hoặc nhập sai lần thứ 5 |
+| `rl:otp:{sha256(email)}:{ip}` | Counter | 15 phút, tính từ yêu cầu đầu | Tối đa 3 yêu cầu gửi OTP theo cặp email chuẩn hoá và IP, kể cả email không tồn tại |
+| `rl:login:{email}:{ip}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn đăng nhập: dùng email trong bản ghi nếu tìm thấy tài khoản, hoặc email nhập đã chuẩn hoá. Mỗi lần thử `INCR` trước BCrypt, lần thứ 11 trả `429`; đúng mật khẩu thì xoá |
+| `rl:password:{userId}` | Counter | 15 phút, tính từ lần thử đầu | Giới hạn nhập mật khẩu hiện tại khi đổi mật khẩu, cùng cách đếm với `rl:login` |
 | `rl:recognize:{userId hoặc ip}` | Counter | 1 phút | Giới hạn nhận diện ảnh |
-| `cache:sign-types` | String JSON + ETag | Xoá khi danh mục đổi | FR-08 |
+| `cache:sign-types:{generation}` | String JSON, ETag tính từ nội dung | Phiên bản tăng trong cùng giao dịch đổi loại biển, khoá cũ hết hạn theo TTL | FR-08 |
 | `stream:submissions` | Stream, group `clustering` | Xoá mục sau khi xử lý và xác nhận | Hàng đợi gom cụm ([ADR-0007](adr/0007-gom-cum-tuan-tu-qua-redis-stream.md)) |
+| `{stream:submissions}:queued` | Hash từ ID đề xuất đến ID mục stream | Ghi nguyên tử khi đưa vào stream, xoá cùng `XACK` và `XDEL` | Chống nhân bản khi quét bù |
+
+Mỗi request có phiên Redis đọc phiên bản, trạng thái và vai trò hiện hành từ
+MySQL theo khoá chính. Đọc trực tiếp giúp thu hồi có hiệu lực ngay khi MySQL
+commit, trên mọi instance backend. Quyền được tra từ bảng quyền của vai trò
+hiện hành đã nạp khi khởi động. Sau BCrypt, đăng nhập đọc lại và khoá dòng
+người dùng trong giao dịch cấp phiên. Nếu phiên bản đã đổi, client phải
+đăng nhập lại.
+
+Dọn Redis chạy sau commit và thử tối đa ba lần, chỉ xoá phiên cũ hơn phiên
+bản đã commit. Đổi mật khẩu ghi cùng giao dịch mã băm của phiên được giữ.
+Nếu Redis chưa cập nhật kịp, request tiếp theo của chính phiên đó có thể
+chuyển phiên sang phiên bản mới. Phiên Redis cũ thiếu trường phiên bản phải
+đăng nhập lại sau khi nâng cấp.
 
 Khi Redis mất dữ liệu, người dùng đăng nhập lại. Worker quét các đề xuất còn `RECEIVED` khi khởi động và định kỳ để đưa chúng trở lại stream.
 
@@ -371,7 +398,7 @@ Khi Redis mất dữ liệu, người dùng đăng nhập lại. Worker quét c�
 | --- | --- | --- | --- |
 | `sign-crops` | Ảnh cắt của đề xuất, `{submissionId}.jpg` | Riêng tư; URL ký 10 phút | Theo vòng đời biển; xoá sau 90 ngày nếu biển `REJECTED` |
 | `report-photos` | Ảnh đính kèm báo cáo | Riêng tư; URL ký 10 phút | Xoá 90 ngày sau khi báo cáo được xử lý |
-| `sign-icons` | Ảnh minh hoạ chuẩn của loại biển | Đọc công khai qua nginx `/icons/` | Lâu dài |
+| `sign-icons` | Ảnh minh hoạ chuẩn của loại biển | Đọc công khai qua nginx `/icons/` | Khoá theo phiên bản, xoá bản cũ sau commit và xoá bản mới khi rollback |
 
 Ảnh gửi để nhận diện (FR-02) **không** có bucket: chỉ nằm trong bộ nhớ của request (NFR-09).
 

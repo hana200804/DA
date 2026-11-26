@@ -210,6 +210,26 @@ Biển giữ tổng trọng số theo từng mã `W_c` (bảng `sign_code_weight
 
 Ví dụ: 2 người, `p = 0,9` → `α = 2,3`, `β = 0,5` → điểm 0,82. Một người → 0,74. Biển đã duyệt từ 2 người nhận 2 đánh giá "không đúng" → `α = 4,3`, `β = 2,5` → 0,63.
 
+#### Sau quyết định của kiểm duyệt viên
+
+Khi kiểm duyệt viên duyệt, giữ hoặc thêm biển trực tiếp, `reviewed_at` được đặt bằng thời điểm quyết định. Tự duyệt (FR-25) cũng đặt `reviewed_at`. Mọi bằng chứng **phản đối** có trước `reviewed_at` coi như đã được xem xét, nên `β` chỉ tính bằng chứng mới:
+
+```math
+\alpha = 0{,}5 + W_{c^*} + R_{+} + M, \qquad
+\beta = 0{,}5 + \sum_{c \ne c^*} W_c^{\text{sau}} + R_{-}^{\text{sau}}
+```
+
+| Ký hiệu | Ý nghĩa |
+| --- | --- |
+| `W_c sau` | Tổng `w` của các đề xuất mang mã `c` có `received_at > reviewed_at` |
+| `R− sau` | Số đánh giá "không đúng" có `updated_at > reviewed_at`, chính là `deny_since_review` |
+
+`α` vẫn tính toàn bộ bằng chứng ủng hộ. Biển chưa từng được quyết định (`reviewed_at` rỗng) dùng công thức đầy đủ ở trên. Không dòng nào trong `sign_code_weights` bị xoá hay đặt về 0, và phân bố mã trong chi tiết biển vẫn hiển thị đủ.
+
+Lý do: nếu `β` vẫn tính các bằng chứng kiểm duyệt viên vừa cân nhắc, biển vừa duyệt bằng mã không dẫn đầu, hoặc biển vừa giữ sau nhiều đánh giá "không đúng", có thể có điểm dưới 0,5. Khi đó biển bị đưa lại `UNDER_REVIEW` ngay ở lần xác nhận hoặc đánh giá kế tiếp. Cách tính này tránh vòng lặp đó mà không mất bằng chứng. Bằng chứng phản đối mới vẫn kéo điểm xuống và vẫn kích hoạt rà soát lại.
+
+Ví dụ: biển có A với `W = 1,8` (2 người) và B với `W = 0,9` (1 người). Kiểm duyệt viên duyệt bằng B: `α = 0,5 + 0,9 + 2 = 3,4`, `β = 0,5` → 0,87. Theo công thức đầy đủ, `β = 0,5 + 1,8 = 2,3` → 0,60, và chỉ cần thêm một đánh giá "không đúng" là xuống 0,51. Sau đó một người xác nhận B (`p = 0,9`): `α = 4,3`, `β = 0,5` → 0,90, biển vẫn `APPROVED`. Ba người khác nhau đánh giá "không đúng" sau khi duyệt: `β = 0,5 + 3 = 3,5` → 0,55, biển chuyển `UNDER_REVIEW` vì đủ 3 đánh giá. Kiểm duyệt viên giữ biển: ba đánh giá này thành bằng chứng cũ, `β = 0,5` → 0,90.
+
 ### Gợi ý cho kiểm duyệt viên — FR-21
 
 Với `s2` là tỉ lệ trọng số của mã đứng thứ hai trên tổng trọng số, `n` là số người đề xuất khác nhau:
@@ -240,7 +260,7 @@ stateDiagram-v2
 
 Khi biển chuyển trạng thái, các đề xuất thành viên cập nhật theo: biển `APPROVED` → đề xuất cùng mã `ACCEPTED`, khác mã `REJECTED`; biển `REJECTED` → mọi đề xuất `REJECTED`.
 
-**Vị trí biển** là trung vị có trọng số theo `w` của vị trí các đề xuất mang mã dẫn đầu, tính lại khi có đề xuất mới, cho tới khi kiểm duyệt viên chốt vị trí.
+**Vị trí biển** là trung vị có trọng số theo `w` của vị trí các đề xuất mang mã dẫn đầu, tính lại khi có đề xuất mới, cho tới khi kiểm duyệt viên chốt vị trí. Tính riêng vĩ độ và kinh độ. Trải kinh độ quanh kinh độ hiện tại của biển trước khi tính trung vị, rồi chuẩn hoá kết quả về miền WGS84.
 
 ### Đánh giá hiệu quả — mục tiêu G4
 

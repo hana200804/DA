@@ -79,4 +79,6 @@ export function validateCatalogIcon(file: File) {
     !file.size
   )
     throw new Error('Chọn ảnh PNG, JPEG hoặc WebP hợp lệ.');
+  if (file.size > 1_000_000)
+    throw new Error('Ảnh minh họa phải nhỏ hơn hoặc bằng 1 MB.');
 }

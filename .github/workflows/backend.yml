@@ -1,0 +1,83 @@
+name: Backend
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'infra/**'
+      - '.github/workflows/backend.yml'
+  push:
+    # backend/** để chạy test tích hợp trên chuỗi nhánh lát trước khi mở PR.
+    branches: [main, 'backend/**']
+    paths:
+      - 'backend/**'
+      - 'infra/**'
+      - '.github/workflows/backend.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Kiểm tra script khởi tạo MySQL
+        run: bash src/test/shell/mysql-init-test.sh
+      # integrationTest (*IT) chạy Testcontainers trên Docker của runner.
+      - name: Build và test
+        run: ./gradlew spotlessCheck test integrationTest jacocoTestReport
+      - name: Tải báo cáo test
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-reports
+          path: |
+            backend/build/reports/tests/
+            backend/build/test-results/
+          retention-days: 7
+      - name: Tải báo cáo JaCoCo
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-jacoco
+          path: backend/build/reports/jacoco/test/
+          retention-days: 7
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Cài gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          rm gitleaks.tgz
+      # Chỉ quét các commit mà PR hoặc lần push này thêm vào: lịch sử cũ có một
+      # fixture MD5 trong web-admin bị luật generic-api-key báo nhầm.
+      - name: Quét bí mật
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: ./gitleaks git --no-banner --redact --log-opts="--no-merges ${BASE}..${HEAD}" .

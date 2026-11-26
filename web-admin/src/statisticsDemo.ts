@@ -1,7 +1,6 @@
 import { readCatalogCategories, readCatalogTypes } from './catalogDemo.ts';
 import { seedDemo } from './demo.ts';
 import { getAuditLogs } from './demoAudit.ts';
-import { isPublished } from './mapTypes.ts';
 import {
   statisticsRange,
   type Statistics,
@@ -10,7 +9,6 @@ import {
 import type { ReviewDetail } from './reviewTypes.ts';
 import type { DemoDB, Upload } from './types';
 
-const vietnamOffsetMs = 7 * 3_600_000;
 const gridDegrees = 0.005;
 const seededUploads = new Map(seedDemo().uploads.map((row) => [row.id, row]));
 
@@ -26,22 +24,25 @@ export function demoStatistics(
     const timestamp = Date.parse(value ?? '');
     return timestamp >= start && timestamp <= end;
   };
-  const firstDecision = new Map<string, NonNullable<Upload['decision']>>();
+  const reviewTimes = new Map<string, string>();
   const events = [...getAuditLogs(db)].sort(
     (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
   );
   for (const event of events) {
-    if (event.entityType !== 'SIGN' || firstDecision.has(event.entityId))
-      continue;
+    if (event.entityType !== 'SIGN') continue;
+    const before = event.beforeValue as { status?: string } | null | undefined;
+    const after = event.afterValue as { status?: string } | null | undefined;
     if (
+      event.action === 'CREATED' ||
       event.action === 'APPROVED' ||
       event.action === 'AUTO_APPROVED' ||
-      event.action === 'REJECTED'
+      event.action === 'REJECTED' ||
+      event.action === 'KEPT' ||
+      (event.action === 'EDITED' &&
+        before?.status === 'UNDER_REVIEW' &&
+        after?.status === 'APPROVED')
     )
-      firstDecision.set(event.entityId, {
-        status: event.action === 'REJECTED' ? 'REJECTED' : 'APPROVED',
-        at: event.createdAt,
-      });
+      reviewTimes.set(event.entityId, event.createdAt);
   }
   const byDay = new Map<string, number>();
   const decisions = { approved: 0, rejected: 0 };
@@ -49,27 +50,45 @@ export function demoStatistics(
   let samples = 0;
   for (const upload of db.uploads) {
     if (!included(upload.createdAt)) continue;
-    const day = new Date(Date.parse(upload.createdAt) + vietnamOffsetMs)
-      .toISOString()
-      .slice(0, 10);
+    const day = new Date(upload.createdAt).toISOString().slice(0, 10);
     byDay.set(day, (byDay.get(day) ?? 0) + 1);
-    const seed = seededUploads.get(upload.id);
+  }
+
+  const uploadsById = new Map(db.uploads.map((row) => [row.id, row]));
+  const statuses = new Map<string, ReviewDetail['status']>(
+    db.uploads.map((row) => [
+      row.id,
+      row.status === 'APPROVAL'
+        ? 'APPROVED'
+        : row.status === 'DELETED'
+          ? 'REMOVED'
+          : row.status,
+    ]),
+  );
+  for (const sign of signs) {
+    statuses.set(sign.id, sign.status);
+  }
+
+  for (const [id, status] of statuses) {
+    if (status !== 'APPROVED' && status !== 'REJECTED') continue;
+    const upload = uploadsById.get(id);
+    const seed = seededUploads.get(id);
     const fromSeed =
+      upload &&
       seed &&
       seed.createdAt === upload.createdAt &&
       seed.status === upload.status
         ? seed.decision
         : undefined;
-    const decision =
-      upload.decision ?? firstDecision.get(upload.id) ?? fromSeed;
-    const status =
-      decision?.status ??
-      (upload.status === 'APPROVAL' ? 'APPROVED' : upload.status);
-    if (status !== 'APPROVED' && status !== 'REJECTED') continue;
+    const decision = upload?.decision ?? fromSeed;
+    const reviewedAt =
+      reviewTimes.get(id) ??
+      (decision?.status === status ? decision.at : undefined);
+    if (!included(reviewedAt)) continue;
     if (status === 'APPROVED') decisions.approved++;
     else decisions.rejected++;
     const elapsed =
-      Date.parse(decision?.at ?? '') - Date.parse(upload.createdAt);
+      Date.parse(reviewedAt ?? '') - Date.parse(upload?.createdAt ?? '');
     if (Number.isFinite(elapsed) && elapsed >= 0) {
       totalMs += elapsed;
       samples++;
@@ -84,7 +103,7 @@ export function demoStatistics(
   const categoryCounts = new Map<string, number>();
   const grid = new Map<string, Statistics['densityCells'][number]>();
   for (const sign of signs) {
-    if (!isPublished(sign.status) || !included(sign.createdAt)) continue;
+    if (sign.status !== 'APPROVED') continue;
     const category = typeCategory.get(sign.signTypeCode) ?? 'OTHER';
     categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
     const { lat, lng } = sign.location;

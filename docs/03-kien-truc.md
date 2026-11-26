@@ -176,7 +176,7 @@ sequenceDiagram
     R->>W: XREADGROUP (một consumer)
     W->>DB: khóa đề xuất và kiểm tra còn RECEIVED
     W->>DB: gom cụm, cập nhật điểm và lịch sử rồi commit
-    W->>R: XACK
+    W->>R: XACK và XDEL
 ```
 
 Môi trường demo chạy một bản sao backend với một worker gom cụm. MySQL giữ trạng thái đề xuất. Nếu lỗi ghi Redis sau khi MySQL đã commit, API vẫn trả `201`. Worker quét lại các đề xuất `RECEIVED` khi khởi động và định kỳ. Mỗi lần xử lý chỉ cập nhật khi đề xuất còn `RECEIVED`, nên mục được giao lại không cộng điểm lần nữa. Chi tiết phục hồi nằm trong [ADR-0007](adr/0007-gom-cum-tuan-tu-qua-redis-stream.md). Quy tắc chọn biển nằm trong [Thiết kế AI §6](04-thiet-ke-ai.md#6-gom-cụm-và-điểm-tin-cậy).
@@ -199,7 +199,7 @@ sequenceDiagram
         BE-->>Web: 409 SIGN_ALREADY_PROCESSED
     else
         BE->>DB: cập nhật trạng thái đề xuất thành viên, INSERT audit_logs (cùng giao dịch)
-        BE-->>Web: 200
+        BE-->>Web: 204 No Content
     end
 ```
 
@@ -228,14 +228,14 @@ sequenceDiagram
     participant R as Redis
 
     C->>BE: POST /auth/login
-    BE->>R: HSET session:{token} userId role, EXPIRE; SADD user-sessions:{userId} token
+    BE->>R: HSET session:{sha256(token)} userId role client createdAt, EXPIRE; SADD user-sessions:{userId} sha256(token)
     BE-->>C: token, expiresAt, user
     C->>BE: request + Authorization: Bearer {token}
-    BE->>R: HGETALL session:{token}; gia hạn TTL
+    BE->>R: HGETALL session:{sha256(token)}; gia hạn TTL
     BE-->>C: kết quả, hoặc 401 / 403
 ```
 
-Token là chuỗi ngẫu nhiên 256 bit, không phải JWT, để thu hồi tức thì khi đăng xuất, đổi mật khẩu, khoá tài khoản (FR-01, FR-36). Quyền được tra từ vai trò, nạp vào bộ nhớ đệm khi khởi động.
+Token là chuỗi ngẫu nhiên 256 bit, không phải JWT, để thu hồi tức thì khi đăng xuất, đổi mật khẩu, khoá tài khoản (FR-01, FR-36). Redis chỉ giữ SHA-256 của token, cả trong khoá phiên lẫn trong `user-sessions`, nên đọc được Redis cũng không dùng lại được phiên ([CSDL §10](06-co-so-du-lieu.md#10-redis)). Mỗi request có phiên đọc trạng thái, phiên bản xác thực và vai trò hiện hành từ MySQL. Bảng quyền theo vai trò được nạp vào bộ nhớ khi khởi động.
 
 ## 7. Ước lượng tải
 
@@ -272,6 +272,8 @@ flowchart LR
 | Đường dẫn | Đích |
 | --- | --- |
 | `/api/v1/*` | backend |
+| `/actuator/health`, `/actuator/health/readiness` | backend, khớp chính xác sau khi nginx chuẩn hóa URI. Ví dụ `/actuator/%68ealth` cũng trả JSON health. |
+| Các đường dẫn còn lại bắt đầu bằng `/actuator` | nginx trả `404`, gồm `/actuator/prometheus`, `/actuator/env` và `/actuator/health/liveness` |
 | `/icons/*` | MinIO, bucket `sign-icons` đọc công khai |
 | `/` | web-admin |
 

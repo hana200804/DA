@@ -62,7 +62,10 @@ function iconSource(url?: string | null) {
 
 export function SignaCatalog({ token, canManage, notify }: Props) {
   const categories = useLoad(() => catalogApi.catalogCategories(), [token]);
-  const result = useLoad(() => catalogApi.catalogTypes(), [token]);
+  const result = useLoad(
+    () => catalogApi.catalogTypes(canManage ? token : undefined),
+    [token, canManage],
+  );
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
@@ -313,6 +316,21 @@ function SignTypeDialog({
     values.speedKmh !== (type.speedKmh ?? null) ||
     active !== type.active;
 
+  function chooseIcon(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const selected = input.files?.[0];
+    setFile(null);
+    setError('');
+    if (!selected) return;
+    try {
+      validateCatalogIcon(selected);
+      setFile(selected);
+    } catch (error) {
+      input.value = '';
+      setError(errorMessage(error));
+    }
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
     if (busy || !canManage || (!changed && !file && !savedCode)) return;
@@ -430,7 +448,7 @@ function SignTypeDialog({
               type="file"
               accept="image/png,image/jpeg,image/webp"
               disabled={busy}
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              onChange={chooseIcon}
             />
           </label>
           {error && (

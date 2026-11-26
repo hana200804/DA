@@ -34,7 +34,7 @@ Bản demo hiển thị hàng đợi theo hồ sơ biển, gồm hồ sơ có ha
 
 Để thử với backend Signa, sao chép `.env.example` thành `.env`, đặt `VITE_DATA_MODE=api`, `VITE_API_CONTRACT=signa` và `SIGNA_TARGET` theo địa chỉ gateway. Chạy `npm run dev`, đăng nhập bằng email có quyền `review:decide`. Dockerfile đi kèm phục vụ `/api/v1` và `/icons/` qua cùng origin với web. Có thể cấu hình nguồn bản đồ bằng `VITE_REVIEW_TILE_URL`.
 
-Đợt tích hợp Signa gồm đăng nhập, hàng đợi duyệt, xử lý báo cáo, quản lý biển trực tiếp trên bản đồ, tra cứu lịch sử, quản lý danh mục, quản lý người dùng, so sánh mô hình, thống kê và số liệu hai hàng đợi trên trang Tổng quan. Các trang nghiệp vụ khác vẫn có trong chế độ demo và chế độ API `legacy`. Dạng phản hồi hàng đợi và chi tiết trong `src/reviewTypes.ts` cần đối chiếu với OpenAPI của backend khi tích hợp. Với biển đang rà soát, thao tác sửa tải lại hồ sơ sau `PATCH`; nếu vẫn đang rà soát thì gửi `keep` với phiên bản mới.
+Đợt tích hợp Signa gồm đăng nhập, hàng đợi duyệt, xử lý báo cáo, quản lý biển trực tiếp trên bản đồ, tra cứu lịch sử, quản lý danh mục, quản lý người dùng, so sánh mô hình, thống kê và số liệu hai hàng đợi trên trang Tổng quan. Các trang nghiệp vụ khác vẫn có trong chế độ demo và chế độ API `legacy`. Dạng phản hồi hàng đợi và chi tiết trong `src/reviewTypes.ts` cần đối chiếu với OpenAPI của backend khi tích hợp. Với biển đang rà soát, thao tác sửa và giữ gửi một yêu cầu `POST /api/v1/admin/signs/{id}/keep` kèm phiên bản hiện tại và các trường thay đổi.
 
 ## Xử lý báo cáo biển sai theo đặc tả Signa (FR-32)
 
@@ -60,9 +60,9 @@ Chế độ Signa gọi `GET /api/v1/admin/audit-logs` với quyền `audit:read
 
 Mở **Nhóm biển báo** để thêm hoặc sửa tên, mô tả và thứ tự hiển thị. Trong **Danh mục biển báo**, quản trị viên có thể thêm loại **chỉ nhập tay**, sửa nhóm, tên, ý nghĩa, tốc độ, ảnh và trạng thái. Mã là khóa định danh của bản ghi. Để ngừng sử dụng loại biển, chọn trạng thái **Ngừng sử dụng**. Demo giữ loại biển trong lịch sử và loại nó khỏi danh sách chọn khi thêm biển trên bản đồ.
 
-Chế độ Signa tải danh mục từ `/api/v1/sign-categories` và `/api/v1/sign-types`. API công khai theo đặc tả chỉ trả các loại đang dùng, nên bộ lọc loại ngừng sử dụng có dữ liệu trong demo hoặc khi nguồn đọc trả thêm các loại đó. Các thao tác ghi cần quyền `catalog:manage` và dùng các endpoint quản trị của FR-35.
+Chế độ Signa tải nhóm biển từ `/api/v1/sign-categories`. Tài khoản có quyền `catalog:manage` đọc `/api/v1/admin/sign-types` để xem cả loại đang dùng và đã ngừng sử dụng. Tài khoản chỉ tra cứu và bản đồ tiếp tục dùng `/api/v1/sign-types` công khai. Các thao tác ghi cần quyền `catalog:manage`.
 
-Ảnh được gửi bằng multipart qua `PUT /api/v1/admin/sign-types/{code}/icon`. Adapter dùng trường `icon` và thuộc tính `recognizable: false` khi tạo thủ công. Cần xác nhận tên trường và payload với OpenAPI backend. Nếu thông tin đã lưu nhưng tải ảnh lỗi, hộp thoại cho thử tải ảnh lại. Gateway Signa phục vụ ảnh ở `/icons/`.
+Ảnh được gửi bằng multipart qua `PUT /api/v1/admin/sign-types/{code}/icon`. Ảnh PNG, JPEG hoặc WebP tối đa 1 MB (1.000.000 byte) được gửi ở trường `icon`. Khi tạo loại biển thủ công, adapter gửi `recognizable: false`. Cần xác nhận tên trường và payload với OpenAPI backend. Nếu thông tin đã lưu nhưng tải ảnh lỗi, hộp thoại cho thử tải ảnh lại. Gateway Signa phục vụ ảnh ở `/icons/`.
 
 ## Quản lý người dùng (FR-36)
 

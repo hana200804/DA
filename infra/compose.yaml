@@ -1,0 +1,188 @@
+# Cách chạy HTTP local và bật TLS demo nằm trong infra/README.md.
+# Phiên bản ảnh hạ tầng khớp backend/src/test/.../support/Containers.java.
+#
+# migrate và backend dùng chung image backend/Dockerfile. migrate chạy Flyway bằng signa_migrator
+# rồi thoát; backend chạy lâu dài chỉ nhận SIGNA_DB_APP_* và chỉ khởi động khi migrate thành công.
+# migrate thuộc các profile chạy backend vì Compose chỉ khởi động service đang được bật.
+name: signa
+
+services:
+  mysql:
+    image: mysql:8.4.13
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Đặt MYSQL_ROOT_PASSWORD trong infra/.env}
+      # Đọc bởi mysql/init/01-users.sh khi khởi tạo volume lần đầu.
+      SIGNA_DB_MIGRATOR_USER: ${SIGNA_DB_MIGRATOR_USER:-signa_migrator}
+      SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
+      SIGNA_MIGRATOR_PASSWORD: ${SIGNA_DB_MIGRATOR_PASSWORD:?Đặt SIGNA_DB_MIGRATOR_PASSWORD trong infra/.env}
+      SIGNA_APP_PASSWORD: ${SIGNA_DB_APP_PASSWORD:?Đặt SIGNA_DB_APP_PASSWORD trong infra/.env}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # Server tạm lúc khởi tạo không mở TCP, nên ping qua 127.0.0.1 chỉ đạt khi init xong.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:7.4.12-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    # Bản cộng đồng của MinIO; ảnh minio/minio chính thức không còn công khai.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${SIGNA_MINIO_ACCESS_KEY:?Đặt SIGNA_MINIO_ACCESS_KEY trong infra/.env}
+      MINIO_ROOT_PASSWORD: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+  migrate:
+    build: ../backend
+    image: signa-backend:local
+    profiles: ["migrate", "app", "dev", "demo"]
+    environment:
+      SPRING_PROFILES_ACTIVE: migrate
+      SIGNA_DB_URL: &db-url "jdbc:mysql://mysql:3306/signa?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
+      # Chỉ tên tài khoản ứng dụng, để V3__app_grants.sql cấp quyền; không có mật khẩu của nó.
+      SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
+      SIGNA_DB_MIGRATOR_USER: ${SIGNA_DB_MIGRATOR_USER:-signa_migrator}
+      SIGNA_DB_MIGRATOR_PASSWORD: ${SIGNA_DB_MIGRATOR_PASSWORD:?Đặt SIGNA_DB_MIGRATOR_PASSWORD trong infra/.env}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build: ../backend
+    image: signa-backend:local
+    profiles: &app-profiles ["app", "dev", "demo"]
+    environment:
+      SIGNA_DB_URL: *db-url
+      SIGNA_DB_APP_USER: ${SIGNA_DB_APP_USER:-signa_app}
+      SIGNA_DB_APP_PASSWORD: ${SIGNA_DB_APP_PASSWORD:?Đặt SIGNA_DB_APP_PASSWORD trong infra/.env}
+      SIGNA_REDIS_HOST: redis
+      SIGNA_MINIO_ENDPOINT: http://minio:9000
+      SIGNA_MINIO_PUBLIC_ENDPOINT: ${SIGNA_MINIO_PUBLIC_ENDPOINT:-http://localhost:8080}
+      SIGNA_MINIO_ACCESS_KEY: ${SIGNA_MINIO_ACCESS_KEY:?Đặt SIGNA_MINIO_ACCESS_KEY trong infra/.env}
+      SIGNA_MINIO_SECRET_KEY: ${SIGNA_MINIO_SECRET_KEY:?Đặt SIGNA_MINIO_SECRET_KEY trong infra/.env}
+      SIGNA_RECOGNITION_URL: http://recognition:8000
+      SIGNA_LABELS_PATH: /app/catalog/labels.yaml
+      # Đồng bộ phiên bản mới, bổ sung nhãn thiếu cùng phiên bản. Chỉ bật trên một bản sao.
+      SIGNA_CATALOG_IMPORT_ON_STARTUP: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:-true}
+      # Chỉ bật worker trên một bản sao backend trong mỗi môi trường (ADR-0007).
+      SIGNA_CLUSTERING_WORKER_ENABLED: ${SIGNA_CLUSTERING_WORKER_ENABLED:-true}
+      # Quản trị viên đầu tiên: để trống thì bỏ qua (backend/README.md).
+      SIGNA_BOOTSTRAP_ADMIN_EMAIL: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:-}
+      SIGNA_BOOTSTRAP_ADMIN_PASSWORD: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:-}
+      SIGNA_OTP_SECRET: ${SIGNA_OTP_SECRET:-}
+      SIGNA_SMTP_HOST: ${SIGNA_SMTP_HOST:-mailpit}
+      SIGNA_SMTP_PORT: ${SIGNA_SMTP_PORT:-1025}
+      SIGNA_SMTP_FROM: ${SIGNA_SMTP_FROM:-no-reply@signa.local}
+    volumes:
+      - type: bind
+        source: ../ai/data/labels.yaml
+        target: /app/catalog/labels.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+    networks: [default, recognition]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      recognition:
+        condition: service_started
+
+  recognition:
+    image: signa-recognition:local
+    build:
+      context: ../ai
+      dockerfile: ../infra/recognition/Dockerfile
+    profiles: *app-profiles
+    networks: [recognition]
+    environment:
+      SIGNA_YOLOV5_WEIGHTS: /models/yolov5s/best.pt
+      SIGNA_YOLOV8_WEIGHTS: /models/yolov8s/best.pt
+      SIGNA_DETR_WEIGHTS: /models/detr-r50/best.pt
+      SIGNA_DEFAULT_MODEL: ${SIGNA_DEFAULT_MODEL:-yolov8}
+      SIGNA_QUEUE_TIMEOUT_S: ${SIGNA_QUEUE_TIMEOUT_S:-4}
+    volumes:
+      - type: bind
+        source: ${SIGNA_RECOGNITION_MODELS_DIR:-../ai/models}
+        target: /models
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/healthz', timeout=5).close()"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 90s
+
+  web-admin:
+    image: signa-web-admin:local
+    build:
+      context: ../web-admin
+      # Ghim ảnh nền của Dockerfile web-admin trong bản triển khai Signa.
+      additional_contexts:
+        "node:22-alpine": docker-image://node:22.23.5-alpine3.24
+        "nginx:stable-alpine": docker-image://nginx:1.30.8-alpine3.24
+    profiles: *app-profiles
+
+  nginx:
+    image: nginx:1.30.8-alpine3.24
+    profiles: *app-profiles
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/http.conf:/etc/nginx/signa/listen.conf:ro
+    depends_on:
+      backend:
+        condition: service_started
+      web-admin:
+        condition: service_started
+
+networks:
+  recognition:
+    internal: true
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:

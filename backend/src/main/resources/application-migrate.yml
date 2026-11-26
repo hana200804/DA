@@ -1,0 +1,9 @@
+# Chạy migration một lần rồi thoát (MigrateAndExit). Chỉ profile này đọc
+# SIGNA_DB_MIGRATOR_USER, SIGNA_DB_MIGRATOR_PASSWORD; không có giá trị mặc định.
+spring:
+  main:
+    web-application-type: none
+  flyway:
+    enabled: true
+    user: ${SIGNA_DB_MIGRATOR_USER}
+    password: ${SIGNA_DB_MIGRATOR_PASSWORD}

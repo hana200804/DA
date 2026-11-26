@@ -64,15 +64,16 @@ export function auditQuery(filters: AuditFilters) {
 
 export function dateRangeUtc(
   filters: Pick<AuditFilters, 'fromDate' | 'toDate'>,
+  offset = '+07:00',
 ) {
   if (filters.fromDate && filters.toDate && filters.fromDate > filters.toDate)
     throw new Error('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
   return {
     from: filters.fromDate
-      ? new Date(filters.fromDate + 'T00:00:00.000+07:00').toISOString()
+      ? new Date(filters.fromDate + 'T00:00:00.000' + offset).toISOString()
       : undefined,
     to: filters.toDate
-      ? new Date(filters.toDate + 'T23:59:59.999+07:00').toISOString()
+      ? new Date(filters.toDate + 'T23:59:59.999' + offset).toISOString()
       : undefined,
   };
 }

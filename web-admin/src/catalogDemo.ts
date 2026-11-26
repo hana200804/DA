@@ -193,8 +193,6 @@ export const catalogDemo = {
   },
   async uploadCatalogIcon(_token: string, code: string, file: File) {
     validateCatalogIcon(file);
-    if (file.size > 1_000_000)
-      throw new Error('Ảnh trong demo phải nhỏ hơn hoặc bằng 1 MB.');
     const data = new Uint8Array(await file.arrayBuffer());
     let binary = '';
     for (let offset = 0; offset < data.length; offset += 8192)

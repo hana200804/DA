@@ -4,6 +4,7 @@ import { readCatalogTypes } from './catalogDemo.ts';
 import { appendAudit, getAuditLogs } from './demoAudit.ts';
 import { auditQuery, type AuditFilters } from './auditTypes.ts';
 import { readDemo, writeDemo } from './demo.ts';
+import { distanceMeters } from './domain.ts';
 import {
   normalizeReportDecision,
   type ReportDecision,
@@ -26,6 +27,7 @@ import type { DemoDB, Report, Status } from './types';
 import { ReviewApiError } from './reviewApi.ts';
 import {
   isReviewable,
+  normalizeReviewReason,
   type ReviewDecision,
   type ReviewDetail,
   type ReviewFilters,
@@ -59,6 +61,8 @@ function seedReviews({ uploads }: DemoDB): ReviewDetail[] {
         signName: row.trafficSignName,
         createdAt: row.createdAt,
         confidence: hasConflict ? 0.65 : index % 3 === 1 ? 0.84 : 0.72,
+        distinctSubmitters: 1,
+        coverCropUrl: row.photoBase64 || null,
         suggestion:
           status === 'APPROVED'
             ? null
@@ -81,18 +85,7 @@ function seedReviews({ uploads }: DemoDB): ReviewDetail[] {
         codeWeights: hasConflict
           ? { [signTypeCode]: 0.94, [competingCode]: 0.67 }
           : { [signTypeCode]: 1.8 },
-        nearbySigns: uploads
-          .filter(
-            (other) =>
-              other.id !== id &&
-              other.status === 'APPROVAL' &&
-              Math.hypot(other.latitude - lat, other.longitude - lng) < 0.0007,
-          )
-          .map((other) => ({
-            id: other.id,
-            signTypeCode: other.trafficSignId,
-            location: { lat: other.latitude, lng: other.longitude },
-          })),
+        nearbySigns: [],
       };
     });
 }
@@ -254,6 +247,7 @@ export const reviewDemo = {
       signName: type.name,
       createdAt: new Date().toISOString(),
       confidence: 2.5 / 3,
+      distinctSubmitters: 0,
       suggestion: null,
       submissions: [],
       codeWeights: {},
@@ -464,7 +458,26 @@ export const reviewDemo = {
     };
   },
   async detail(_token: string, id: string) {
-    return findSign(readReviews(), id);
+    const rows = readReviews();
+    const sign = findSign(rows, id);
+    const origin = {
+      latitude: sign.location.lat,
+      longitude: sign.location.lng,
+    };
+    const nearbySigns = rows
+      .filter((row) => row.id !== id && isPublished(row.status))
+      .map(({ id, signTypeCode, status, location }) => ({
+        sign: { id, signTypeCode, status, location },
+        distance: distanceMeters(origin, {
+          latitude: location.lat,
+          longitude: location.lng,
+        }),
+      }))
+      .filter(({ distance }) => distance <= 50)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 50)
+      .map(({ sign }) => sign);
+    return { ...sign, nearbySigns };
   },
   async decide(
     _token: string,
@@ -482,8 +495,9 @@ export const reviewDemo = {
       );
 
     const before = mapSnapshot(sign);
+    const reason =
+      'reason' in decision ? normalizeReviewReason(decision.reason) : undefined;
     if (decision.action === 'reject' || decision.action === 'remove') {
-      if (!decision.reason.trim()) throw new Error('Vui lòng nhập lý do.');
       sign.status = decision.action === 'reject' ? 'REJECTED' : 'REMOVED';
     } else {
       if (decision.action !== 'keep') {
@@ -507,14 +521,7 @@ export const reviewDemo = {
       keep: 'KEPT',
       remove: 'REMOVED',
     }[decision.action];
-    recordSignChange(
-      db,
-      rows,
-      sign,
-      action,
-      before,
-      'reason' in decision ? decision.reason.trim() : undefined,
-    );
+    recordSignChange(db, rows, sign, action, before, reason);
     writeDemo(db);
   },
 };

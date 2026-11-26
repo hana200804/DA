@@ -20,7 +20,10 @@ import { auditQuery, formatAuditTime } from '../src/auditTypes.ts';
 import type { MapSign } from '../src/mapTypes.ts';
 import { readDemo, writeDemo } from '../src/demo.ts';
 import { mapView } from '../src/mapGeometry.ts';
-import type { ReviewDetail } from '../src/reviewTypes.ts';
+import {
+  reviewInspectionReasons,
+  type ReviewDetail,
+} from '../src/reviewTypes.ts';
 
 const api = createReviewApi();
 const pending: ReviewDetail = {
@@ -124,9 +127,30 @@ test('đăng nhập web lấy Bearer token và kiểm tra quyền duyệt', asyn
   );
 });
 
-test('hàng đợi gửi trang từ 0 và chi tiết giữ ảnh của từng đề xuất', async () => {
+test('FR-31 lấy ảnh đại diện, ảnh đề xuất và thông tin các biển liên quan', async () => {
+  const review = {
+    ...pending,
+    distinctSubmitters: 1,
+    coverCropUrl: 'https://example.com/cover.jpg',
+    flags: ['DIFFERS_FROM_APPROVED'],
+    relatedSignId: 'sign-2',
+    nearbySigns: [
+      {
+        id: 'sign-2',
+        signTypeCode: 'P.102',
+        location: pending.location,
+        status: 'APPROVED',
+      },
+      {
+        id: 'sign-3',
+        signTypeCode: 'P.130',
+        location: pending.location,
+        status: 'UNDER_REVIEW',
+      },
+    ],
+  } satisfies ReviewDetail;
   await mockFetch(
-    [Response.json({ items: [pending], total: 13 }), Response.json(pending)],
+    [Response.json({ items: [review], total: 13 }), Response.json(review)],
     async (calls) => {
       const queue = await api.queue('token', {
         page: 2,
@@ -144,11 +168,71 @@ test('hàng đợi gửi trang từ 0 và chi tiết giữ ảnh của từng đ
       });
       const detail = await api.detail('token', pending.id);
       assert.equal(calls[1].path, '/api/v1/admin/signs/sign-1');
-      assert.equal(detail.version, 7);
-      assert.deepEqual(detail.submissions, pending.submissions);
+      assert.deepEqual(detail, review);
     },
   );
 });
+
+test('FR-31 giải thích gợi ý Cần xem kỹ theo tình trạng, cờ và mã cạnh tranh', () => {
+  assert.deepEqual(reviewInspectionReasons(pending), []);
+  assert.deepEqual(
+    reviewInspectionReasons({ ...pending, suggestion: 'INSPECT' }),
+    ['Có mã cạnh tranh P.127_50 từ các đề xuất.'],
+  );
+  assert.deepEqual(
+    reviewInspectionReasons({
+      ...underReview,
+      flags: ['DIFFERS_FROM_APPROVED'],
+    }),
+    [
+      'Biển đang được rà soát lại.',
+      'Mã biển khác với biển đã duyệt ở gần.',
+      'Có mã cạnh tranh P.127_50 từ các đề xuất.',
+    ],
+  );
+  assert.deepEqual(
+    reviewInspectionReasons({
+      ...underReview,
+      codeWeights: { 'P.127_60': 0.9, 'P.127_50': 0.1 },
+    }),
+    ['Biển đang được rà soát lại.'],
+  );
+});
+
+test('demo FR-31 lấy trạng thái hiện tại của các biển công bố trong bán kính 50 m', () =>
+  withDemoStorage(async () => {
+    const db = readDemo();
+    db.reviewSigns = [
+      pending,
+      {
+        ...underReview,
+        id: 'reviewing',
+        location: { lat: 21.0303, lng: 105.8 },
+      },
+      {
+        ...pending,
+        id: 'live',
+        status: 'APPROVED',
+        location: { lat: 21.0301, lng: 105.8 },
+      },
+      { ...pending, id: 'removed', status: 'REMOVED' },
+      {
+        ...pending,
+        id: 'far',
+        status: 'APPROVED',
+        location: { lat: 21.031, lng: 105.8 },
+      },
+    ];
+    writeDemo(db);
+    const detail = await reviewDemo.detail('demo', pending.id);
+    assert.deepEqual(
+      detail.nearbySigns.map(({ id, status }) => [id, status]),
+      [
+        ['live', 'APPROVED'],
+        ['reviewing', 'UNDER_REVIEW'],
+      ],
+    );
+  }));
 
 test('duyệt và sửa rồi duyệt gửi đúng phiên bản và phần chỉnh sửa', async () => {
   const location = { lat: 21.04, lng: 105.81 };
@@ -176,85 +260,89 @@ test('duyệt và sửa rồi duyệt gửi đúng phiên bản và phần chỉ
   );
 });
 
-test('từ chối và gỡ đều yêu cầu lý do', async () => {
+test('FR-31 lý do từ chối và gỡ biển phải có từ 1 đến 1.000 ký tự', async () => {
+  const cases = [
+    { action: 'reject', sign: pending },
+    { action: 'remove', sign: underReview },
+  ] as const;
+  const validReasons = ['x', 'x'.repeat(1_000)];
   await mockFetch(
-    [new Response(null, { status: 204 }), new Response(null, { status: 204 })],
+    Array.from({ length: 4 }, () => new Response(null, { status: 204 })),
     async (calls) => {
-      await assert.rejects(
-        api.decide('token', pending, { action: 'reject', reason: '   ' }),
-        /nhập lý do/,
+      for (const { action, sign } of cases) {
+        for (const reason of ['', '   ', 'x'.repeat(1_001)]) {
+          await assert.rejects(
+            api.decide('token', sign, { action, reason }),
+            /1 đến 1\.000 ký tự/,
+          );
+        }
+      }
+      assert.equal(calls.length, 0);
+
+      for (const { action, sign } of cases) {
+        for (const reason of validReasons)
+          await api.decide('token', sign, {
+            action,
+            reason: ' ' + reason + ' ',
+          });
+      }
+      assert.deepEqual(
+        calls,
+        cases.flatMap(({ action }) =>
+          validReasons.map((reason) => ({
+            path: '/api/v1/admin/signs/sign-1/' + action,
+            method: 'POST',
+            auth: 'Bearer token',
+            body: { version: 7, reason },
+          })),
+        ),
       );
-      await assert.rejects(
-        api.decide('token', underReview, { action: 'remove', reason: '' }),
-        /nhập lý do/,
-      );
-      await api.decide('token', pending, {
-        action: 'reject',
-        reason: ' Mã biển sai ',
-      });
-      await api.decide('token', underReview, {
-        action: 'remove',
-        reason: 'Biển đã tháo',
-      });
-      assert.equal(calls[0].path, '/api/v1/admin/signs/sign-1/reject');
-      assert.deepEqual(calls[0].body, { version: 7, reason: 'Mã biển sai' });
-      assert.equal(calls[1].path, '/api/v1/admin/signs/sign-1/remove');
-      assert.deepEqual(calls[1].body, { version: 7, reason: 'Biển đã tháo' });
     },
   );
 });
 
-test('sửa biển đang rà soát đọc phiên bản mới trước khi giữ biển', async () => {
+test('FR-31 sửa và giữ biển đang rà soát bằng một POST /keep', async () => {
+  const location = { lat: 21.03, lng: 105.81 };
   await mockFetch(
-    [
-      new Response(null, { status: 204 }),
-      Response.json({ ...underReview, version: 8 }),
-      new Response(null, { status: 204 }),
-    ],
+    [new Response(null, { status: 204 }), new Response(null, { status: 204 })],
     async (calls) => {
       await api.decide('token', underReview, {
         action: 'edit',
         signTypeCode: 'P.127_50',
+        location,
       });
-      assert.deepEqual(
-        calls.map(({ path, method, body }) => ({ path, method, body })),
-        [
-          {
-            path: '/api/v1/admin/signs/sign-1',
-            method: 'PATCH',
-            body: { version: 7, signTypeCode: 'P.127_50' },
-          },
-          {
-            path: '/api/v1/admin/signs/sign-1',
-            method: 'GET',
-            body: undefined,
-          },
-          {
-            path: '/api/v1/admin/signs/sign-1/keep',
-            method: 'POST',
-            body: { version: 8 },
-          },
-        ],
-      );
+      await api.decide('token', underReview, { action: 'keep' });
+      assert.deepEqual(calls, [
+        {
+          path: '/api/v1/admin/signs/sign-1/keep',
+          method: 'POST',
+          auth: 'Bearer token',
+          body: { version: 7, signTypeCode: 'P.127_50', location },
+        },
+        {
+          path: '/api/v1/admin/signs/sign-1/keep',
+          method: 'POST',
+          auth: 'Bearer token',
+          body: { version: 7 },
+        },
+      ]);
     },
   );
 });
 
-test('thay đổi đồng thời sau PATCH chặn bước giữ biển', async () => {
+test('FR-31 trả lỗi xung đột từ /keep và không gửi thêm yêu cầu ghi', async () => {
   await mockFetch(
-    [
-      new Response(null, { status: 204 }),
-      Response.json({ ...underReview, version: 9 }),
-    ],
+    [Response.json({ code: 'SIGN_ALREADY_PROCESSED' }, { status: 409 })],
     async (calls) => {
       await assert.rejects(
         api.decide('token', underReview, {
           action: 'edit',
           signTypeCode: 'P.127_50',
         }),
-        { code: 'SIGN_ALREADY_PROCESSED' },
+        { status: 409, code: 'SIGN_ALREADY_PROCESSED' },
       );
-      assert.equal(calls.length, 2);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].path, '/api/v1/admin/signs/sign-1/keep');
     },
   );
 });
@@ -327,6 +415,31 @@ test('demo gom nhiều đề xuất, sắp theo gợi ý và từ chối phiên 
     await assert.rejects(
       reviewDemo.decide('demo', sample, { action: 'approve' }),
       { code: 'SIGN_ALREADY_PROCESSED' },
+    );
+  }));
+
+test('demo FR-31 giữ nguyên biển và lịch sử khi lý do quá dài', () =>
+  withDemoStorage(async () => {
+    const queue = await reviewDemo.queue('demo', { page: 1, size: 30 });
+    const row = queue.rows.find(({ status }) => status === 'UNDER_REVIEW')!;
+    const sign = await reviewDemo.detail('demo', row.id);
+    await assert.rejects(
+      reviewDemo.decide('demo', sign, {
+        action: 'remove',
+        reason: 'x'.repeat(1_001),
+      }),
+      /1 đến 1\.000 ký tự/,
+    );
+    assert.deepEqual(await reviewDemo.detail('demo', sign.id), sign);
+    assert.equal(
+      (
+        await reviewDemo.auditLogs('demo', {
+          signId: sign.id,
+          page: 1,
+          size: 8,
+        })
+      ).total,
+      0,
     );
   }));
 
@@ -821,6 +934,38 @@ const typeInput = {
   active: true,
 };
 
+test('FR-35 danh mục quản trị trả cả loại đã ngừng dùng, tra cứu vẫn công khai', async () => {
+  const active = { code: 'P.127_60', recognizable: true, ...typeInput };
+  const inactive = { ...active, code: 'P.127_50', active: false };
+  await mockFetch(
+    [
+      Response.json({ items: [active, inactive] }),
+      Response.json({ items: [active] }),
+    ],
+    async (calls) => {
+      assert.deepEqual(await api.catalogTypes('admin-token'), [
+        active,
+        inactive,
+      ]);
+      assert.deepEqual(await api.catalogTypes(), [active]);
+      assert.deepEqual(calls, [
+        {
+          path: '/api/v1/admin/sign-types',
+          method: 'GET',
+          auth: 'Bearer admin-token',
+          body: undefined,
+        },
+        {
+          path: '/api/v1/sign-types',
+          method: 'GET',
+          auth: null,
+          body: undefined,
+        },
+      ]);
+    },
+  );
+});
+
 test('FR-35 dùng POST và PATCH cho nhóm biển, chuẩn hóa mã nhóm', async () => {
   await mockFetch(
     [new Response(null, { status: 201 }), new Response(null, { status: 204 })],
@@ -907,6 +1052,32 @@ test('FR-35 chặn tốc độ sai và định dạng ảnh khác', async () => 
       ),
       /PNG/,
     );
+  });
+});
+
+test('FR-35 chỉ gửi ảnh minh họa không vượt quá 1.000.000 byte', async () => {
+  const atLimit = new File([new Uint8Array(1_000_000)], 'icon.png', {
+    type: 'image/png',
+  });
+  const overLimit = new File([new Uint8Array(1_000_001)], 'large.png', {
+    type: 'image/png',
+  });
+  await mockFetch([new Response(null, { status: 204 })], async (calls) => {
+    await assert.rejects(
+      api.uploadCatalogIcon('token', 'P.102', overLimit),
+      /1 MB/,
+    );
+    await assert.rejects(
+      catalogDemo.uploadCatalogIcon('demo', 'P.102', overLimit),
+      /1 MB/,
+    );
+    assert.equal(calls.length, 0);
+
+    await api.uploadCatalogIcon('token', 'P.102', atLimit);
+    assert.equal(calls.length, 1);
+    const icon = (calls[0].body as FormData).get('icon');
+    assert.ok(icon instanceof File);
+    assert.equal(icon.size, 1_000_000);
   });
 });
 
@@ -1303,8 +1474,8 @@ test('FR-38 gọi thống kê với quyền Bearer và ngày UTC, giữ dữ li�
     assert.equal(url.pathname, '/api/v1/admin/stats');
     assert.equal(calls[0].auth, 'Bearer token');
     assert.deepEqual(Object.fromEntries(url.searchParams), {
-      from: '2026-11-20T17:00:00.000Z',
-      to: '2026-11-21T16:59:59.999Z',
+      from: '2026-11-21T00:00:00.000Z',
+      to: '2026-11-21T23:59:59.999Z',
     });
   });
 });
@@ -1349,7 +1520,7 @@ test('FR-38 biểu đồ điền ngày trống và tỉ lệ chỉ tính trên s
   assert.equal(decisionRates({ approved: 0, rejected: 0 }), null);
 });
 
-test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và gom mật độ', () =>
+test('demo FR-38 đếm đề xuất theo ngày UTC, đếm biển theo ngày xử lý và giữ độ phủ', () =>
   withDemoStorage(async () => {
     const db = readDemo();
     const baseUpload = db.uploads[0];
@@ -1359,7 +1530,7 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
         id: 'a',
         status: 'APPROVAL',
         createdAt: '2026-11-20T17:00:00Z',
-        decision: { status: 'APPROVED', at: '2026-11-20T18:00:00Z' },
+        decision: { status: 'APPROVED', at: '2026-11-21T01:00:00Z' },
       },
       {
         ...baseUpload,
@@ -1392,9 +1563,9 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
       {
         ...baseUpload,
         id: 'f',
-        status: 'APPROVAL',
-        createdAt: '2026-11-21T01:00:00Z',
-        decision: undefined,
+        status: 'REJECTED',
+        createdAt: '2026-11-21T23:59:59.999Z',
+        decision: { status: 'REJECTED', at: '2026-11-22T00:00:00Z' },
       },
     ];
     db.auditLogs = [
@@ -1406,6 +1577,15 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
         actorType: 'USER',
         actorId: 'admin.demo',
         createdAt: '2026-11-21T03:45:00Z',
+      },
+      {
+        id: 'manual-event',
+        entityType: 'SIGN',
+        entityId: 'manual',
+        action: 'CREATED',
+        actorType: 'USER',
+        actorId: 'admin.demo',
+        createdAt: '2026-11-21T04:00:00Z',
       },
     ];
     const signs: ReviewDetail[] = [
@@ -1423,7 +1603,7 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
         status: 'UNDER_REVIEW',
         signTypeCode: 'P.102',
         createdAt: '2026-11-20T18:00:00Z',
-        location: { lat: 21.002, lng: 105.802 },
+        location: { lat: 21.012, lng: 105.812 },
       },
       {
         ...pending,
@@ -1441,7 +1621,17 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
         ...pending,
         id: 'e',
         status: 'APPROVED',
+        signTypeCode: 'P.130',
         createdAt: '2026-11-20T16:59:59.999Z',
+        location: { lat: 21.002, lng: 105.802 },
+      },
+      {
+        ...pending,
+        id: 'manual',
+        status: 'APPROVED',
+        signTypeCode: 'P.130',
+        submissions: [],
+        location: { lat: 21.002, lng: 105.802 },
       },
     ];
     const stats = demoStatistics(db, signs, {
@@ -1449,18 +1639,18 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
       toDate: '2026-11-21',
     });
     assert.deepEqual(stats.submissionsByDay, [
-      { date: '2026-11-21', count: 5 },
+      { date: '2026-11-21', count: 3 },
     ]);
-    assert.deepEqual(stats.decisions, { approved: 3, rejected: 1 });
+    assert.deepEqual(stats.decisions, { approved: 2, rejected: 0 });
     assert.deepEqual(stats.processingTime, {
-      averageMs: 7_200_000,
-      samples: 3,
+      averageMs: 28_800_000,
+      samples: 1,
     });
     assert.deepEqual(stats.signsByCategory, [
-      { categoryCode: 'PROHIBITORY', name: 'Biển cấm', count: 2 },
+      { categoryCode: 'PROHIBITORY', name: 'Biển cấm', count: 3 },
     ]);
     assert.equal(stats.densityCells.length, 1);
-    assert.equal(stats.densityCells[0].count, 2);
+    assert.equal(stats.densityCells[0].count, 3);
   }));
 
 test('demo FR-38 giữ thời gian xử lý cho dữ liệu mẫu từ bản cũ', () =>
@@ -1469,8 +1659,8 @@ test('demo FR-38 giữ thời gian xử lý cho dữ liệu mẫu từ bản cũ
     db.uploads = db.uploads.map(({ decision: _decision, ...row }) => row);
     writeDemo(db);
     const stats = await reviewDemo.statistics('demo', {});
-    assert.equal(stats.decisions.approved + stats.decisions.rejected, 23);
-    assert.equal(stats.processingTime.samples, 23);
+    assert.deepEqual(stats.decisions, { approved: 16, rejected: 4 });
+    assert.equal(stats.processingTime.samples, 20);
     assert.ok(stats.processingTime.averageMs! > 0);
   }));
 

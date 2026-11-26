@@ -1,0 +1,99 @@
+spring:
+  application:
+    name: signa-backend
+  datasource:
+    url: ${SIGNA_DB_URL:jdbc:mysql://localhost:3306/signa?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${SIGNA_DB_APP_USER:signa_app}
+    password: ${SIGNA_DB_APP_PASSWORD:}
+  # Backend chạy lâu dài không migrate và không giữ mật khẩu signa_migrator.
+  # Migration chạy riêng bằng profile migrate (application-migrate.yml).
+  flyway:
+    enabled: ${SIGNA_MIGRATE:false}
+    # Profile thường không quét R__demo_data.sql, kể cả khi đã nạp demo trên volume này.
+    ignore-migration-patterns: ["*:future", "repeatable:missing"]
+    placeholders:
+      app_user: "'${spring.datasource.username}'@'%'"
+  data:
+    redis:
+      host: ${SIGNA_REDIS_HOST:localhost}
+      port: ${SIGNA_REDIS_PORT:6379}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+      # Lát 3: giữ ảnh nhận diện trong bộ nhớ, Tomcat không ghi file tạm (NFR-09).
+      file-size-threshold: 11MB
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${SIGNA_PORT:8080}
+  shutdown: graceful
+  # RemoteIpValve của Tomcat chỉ đọc X-Forwarded-For khi request đến từ proxy nội bộ, nên client
+  # bên ngoài không giả được IP (giới hạn đăng nhập theo IP, docs/06 §10). Mặc định tin các dải IP
+  # riêng 10/8, 172.16/12, 192.168/16, 127/8 và ::1; SIGNA_TRUSTED_PROXIES là biểu thức chính quy.
+  # nginx phải đặt X-Forwarded-For $remote_addr, không nối thêm vào chuỗi client gửi.
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: '${SIGNA_TRUSTED_PROXIES:10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[01])\.\d+\.\d+|127\.\d+\.\d+\.\d+|0:0:0:0:0:0:0:1|::1}'
+
+springdoc:
+  api-docs:
+    path: /api/v1/openapi.json
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: logstash
+
+signa:
+  minio:
+    endpoint: ${SIGNA_MINIO_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${SIGNA_MINIO_PUBLIC_ENDPOINT:http://localhost:9000}
+    access-key: ${SIGNA_MINIO_ACCESS_KEY:}
+    secret-key: ${SIGNA_MINIO_SECRET_KEY:}
+    region: us-east-1
+  recognition:
+    url: ${SIGNA_RECOGNITION_URL:http://localhost:8000}
+  labels-path: ${SIGNA_LABELS_PATH:../ai/data/labels.yaml}
+  # Lát 1 · identity (IdentityProperties). Quản trị viên đầu tiên: chỉ tạo khi chưa có ADMIN và có
+  # đủ hai biến; không có mật khẩu mặc định.
+  identity:
+    bootstrap-admin:
+      email: ${SIGNA_BOOTSTRAP_ADMIN_EMAIL:}
+      password: ${SIGNA_BOOTSTRAP_ADMIN_PASSWORD:}
+    # Lát 9 · Quên mật khẩu (OtpProperties).
+    otp:
+      secret: ${SIGNA_OTP_SECRET:}
+      smtp-host: ${SIGNA_SMTP_HOST:localhost}
+      smtp-port: ${SIGNA_SMTP_PORT:1025}
+      smtp-from: ${SIGNA_SMTP_FROM:no-reply@signa.local}
+  catalog:
+    # Lát 2. Nạp ai/data/labels.yaml (signa.labels-path) khi khởi động; cũng bật bằng --import-labels.
+    import-on-startup: ${SIGNA_CATALOG_IMPORT_ON_STARTUP:false}
+    sign-types-cache-ttl: 24h
+  # Lát 5 · mỗi môi trường chỉ bật một worker gom cụm.
+  clustering:
+    auto-approve: ${SIGNA_CLUSTERING_AUTO_APPROVE:false}
+    worker:
+      enabled: ${SIGNA_CLUSTERING_WORKER_ENABLED:false}
+      consumer: ${SIGNA_CLUSTERING_WORKER_CONSUMER:signa-backend}
+    crop-cleanup:
+      enabled: ${SIGNA_CLUSTERING_CROP_CLEANUP_ENABLED:true}
+  # Lát 9 · khung tìm địa điểm; bổ sung nhà cung cấp thật sau Q6.
+  places:
+    provider: ${SIGNA_PLACES_PROVIDER:none}
