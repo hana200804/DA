@@ -193,8 +193,8 @@ export function StatisticsPage({ token }: { token: string }) {
                 <div>
                   <h2>Số biển theo nhóm</h2>
                   <p>
-                    {formatCount(categoryTotal)} biển đang hiển thị, được tạo
-                    trong khoảng đã chọn.
+                    Toàn bộ {formatCount(categoryTotal)} biển đã duyệt, chia
+                    theo nhóm, bất kể khoảng ngày đã chọn.
                   </p>
                 </div>
               </div>
@@ -215,8 +215,8 @@ export function StatisticsPage({ token }: { token: string }) {
                 </ul>
               ) : (
                 <Empty
-                  title="Chưa có biển trong khoảng này"
-                  text="Hãy thử một khoảng ngày khác."
+                  title="Chưa có biển đã duyệt"
+                  text="Số liệu sẽ xuất hiện khi có biển được duyệt."
                 />
               )}
             </section>
@@ -225,8 +225,8 @@ export function StatisticsPage({ token }: { token: string }) {
                 <div>
                   <h2>Bản đồ mật độ biển báo</h2>
                   <p>
-                    Số biển đang hiển thị trong mỗi ô, theo khoảng ngày tạo
-                    biển.
+                    Mỗi ô đếm số biển đã duyệt tại đó, bất kể khoảng ngày đã
+                    chọn.
                   </p>
                 </div>
                 <MapPinned size={20} />
@@ -239,7 +239,7 @@ export function StatisticsPage({ token }: { token: string }) {
               ) : (
                 <Empty
                   title="Chưa có dữ liệu mật độ"
-                  text="Hãy thử một khoảng ngày khác."
+                  text="Bản đồ mật độ sẽ xuất hiện khi có biển được duyệt."
                 />
               )}
             </section>

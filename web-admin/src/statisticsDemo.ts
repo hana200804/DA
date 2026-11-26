@@ -1,7 +1,6 @@
 import { readCatalogCategories, readCatalogTypes } from './catalogDemo.ts';
 import { seedDemo } from './demo.ts';
 import { getAuditLogs } from './demoAudit.ts';
-import { isPublished } from './mapTypes.ts';
 import {
   statisticsRange,
   type Statistics,
@@ -84,7 +83,7 @@ export function demoStatistics(
   const categoryCounts = new Map<string, number>();
   const grid = new Map<string, Statistics['densityCells'][number]>();
   for (const sign of signs) {
-    if (!isPublished(sign.status) || !included(sign.createdAt)) continue;
+    if (sign.status !== 'APPROVED') continue;
     const category = typeCategory.get(sign.signTypeCode) ?? 'OTHER';
     categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
     const { lat, lng } = sign.location;

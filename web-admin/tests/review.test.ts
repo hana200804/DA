@@ -1436,7 +1436,7 @@ test('FR-38 biểu đồ điền ngày trống và tỉ lệ chỉ tính trên s
   assert.equal(decisionRates({ approved: 0, rejected: 0 }), null);
 });
 
-test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và gom mật độ', () =>
+test('demo FR-38 lọc đề xuất theo ngày Việt Nam và tính độ phủ trên mọi biển đã duyệt', () =>
   withDemoStorage(async () => {
     const db = readDemo();
     const baseUpload = db.uploads[0];
@@ -1510,7 +1510,7 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
         status: 'UNDER_REVIEW',
         signTypeCode: 'P.102',
         createdAt: '2026-11-20T18:00:00Z',
-        location: { lat: 21.002, lng: 105.802 },
+        location: { lat: 21.012, lng: 105.812 },
       },
       {
         ...pending,
@@ -1528,7 +1528,9 @@ test('demo FR-38 lọc theo ngày Việt Nam, tính thời gian hợp lệ và g
         ...pending,
         id: 'e',
         status: 'APPROVED',
+        signTypeCode: 'P.130',
         createdAt: '2026-11-20T16:59:59.999Z',
+        location: { lat: 21.002, lng: 105.802 },
       },
     ];
     const stats = demoStatistics(db, signs, {
