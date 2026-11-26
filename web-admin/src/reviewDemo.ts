@@ -4,6 +4,7 @@ import { readCatalogTypes } from './catalogDemo.ts';
 import { appendAudit, getAuditLogs } from './demoAudit.ts';
 import { auditQuery, type AuditFilters } from './auditTypes.ts';
 import { readDemo, writeDemo } from './demo.ts';
+import { distanceMeters } from './domain.ts';
 import {
   normalizeReportDecision,
   type ReportDecision,
@@ -61,6 +62,7 @@ function seedReviews({ uploads }: DemoDB): ReviewDetail[] {
         createdAt: row.createdAt,
         confidence: hasConflict ? 0.65 : index % 3 === 1 ? 0.84 : 0.72,
         distinctSubmitters: 1,
+        coverCropUrl: row.photoBase64 || null,
         suggestion:
           status === 'APPROVED'
             ? null
@@ -83,18 +85,7 @@ function seedReviews({ uploads }: DemoDB): ReviewDetail[] {
         codeWeights: hasConflict
           ? { [signTypeCode]: 0.94, [competingCode]: 0.67 }
           : { [signTypeCode]: 1.8 },
-        nearbySigns: uploads
-          .filter(
-            (other) =>
-              other.id !== id &&
-              other.status === 'APPROVAL' &&
-              Math.hypot(other.latitude - lat, other.longitude - lng) < 0.0007,
-          )
-          .map((other) => ({
-            id: other.id,
-            signTypeCode: other.trafficSignId,
-            location: { lat: other.latitude, lng: other.longitude },
-          })),
+        nearbySigns: [],
       };
     });
 }
@@ -467,7 +458,26 @@ export const reviewDemo = {
     };
   },
   async detail(_token: string, id: string) {
-    return findSign(readReviews(), id);
+    const rows = readReviews();
+    const sign = findSign(rows, id);
+    const origin = {
+      latitude: sign.location.lat,
+      longitude: sign.location.lng,
+    };
+    const nearbySigns = rows
+      .filter((row) => row.id !== id && isPublished(row.status))
+      .map(({ id, signTypeCode, status, location }) => ({
+        sign: { id, signTypeCode, status, location },
+        distance: distanceMeters(origin, {
+          latitude: location.lat,
+          longitude: location.lng,
+        }),
+      }))
+      .filter(({ distance }) => distance <= 50)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 50)
+      .map(({ sign }) => sign);
+    return { ...sign, nearbySigns };
   },
   async decide(
     _token: string,

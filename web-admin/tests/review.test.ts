@@ -20,7 +20,10 @@ import { auditQuery, formatAuditTime } from '../src/auditTypes.ts';
 import type { MapSign } from '../src/mapTypes.ts';
 import { readDemo, writeDemo } from '../src/demo.ts';
 import { mapView } from '../src/mapGeometry.ts';
-import type { ReviewDetail } from '../src/reviewTypes.ts';
+import {
+  reviewInspectionReasons,
+  type ReviewDetail,
+} from '../src/reviewTypes.ts';
 
 const api = createReviewApi();
 const pending: ReviewDetail = {
@@ -124,14 +127,26 @@ test('đăng nhập web lấy Bearer token và kiểm tra quyền duyệt', asyn
   );
 });
 
-test('FR-31 lấy ảnh đề xuất, số người đề xuất, cờ và biển liên quan', async () => {
+test('FR-31 lấy ảnh đại diện, ảnh đề xuất và thông tin các biển liên quan', async () => {
   const review = {
     ...pending,
     distinctSubmitters: 1,
+    coverCropUrl: 'https://example.com/cover.jpg',
     flags: ['DIFFERS_FROM_APPROVED'],
     relatedSignId: 'sign-2',
     nearbySigns: [
-      { id: 'sign-2', signTypeCode: 'P.102', location: pending.location },
+      {
+        id: 'sign-2',
+        signTypeCode: 'P.102',
+        location: pending.location,
+        status: 'APPROVED',
+      },
+      {
+        id: 'sign-3',
+        signTypeCode: 'P.130',
+        location: pending.location,
+        status: 'UNDER_REVIEW',
+      },
     ],
   } satisfies ReviewDetail;
   await mockFetch(
@@ -157,6 +172,67 @@ test('FR-31 lấy ảnh đề xuất, số người đề xuất, cờ và biể
     },
   );
 });
+
+test('FR-31 giải thích gợi ý Cần xem kỹ theo tình trạng, cờ và mã cạnh tranh', () => {
+  assert.deepEqual(reviewInspectionReasons(pending), []);
+  assert.deepEqual(
+    reviewInspectionReasons({ ...pending, suggestion: 'INSPECT' }),
+    ['Có mã cạnh tranh P.127_50 từ các đề xuất.'],
+  );
+  assert.deepEqual(
+    reviewInspectionReasons({
+      ...underReview,
+      flags: ['DIFFERS_FROM_APPROVED'],
+    }),
+    [
+      'Biển đang được rà soát lại.',
+      'Mã biển khác với biển đã duyệt ở gần.',
+      'Có mã cạnh tranh P.127_50 từ các đề xuất.',
+    ],
+  );
+  assert.deepEqual(
+    reviewInspectionReasons({
+      ...underReview,
+      codeWeights: { 'P.127_60': 0.9, 'P.127_50': 0.1 },
+    }),
+    ['Biển đang được rà soát lại.'],
+  );
+});
+
+test('demo FR-31 lấy trạng thái hiện tại của các biển công bố trong bán kính 50 m', () =>
+  withDemoStorage(async () => {
+    const db = readDemo();
+    db.reviewSigns = [
+      pending,
+      {
+        ...underReview,
+        id: 'reviewing',
+        location: { lat: 21.0303, lng: 105.8 },
+      },
+      {
+        ...pending,
+        id: 'live',
+        status: 'APPROVED',
+        location: { lat: 21.0301, lng: 105.8 },
+      },
+      { ...pending, id: 'removed', status: 'REMOVED' },
+      {
+        ...pending,
+        id: 'far',
+        status: 'APPROVED',
+        location: { lat: 21.031, lng: 105.8 },
+      },
+    ];
+    writeDemo(db);
+    const detail = await reviewDemo.detail('demo', pending.id);
+    assert.deepEqual(
+      detail.nearbySigns.map(({ id, status }) => [id, status]),
+      [
+        ['live', 'APPROVED'],
+        ['reviewing', 'UNDER_REVIEW'],
+      ],
+    );
+  }));
 
 test('duyệt và sửa rồi duyệt gửi đúng phiên bản và phần chỉnh sửa', async () => {
   const location = { lat: 21.04, lng: 105.81 };
