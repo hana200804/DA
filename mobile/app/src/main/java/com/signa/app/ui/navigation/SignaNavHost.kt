@@ -18,6 +18,7 @@ import com.signa.app.ui.map.MapRoute
 import com.signa.app.ui.settings.SettingsRoute
 import com.signa.app.ui.sign.SignDetailRoute
 import com.signa.app.ui.sign.SignLookupRoute
+import com.signa.app.BuildConfig
 import com.signa.app.R
 
 /** Connects screens and navigation callbacks. Business operations belong in feature state owners. */
@@ -69,6 +70,11 @@ internal fun SignaNavHost(
         }
         composable(AppRoutes.CHANGE_PASSWORD) {
             AuthRoute(mode = AuthMode.ChangePassword, onBack = goBack, onPasswordChanged = {
+                if (!BuildConfig.USE_FAKE_BACKEND) {
+                    onMessage(R.string.auth_change_success_keep_session)
+                    goBack()
+                    return@AuthRoute
+                }
                 onMessage(R.string.auth_change_success)
                 onSignInRequired()
             })

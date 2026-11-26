@@ -6,5 +6,6 @@ import kotlinx.coroutines.flow.Flow
 interface SessionStore {
     val sessions: Flow<Session?>
     suspend fun save(session: Session)
+    suspend fun updateProfile(session: Session)
     suspend fun clear(expectedSessionId: String? = null)
 }

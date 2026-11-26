@@ -1,0 +1,14 @@
+{
+  "token": "signa_Test-Token_0123456789abcdef0123456789A",
+  "expiresAt": "2026-12-25T16:18:06.845Z",
+  "user": {
+    "id": "f39794ed-2de9-42a1-83f3-9b57b5c12a4f",
+    "displayName": "Tài khoản Android",
+    "role": "USER",
+    "permissions": [
+      "report:create",
+      "sign:rate",
+      "submission:create"
+    ]
+  }
+}

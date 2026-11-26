@@ -102,7 +102,8 @@ kiểm thử khung ứng dụng, không dùng làm dữ liệu cảnh báo ngoà
 2. Đăng ký thành công trở về đăng nhập; email trùng và sai mật khẩu có lỗi riêng.
 3. Đăng nhập thành công mở khung các tab, bắt đầu ở Bản đồ. Đóng/mở app sẽ kiểm tra và khôi phục phiên Room hợp lệ trước khi hiển thị khung chính.
 4. Quên mật khẩu → Gửi OTP → đọc **mã thử nghiệm** trên màn hình → nhập mã và mật khẩu mới.
-5. Đổi mật khẩu cần mật khẩu hiện tại. Đặt lại/đổi thành công yêu cầu đăng nhập lại.
+5. Đổi mật khẩu cần mật khẩu hiện tại. Backend giữ phiên hiện tại khi đổi thành công
+   và thu hồi các phiên khác. Đặt lại mật khẩu hoặc đổi trong chế độ fake yêu cầu đăng nhập lại.
 6. Đăng xuất hoặc hết hạn phiên sẽ xóa khung chính và trở về Đăng nhập; nút Back không quay lại các tab.
 7. Chế độ khách chỉ mở khi người dùng chủ động chọn “Tiếp tục với khách”. Từ Tài khoản → Đăng nhập sẽ trở lại khung xác thực.
 
@@ -128,8 +129,9 @@ BasicTextField để hỗ trợ dán mã, xóa và đọc bằng trợ năng. G�
 AuthViewModel → AuthRepository; chỉ xóa mã đang nhập khi gửi lại thành công.
 
 `AccountViewModel` kết hợp phiên với SettingsRepository để hiển thị loại xe đã lưu.
-ProfileScreen chỉ nhận dữ liệu/callback, quản lý trạng thái mở/đóng hộp thoại
-thông tin cá nhân và trợ giúp. Thông tin hiện chỉ đọc, chưa có API sửa hồ sơ.
+ProfileScreen nhận dữ liệu/callback và quản lý hộp thoại thông tin cá nhân
+và trợ giúp. Với backend thật, mở thông tin cá nhân tải hồ sơ qua `GET /me`
+và lưu tên hiển thị qua `PATCH /me`. Loại xe lấy từ cài đặt cục bộ.
 ContributionSummary chứa các quan sát có biển, trạng thái và thời điểm; UI
 ánh xạ thành nhãn trạng thái và ngày, không tự gán kết quả xác minh.
 FakeData cung cấp các quan sát minh họa từ danh mục biển mẫu hiện có.
@@ -148,18 +150,19 @@ URL chỉ có host được bổ sung `/api/v1/`; URL đã có path được chu
 Chế độ fake/API là cấu hình lúc build. Build lại không truyền cờ sẽ trở về fake.
 Debug cho HTTP để kiểm thử nội bộ; release yêu cầu HTTPS.
 
-AuthApi có login/register/logout/forgot/reset/change-password và users/me theo
-`docs/07-api.md`. Đăng nhập đọc `sessionId`, `expiresAt`, `user`; các thao tác
-ghi còn lại chỉ yêu cầu HTTP thành công và bỏ qua response body. Các request body
-chưa có ví dụ đầy đủ trong đặc tả đang dùng `displayName/email/password`,
-`email/otp/newPassword`, `oldPassword/newPassword`; cần đối chiếu khi backend triển khai.
+AuthApi gọi các endpoint tài khoản theo `docs/07-api.md`. Đăng nhập gửi
+`client: "MOBILE"` và đọc `token`, `expiresAt`, `user`. Hồ sơ đọc và cập nhật qua
+`/me`. Đặt lại mật khẩu gửi `email/code/newPassword`; đổi qua `/me/password`
+gửi `currentPassword/newPassword`.
 OkHttp chỉ gắn Bearer cho API cùng origin/path và phiên REMOTE hợp lệ, không gắn cho
-endpoint công khai hoặc upload ngoài origin. Timeout, JSON lỗi, HTTP 400/401/403/404/
-409/422/429/5xx được chuyển thành lỗi UI. Không ghi log token, mật khẩu hoặc OTP.
+endpoint công khai hoặc upload ngoài origin. Lỗi API được ánh xạ theo `code`
+và ngữ cảnh thao tác, với mã HTTP dự phòng. Khi bị giới hạn tần suất, giao diện
+hiển thị số giây từ `Retry-After` nếu có. Không ghi log token, mật khẩu hoặc OTP.
 
-**Giới hạn nghiệm thu:** API client được kiểm thử bằng MockWebServer; chưa xác minh
-đầu cuối với backend thật. Phạm vi “tài khoản chạy với API hoặc dữ liệu giả lập”
-của tuần 2 được đáp ứng bằng fake auth đầy đủ ở trên.
+API tài khoản được kiểm thử với MockWebServer bằng mẫu phản hồi từ backend Signa.
+`RemoteAuthRepositoryE2eTest` chạy luồng tài khoản JVM với backend dev khi đặt
+`SIGNA_E2E_BASE_URL` (ví dụ `http://localhost:8080/api/v1/`) trước khi chạy
+`testDebugUnitTest --rerun-tasks`. Test tạo một tài khoản riêng cho mỗi lần chạy.
 
 ## Kiểm tra
 

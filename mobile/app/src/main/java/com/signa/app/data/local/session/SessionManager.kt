@@ -73,6 +73,8 @@ class SessionManager @Inject constructor(
         store.save(session)
     }
 
+    suspend fun updateProfile(session: Session) = store.updateProfile(session)
+
     suspend fun clear(expectedSessionId: String? = null) = store.clear(expectedSessionId)
 
     /** Re-check wall-clock expiry when the app returns to the foreground. */

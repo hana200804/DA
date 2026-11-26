@@ -14,11 +14,17 @@ internal data class SessionRecord(
     val email: String,
     val vehicleType: String,
     val expiresAtEpochMillis: Long,
-    val source: String
+    val source: String,
+    val role: String? = null,
+    val permissions: List<String> = emptyList()
 ) {
     fun toDomain() = Session(
         id = id,
-        user = User(userId, displayName, email, VehicleType.entries.firstOrNull { it.name == vehicleType } ?: VehicleType.CAR),
+        user = User(
+            userId, displayName, email,
+            VehicleType.entries.firstOrNull { it.name == vehicleType } ?: VehicleType.CAR,
+            role, permissions
+        ),
         expiresAtEpochMillis = expiresAtEpochMillis,
         source = SessionSource.valueOf(source)
     )
@@ -26,7 +32,8 @@ internal data class SessionRecord(
     companion object {
         fun from(session: Session) = SessionRecord(
             session.id, session.user.id, session.user.displayName, session.user.email,
-            session.user.vehicleType.name, session.expiresAtEpochMillis, session.source.name
+            session.user.vehicleType.name, session.expiresAtEpochMillis, session.source.name,
+            session.user.role, session.user.permissions
         )
     }
 }

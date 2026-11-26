@@ -21,6 +21,9 @@ interface FakeAccountDao {
     @Query("UPDATE fake_accounts SET passwordSalt = :salt, passwordHash = :hash WHERE id = :id")
     suspend fun updatePassword(id: String, salt: String, hash: String)
 
+    @Query("UPDATE fake_accounts SET displayName = :displayName WHERE id = :id")
+    suspend fun updateDisplayName(id: String, displayName: String)
+
     @Query("SELECT * FROM password_resets WHERE email = :email")
     suspend fun findReset(email: String): PasswordResetEntity?
 

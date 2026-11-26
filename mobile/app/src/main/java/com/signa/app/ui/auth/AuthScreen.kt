@@ -104,7 +104,7 @@ fun AuthScreen(
                 }), onSubmit, Modifier.fillMaxWidth(), enabled
             )
             state.requestError?.let {
-                Text(stringResource(authErrorMessage(it)), color = MaterialTheme.colorScheme.error,
+                Text(authErrorText(it, state.retryAfterSeconds), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodyMedium)
             }
             when (mode) {

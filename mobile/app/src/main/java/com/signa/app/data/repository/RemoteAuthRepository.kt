@@ -9,13 +9,14 @@ import com.signa.app.data.remote.dto.ForgotPasswordRequest
 import com.signa.app.data.remote.dto.LoginRequest
 import com.signa.app.data.remote.dto.RegisterRequest
 import com.signa.app.data.remote.dto.ResetPasswordRequest
+import com.signa.app.data.remote.dto.UpdateProfileRequest
+import com.signa.app.data.remote.dto.UserDto
 import com.signa.app.domain.model.AuthError
 import com.signa.app.domain.model.AuthException
 import com.signa.app.domain.model.PasswordResetChallenge
 import com.signa.app.domain.model.Session
 import com.signa.app.domain.model.SessionSource
 import com.signa.app.domain.model.User
-import com.signa.app.domain.model.VehicleType
 import com.signa.app.domain.repository.AuthRepository
 import java.io.IOException
 import java.time.Clock
@@ -37,25 +38,41 @@ class RemoteAuthRepository @Inject constructor(
     }
 
     override suspend fun login(email: String, password: String) {
-        val response = try {
-            request { api.login(LoginRequest(email.trim(), password)) }
-        } catch (error: AuthException) {
-            if (error.error == AuthError.Unauthorized) throw AuthException(AuthError.InvalidCredentials, error)
-            throw error
+        val response = request(unauthenticated = AuthError.InvalidCredentials) {
+            api.login(LoginRequest(email.trim(), password, client = "MOBILE"))
         }
         val expires = try {
             Instant.parse(response.expiresAt).toEpochMilli()
         } catch (error: java.time.format.DateTimeParseException) {
             throw AuthException(AuthError.InvalidResponse, error)
         }
-        if (response.sessionId.isBlank() || response.user.id.isBlank() || expires <= clock.millis()) {
+        if (response.token.isBlank() || response.user.id.isBlank() || expires <= clock.millis()) {
             throw AuthException(AuthError.InvalidResponse)
         }
         val user = User(
-            response.user.id, response.user.displayName, response.user.email ?: email.trim(),
-            VehicleType.entries.firstOrNull { it.name == response.user.vehicleType } ?: VehicleType.CAR
+            response.user.id, response.user.displayName, email.trim(),
+            role = response.user.role,
+            permissions = response.user.permissions
         )
-        sessions.save(Session(response.sessionId, user, expires, SessionSource.REMOTE))
+        sessions.save(Session(response.token, user, expires, SessionSource.REMOTE))
+    }
+
+    override suspend fun refreshProfile() = syncProfile { api.currentUser() }
+
+    override suspend fun updateProfile(displayName: String) = syncProfile {
+        api.updateProfile(UpdateProfileRequest(displayName.trim()))
+    }
+
+    private suspend fun syncProfile(call: suspend () -> UserDto) {
+        val current = sessions.current ?: throw AuthException(AuthError.NotSignedIn)
+        val profile = request(call = call)
+        if (profile.id != current.user.id) throw AuthException(AuthError.InvalidResponse)
+        sessions.updateProfile(current.copy(user = current.user.copy(
+            displayName = profile.displayName,
+            email = profile.email,
+            role = profile.role,
+            permissions = profile.permissions
+        )))
     }
 
     override suspend fun logout() {
@@ -72,30 +89,47 @@ class RemoteAuthRepository @Inject constructor(
         return PasswordResetChallenge(email.trim(), expiresAtEpochMillis = 0)
     }
 
-    override suspend fun resetPassword(email: String, otp: String, newPassword: String) = request {
-        api.resetPassword(ResetPasswordRequest(email.trim(), otp, newPassword))
+    override suspend fun resetPassword(email: String, otp: String, newPassword: String) = request(businessRule = AuthError.InvalidOtp) {
+        api.resetPassword(ResetPasswordRequest(email.trim(), code = otp, newPassword = newPassword))
     }
 
     override suspend fun changePassword(oldPassword: String, newPassword: String) {
-        val current = sessions.current ?: throw AuthException(AuthError.NotSignedIn)
-        request { api.changePassword(ChangePasswordRequest(oldPassword, newPassword)) }
-        sessions.clear(current.id)
+        if (sessions.current == null) throw AuthException(AuthError.NotSignedIn)
+        request(businessRule = AuthError.WrongPassword) {
+            api.changePassword(ChangePasswordRequest(currentPassword = oldPassword, newPassword = newPassword))
+        }
     }
 
-    private suspend fun <T> request(call: suspend () -> T): T {
+    private suspend fun <T> request(
+        unauthenticated: AuthError = AuthError.Unauthorized,
+        businessRule: AuthError = AuthError.Validation,
+        call: suspend () -> T
+    ): T {
         try {
             return apiCall(json, call)
         } catch (error: ApiException) {
-            val code = when (error.status) {
-                400, 422 -> AuthError.Validation
-                401 -> AuthError.Unauthorized
-                403 -> AuthError.Forbidden
-                404 -> AuthError.AccountMissing
-                409 -> AuthError.EmailExists
-                429 -> AuthError.RateLimited
-                else -> AuthError.Server
+            val code = when (error.error?.code) {
+                "INVALID_CREDENTIALS" -> AuthError.InvalidCredentials
+                "UNAUTHENTICATED" -> unauthenticated
+                "FORBIDDEN" -> AuthError.Forbidden
+                "VALIDATION_ERROR" -> AuthError.Validation
+                "BUSINESS_RULE" -> businessRule
+                "NOT_FOUND" -> AuthError.AccountMissing
+                "CONFLICT" -> AuthError.EmailExists
+                "RATE_LIMITED" -> AuthError.RateLimited
+                "INTERNAL_ERROR" -> AuthError.Server
+                else -> when (error.status) {
+                    400, 422 -> AuthError.Validation
+                    401 -> unauthenticated
+                    403 -> AuthError.Forbidden
+                    404 -> AuthError.AccountMissing
+                    409 -> AuthError.EmailExists
+                    429 -> AuthError.RateLimited
+                    else -> AuthError.Server
+                }
             }
-            throw AuthException(code, error)
+            val retryAfter = error.retryAfterSeconds.takeIf { code == AuthError.RateLimited }
+            throw AuthException(code, error, retryAfter)
         } catch (error: SerializationException) {
             throw AuthException(AuthError.InvalidResponse, error)
         } catch (error: IOException) {

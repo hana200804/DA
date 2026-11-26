@@ -11,7 +11,7 @@ import androidx.compose.ui.res.stringResource
 import com.signa.app.R
 import com.signa.app.ui.components.SignaPage
 import com.signa.app.ui.components.SignaPrimaryButton
-import com.signa.app.ui.auth.authErrorMessage
+import com.signa.app.ui.auth.authErrorText
 
 @Composable
 fun AccountScreen(
@@ -20,15 +20,20 @@ fun AccountScreen(
     onProfile: () -> Unit,
     onLogout: () -> Unit,
     onContributions: () -> Unit,
-    onChangePassword: () -> Unit
+    onChangePassword: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onUpdateProfile: (String) -> Unit
 ) {
     val user = state.user
     if (!state.isLoading && user != null) {
         ProfileScreen(
             user, onLogout, onContributions, onChangePassword,
-            errorMessage = state.operationError?.let(::authErrorMessage),
+            errorMessage = state.operationError?.let { authErrorText(it, state.retryAfterSeconds) },
             isSigningOut = state.isSigningOut,
-            vehicleType = state.vehicleType
+            vehicleType = state.vehicleType,
+            onOpenProfile = onOpenProfile,
+            onUpdateProfile = onUpdateProfile,
+            isUpdatingProfile = state.isUpdatingProfile
         )
         return
     }

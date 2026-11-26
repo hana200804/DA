@@ -77,7 +77,9 @@ private fun AccountPreview() = PreviewPage { ProfileScreen(PreviewSamples.profil
 
 @Preview(showBackground = true, name = "Guest account")
 @Composable
-private fun GuestAccountPreview() = PreviewPage { AccountScreen(AccountUiState(isLoading = false), {}, {}, {}, {}, {}) }
+private fun GuestAccountPreview() = PreviewPage {
+    AccountScreen(AccountUiState(isLoading = false), {}, {}, {}, {}, {}, onOpenProfile = {}, onUpdateProfile = {})
+}
 
 @Preview(showBackground = true, name = "Contributions")
 @Composable

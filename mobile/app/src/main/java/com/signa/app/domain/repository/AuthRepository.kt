@@ -8,6 +8,8 @@ interface AuthRepository {
     val session: Flow<Session?>
     suspend fun register(displayName: String, email: String, password: String)
     suspend fun login(email: String, password: String)
+    suspend fun refreshProfile()
+    suspend fun updateProfile(displayName: String)
     suspend fun logout()
     suspend fun requestPasswordReset(email: String): PasswordResetChallenge
     suspend fun resetPassword(email: String, otp: String, newPassword: String)

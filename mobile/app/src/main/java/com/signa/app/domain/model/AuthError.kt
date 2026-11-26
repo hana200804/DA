@@ -6,4 +6,8 @@ enum class AuthError {
     Network, Unauthorized, Forbidden, Validation, RateLimited, Server, InvalidResponse, Storage
 }
 
-class AuthException(val error: AuthError, cause: Throwable? = null) : Exception(error.name, cause)
+class AuthException(
+    val error: AuthError,
+    cause: Throwable? = null,
+    val retryAfterSeconds: Int? = null
+) : Exception(error.name, cause)

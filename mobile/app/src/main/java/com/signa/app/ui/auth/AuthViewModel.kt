@@ -36,6 +36,7 @@ class AuthViewModel @Inject constructor(
                 form = it.form.withValue(field, value),
                 errors = it.errors - field,
                 requestError = null,
+                retryAfterSeconds = null,
                 resetChallenge = if (field == AuthField.Email) null else it.resetChallenge
             )
         }
@@ -49,7 +50,7 @@ class AuthViewModel @Inject constructor(
         if (mutableState.value.isSubmitting) return
         val form = mutableState.value.form
         val errors = AuthFormValidator.validate(mode, form)
-        mutableState.update { it.copy(errors = errors, requestError = null) }
+        mutableState.update { it.copy(errors = errors, requestError = null, retryAfterSeconds = null) }
         if (errors.isNotEmpty()) return
         mutableState.update { it.copy(isSubmitting = true) }
         viewModelScope.launch {
@@ -77,7 +78,7 @@ class AuthViewModel @Inject constructor(
                     }
                 }
             } catch (error: AuthException) {
-                mutableState.update { it.copy(requestError = error.error) }
+                mutableState.update { it.copy(requestError = error.error, retryAfterSeconds = error.retryAfterSeconds) }
             } catch (_: IOException) {
                 mutableState.update { it.copy(requestError = AuthError.Storage) }
             } catch (_: IllegalArgumentException) {

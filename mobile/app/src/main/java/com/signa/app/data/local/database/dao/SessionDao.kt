@@ -14,6 +14,9 @@ interface SessionDao {
     @Upsert
     suspend fun save(session: SessionEntity)
 
+    @Query("UPDATE current_session SET encryptedPayload = :payload WHERE slot = 0 AND tokenHash = :tokenHash")
+    suspend fun updateProfile(tokenHash: String, payload: String)
+
     @Query("DELETE FROM current_session WHERE slot = 0")
     suspend fun clear()
 

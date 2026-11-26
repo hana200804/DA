@@ -63,6 +63,18 @@ class FakeAuthRepository @Inject constructor(
         ))
     }
 
+    override suspend fun refreshProfile() = Unit
+
+    override suspend fun updateProfile(displayName: String) = localOperation {
+        val current = sessions.current ?: throw AuthException(AuthError.NotSignedIn)
+        val name = displayName.trim()
+        if (name.isEmpty() || name.length > 100) throw AuthException(AuthError.Validation)
+        database.withTransaction {
+            accounts.updateDisplayName(current.user.id, name)
+            sessions.updateProfile(current.copy(user = current.user.copy(displayName = name)))
+        }
+    }
+
     override suspend fun logout() = localOperation { sessions.clear() }
 
     override suspend fun requestPasswordReset(email: String): PasswordResetChallenge = localOperation {

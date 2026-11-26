@@ -17,6 +17,7 @@ suspend fun <T> apiCall(json: Json, call: suspend () -> T): T {
         } catch (_: IllegalArgumentException) {
             null
         }
-        throw ApiException(failure.code(), error, failure)
+        val retryAfter = failure.response()?.headers()?.get("Retry-After")?.trim()?.toIntOrNull()
+        throw ApiException(failure.code(), error, failure, retryAfter?.takeIf { it > 0 })
     }
 }

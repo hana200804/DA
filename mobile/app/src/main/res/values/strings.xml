@@ -122,7 +122,7 @@
   <string name="auth_invalid_credentials">Email hoặc mật khẩu chưa đúng.</string>
   <string name="auth_email_exists">Email đã được đăng ký.</string>
   <string name="auth_account_missing">Không tìm thấy tài khoản với email này.</string>
-  <string name="auth_invalid_otp">Mã OTP chưa đúng hoặc đã được sử dụng.</string>
+  <string name="auth_invalid_otp">Mã OTP không hợp lệ hoặc đã hết hạn.</string>
   <string name="auth_expired_otp">Mã OTP đã hết hạn. Hãy yêu cầu mã mới.</string>
   <string name="auth_otp_locked">Đã nhập sai quá số lần cho phép. Hãy yêu cầu mã mới.</string>
   <string name="auth_otp_cooldown">Vui lòng chờ 30 giây trước khi yêu cầu mã mới.</string>
@@ -130,6 +130,7 @@
   <string name="auth_wrong_password">Mật khẩu hiện tại chưa đúng.</string>
   <string name="auth_network_error">Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.</string>
   <string name="auth_rate_limited">Có quá nhiều yêu cầu. Vui lòng thử lại sau.</string>
+  <string name="auth_rate_limited_retry_after">Có quá nhiều yêu cầu. Vui lòng thử lại sau %1$d giây.</string>
   <string name="auth_server_error">Máy chủ đang gặp sự cố. Vui lòng thử lại sau.</string>
   <string name="auth_invalid_response">Không xử lý được dữ liệu tài khoản. Vui lòng thử lại.</string>
   <string name="auth_storage_error">Không lưu được phiên trên thiết bị. Vui lòng thử lại.</string>
@@ -140,6 +141,7 @@
   <string name="auth_register_success">Đăng ký thành công. Hãy đăng nhập bằng tài khoản vừa tạo.</string>
   <string name="auth_reset_success">Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.</string>
   <string name="auth_change_success">Đã đổi mật khẩu. Vui lòng đăng nhập lại.</string>
+  <string name="auth_change_success_keep_session">Đã đổi mật khẩu.</string>
   <string name="auth_forbidden">Tài khoản chưa được phép thực hiện thao tác này.</string>
   <string name="auth_validation_error">Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.</string>
   <string name="hint_display_name">Nhập tên hiển thị</string>
@@ -160,6 +162,7 @@
   <string name="back_to_login">Quay lại đăng nhập</string>
   <string name="demo_mode_short">Chế độ thử nghiệm</string>
   <string name="personal_information">Thông tin cá nhân</string>
+  <string name="save_profile">Lưu</string>
   <string name="help">Trợ giúp</string>
   <string name="help_account_message">Bạn có thể sử dụng Bản đồ, Lái xe và Tra cứu ở chế độ khách. Đăng nhập để quản lý tài khoản và xem đóng góp. Thay đổi phương tiện trong Cài đặt. Để khôi phục mật khẩu, chọn Quên mật khẩu ở màn đăng nhập.</string>
   <string name="contribution_subtitle">Cùng xây dựng bản đồ biển báo</string>
