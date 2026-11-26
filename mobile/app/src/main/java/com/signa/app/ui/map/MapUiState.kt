@@ -4,6 +4,8 @@ import com.signa.app.domain.model.DeviceLocation
 import com.signa.app.domain.model.GeoPoint
 import com.signa.app.domain.model.LocationProblem
 import com.signa.app.domain.model.TrafficSign
+import com.signa.app.data.remote.dto.MapClusterDto
+import com.signa.app.data.remote.dto.SignCategoryDto
 
 enum class MapLoadStatus { Loading, Ready, MissingKey, Failed }
 
@@ -22,7 +24,14 @@ data class MapUiState(
     val userLocation: DeviceLocation? = null,
     val locationProblem: LocationProblem? = null,
     val cameraTarget: MapCameraTarget? = null,
-    val retryMapId: Int = 0
+    val retryMapId: Int = 0,
+    val sampleSigns: Boolean = true,
+    val clusters: List<MapClusterDto> = emptyList(),
+    val signStatuses: Map<String, String> = emptyMap(),
+    val categories: List<SignCategoryDto> = emptyList(),
+    val activeCategories: Set<String> = emptySet(),
+    val activeSignType: String? = null,
+    val viewportControls: Boolean = false
 ) {
     val selectedSign: TrafficSign? get() = signs.firstOrNull { it.id == selectedSignId } ?: signs.firstOrNull()
     val positionedSigns: List<TrafficSign> get() = signs.filter { it.position != null }
