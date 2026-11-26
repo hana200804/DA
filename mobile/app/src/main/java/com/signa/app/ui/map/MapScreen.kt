@@ -41,7 +41,12 @@ fun MapScreen(
     onOpenLocationSettings: () -> Unit = {},
     directions: DirectionsUiState = DirectionsUiState(),
     directionActions: DirectionsActions = DirectionsActions(),
-    mapContent: @Composable (Modifier, MapViewportInsets) -> Unit = { modifier, _ -> MapIllustration(modifier) }
+    mapContent: @Composable (Modifier, MapViewportInsets) -> Unit = { modifier, _ -> MapIllustration(modifier) },
+    onToggleCategory: (String) -> Unit = {},
+    onClearCategories: () -> Unit = {},
+    onClearSignType: () -> Unit = {},
+    onRetrySigns: () -> Unit = {},
+    onBackFromType: (() -> Unit)? = null
 ) {
     var showFilters by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
@@ -57,10 +62,20 @@ fun MapScreen(
         Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(16.dp).onSizeChanged { topInset = it.height + margin }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Surface(shape = RoundedCornerShape(10.dp), color = colors.surface.copy(alpha = .96f)) {
-                    Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) { SignaWordmark() }
+                    Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (onBackFromType != null) IconButton(onClick = onBackFromType) {
+                            Icon(painterResource(R.drawable.ic_back), stringResource(R.string.back))
+                        }
+                        SignaWordmark()
+                    }
                 }
                 Surface(shape = RoundedCornerShape(8.dp), color = colors.surface.copy(alpha = .96f)) {
-                    Text(stringResource(R.string.map_sample_count, state.positionedSigns.size), Modifier.padding(8.dp), style = MaterialTheme.typography.labelMedium)
+                    val count = when {
+                        state.clusters.isNotEmpty() -> stringResource(R.string.live_sign_clusters, state.clusters.size)
+                        state.sampleSigns -> stringResource(R.string.map_sample_count, state.positionedSigns.size)
+                        else -> stringResource(R.string.live_sign_count, state.positionedSigns.size)
+                    }
+                    Text(count, Modifier.padding(8.dp), style = MaterialTheme.typography.labelMedium)
                 }
             }
             OutlinedTextField(
@@ -70,7 +85,8 @@ fun MapScreen(
                 leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
                 trailingIcon = {
                     if (directions.searchMode == MapSearchMode.SIGNS) IconButton(onClick = { showFilters = true }) {
-                        Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.map_filter), tint = if (state.speedFilter == null) colors.onSurfaceVariant else colors.primary)
+                        val filtered = state.speedFilter != null || state.activeCategories.isNotEmpty() || state.activeSignType != null
+                        Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.map_filter), tint = if (filtered) colors.primary else colors.onSurfaceVariant)
                     } else if (directions.query.isNotEmpty() || directions.destination != null) IconButton(onClick = directionActions.onClear) {
                         Icon(painterResource(R.drawable.ic_close), stringResource(R.string.place_clear_search))
                     }
@@ -83,6 +99,10 @@ fun MapScreen(
                     label = { Text(stringResource(R.string.place_search_mode)) })
                 FilterChip(selected = directions.searchMode == MapSearchMode.SIGNS, onClick = { directionActions.onMode(MapSearchMode.SIGNS) },
                     label = { Text(stringResource(R.string.sign_search_mode)) })
+            }
+            state.activeSignType?.let { code ->
+                FilterChip(true, onClearSignType, label = { Text(stringResource(R.string.sign_catalog_type_filter, code)) },
+                    trailingIcon = { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.sign_catalog_clear_type)) })
             }
             if (directions.searchMode == MapSearchMode.ADDRESSES) AddressResults(directions, directionActions)
             if (state.mapStatus != MapLoadStatus.Ready) Surface(shape = RoundedCornerShape(12.dp), color = colors.surface.copy(alpha = .97f)) {
@@ -126,7 +146,11 @@ fun MapScreen(
                 directions.destination != null -> DestinationCard(directions, directionActions, state.isLocating && !directions.isRouting)
                 directions.searchMode == MapSearchMode.ADDRESSES -> Text(stringResource(R.string.place_map_hint), Modifier.padding(20.dp), style = MaterialTheme.typography.bodyMedium)
                 state.isLoading -> Box(Modifier.padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                state.hasError -> Text(stringResource(R.string.data_load_error), Modifier.padding(20.dp))
+                state.hasError -> Column(Modifier.padding(16.dp)) {
+                    Text(stringResource(R.string.data_load_error))
+                    if (state.viewportControls) TextButton(onClick = onRetrySigns) { Text(stringResource(R.string.retry)) }
+                }
+                selected == null && state.clusters.isNotEmpty() -> Text(stringResource(R.string.live_sign_cluster_hint), Modifier.padding(20.dp))
                 selected == null -> Text(stringResource(R.string.no_signs_found), Modifier.padding(20.dp))
                 else -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(Modifier.fillMaxWidth().clickable { onOpenSign(selected.id) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -134,7 +158,12 @@ fun MapScreen(
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(selected.name, style = MaterialTheme.typography.titleMedium)
                             Text(selected.locationName, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                            Text(stringResource(R.string.map_marker_sample), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                            val statusLabel = when {
+                                state.sampleSigns -> R.string.map_marker_sample
+                                state.signStatuses[selected.id] == "UNDER_REVIEW" -> R.string.live_sign_under_review
+                                else -> R.string.live_sign_approved
+                            }
+                            Text(stringResource(statusLabel), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
                         }
                         Icon(painterResource(R.drawable.ic_chevron), null)
                     }
@@ -159,11 +188,15 @@ fun MapScreen(
     if (showFilters) AlertDialog(
         onDismissRequest = { showFilters = false }, title = { Text(stringResource(R.string.map_filter)) },
         text = {
+            if (state.viewportControls) {
+                MapCategoryFilters(state, onToggleCategory, onClearCategories, onSpeedFilter)
+            } else {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = state.speedFilter == null, onClick = { onSpeedFilter(null) }, label = { Text(stringResource(R.string.map_all_signs)) })
                 state.availableSpeedLimits.forEach { speed ->
                     FilterChip(selected = state.speedFilter == speed, onClick = { onSpeedFilter(speed) }, label = { Text(stringResource(R.string.map_speed_filter, speed)) })
                 }
+            }
             }
         },
         confirmButton = { TextButton(onClick = { showFilters = false }) { Text(stringResource(R.string.close)) } }

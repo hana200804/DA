@@ -20,6 +20,19 @@ import com.signa.app.ui.sign.SignDetailRoute
 import com.signa.app.ui.sign.SignLookupRoute
 import com.signa.app.BuildConfig
 import com.signa.app.R
+import android.net.Uri
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.signa.app.ui.sign.CATALOG_MAP_ARGUMENT
+import com.signa.app.ui.sign.MySignReportsRoute
+
+private const val MY_SIGN_REPORTS = "my-sign-reports"
+private const val CATALOG_MAP = "catalog-map/{$CATALOG_MAP_ARGUMENT}"
 
 /** Connects screens and navigation callbacks. Business operations belong in feature state owners. */
 @Composable
@@ -66,7 +79,12 @@ internal fun SignaNavHost(
             )
         }
         composable(AppRoutes.CONTRIBUTIONS) {
+            Column(Modifier.fillMaxSize()) {
+                TextButton(onClick = { controller.navigate(MY_SIGN_REPORTS) }, Modifier.padding(start = 20.dp)) {
+                    Text(stringResource(R.string.my_sign_reports))
+                }
             ContributionsRoute(onBack = goBack, onOpenSign = openSign)
+            }
         }
         composable(AppRoutes.CHANGE_PASSWORD) {
             AuthRoute(mode = AuthMode.ChangePassword, onBack = goBack, onPasswordChanged = {
@@ -85,8 +103,17 @@ internal fun SignaNavHost(
         ) {
             SignDetailRoute(
                 onBack = goBack,
+                signId = requireNotNull(it.arguments?.getString(AppRoutes.SIGN_ARGUMENT)),
+                onSignInRequired = onSignInRequired,
+                onShowOnMap = { code -> controller.navigate("catalog-map/${Uri.encode(code)}") },
                 onReport = onPreviewAction
             )
+        }
+        composable(CATALOG_MAP, arguments = listOf(navArgument(CATALOG_MAP_ARGUMENT) { type = NavType.StringType })) {
+            MapRoute(onOpenSign = openSign, onBackFromType = goBack)
+        }
+        composable(MY_SIGN_REPORTS) {
+            MySignReportsRoute(onBack = goBack, onSignInRequired = onSignInRequired, onOpenSign = openSign)
         }
     }
 }
