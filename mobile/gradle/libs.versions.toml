@@ -21,6 +21,8 @@ serialization = "1.9.0"
 vietmap = "4.1.1"
 playServicesLocation = "21.3.0"
 camera = "1.6.1"
+exifInterface = "1.4.2"
+workManager = "2.10.4"
 
 [libraries]
 androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "camera" }
@@ -64,6 +66,8 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifInterface" }
+androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "workManager" }
 
 [plugins]
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
