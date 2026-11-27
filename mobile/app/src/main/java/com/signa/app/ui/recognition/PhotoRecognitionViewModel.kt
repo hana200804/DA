@@ -7,10 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.signa.app.data.local.session.SessionManager
 import com.signa.app.data.local.submissions.PhotoSubmissionQueue
-import com.signa.app.data.remote.dto.DetectedPhoto
-import com.signa.app.data.remote.dto.RecognitionModels
-import com.signa.app.data.remote.dto.SubmissionLocation
-import com.signa.app.data.remote.dto.SubmissionMetadata
+import com.signa.app.data.remote.backend.dto.DetectedPhoto
+import com.signa.app.data.remote.backend.dto.RecognitionModels
+import com.signa.app.data.remote.backend.dto.SubmissionLocation
+import com.signa.app.data.remote.backend.dto.SubmissionMetadata
 import com.signa.app.data.repository.PhotoRecognitionRepository
 import com.signa.app.data.repository.RecognitionRateLimited
 import com.signa.app.data.repository.RecognitionUnavailable

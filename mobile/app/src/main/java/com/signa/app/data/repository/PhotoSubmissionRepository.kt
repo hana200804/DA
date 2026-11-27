@@ -1,10 +1,10 @@
 package com.signa.app.data.repository
 
-import com.signa.app.data.remote.api.PhotoSubmissionApi
-import com.signa.app.data.remote.api.SubmissionOwner
-import com.signa.app.data.remote.dto.SubmissionMetadata
-import com.signa.app.data.remote.dto.SubmissionPage
-import com.signa.app.data.remote.dto.SubmissionReceipt
+import com.signa.app.data.remote.backend.api.PhotoSubmissionApi
+import com.signa.app.data.remote.backend.api.SubmissionOwner
+import com.signa.app.data.remote.backend.dto.SubmissionMetadata
+import com.signa.app.data.remote.backend.dto.SubmissionPage
+import com.signa.app.data.remote.backend.dto.SubmissionReceipt
 import javax.inject.Inject
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType

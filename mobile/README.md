@@ -103,9 +103,9 @@ mobile/
 │       ├── main/
 │       │   ├── java/com/signa/app/
 │       │   │   ├── ui/            # Compose: drive, map, sign, settings, auth
-│       │   │   ├── domain/        # model, usecase, warning (máy trạng thái)
+│       │   │   ├── domain/        # model, repository; thêm usecase khi cần nghiệp vụ
 │       │   │   ├── data/          # repository, local (Room), remote (Retrofit)
-│       │   │   ├── vision/        # analyzer, detector, classifier, tracker, geo
+│       │   │   ├── vision/        # camera hiện tại; bổ sung AI theo hợp đồng mô hình
 │       │   │   └── di/            # Hilt modules
 │       │   ├── assets/models/     # mô hình .tflite nhúng sẵn (không commit)
 │       │   └── res/
@@ -183,3 +183,15 @@ Mặc định dùng fake auth. Chọn backend thật cho luồng tài khoản b�
 ## Camera hiện tại
 
 Màn Lái xe có camera sau CameraX thật, xin quyền khi bắt đầu, tạm dừng/bật lại và nhả tài nguyên khi xuống nền hoặc kết thúc. Điều khiển thiết bị nằm trong `vision/camera/`; chưa có nhận diện AI hoặc tốc độ GPS trong màn Lái xe. Xem [CAMERA_SETUP.md](CAMERA_SETUP.md).
+
+## Tài khoản backend thật qua USB
+
+Làm theo [hướng dẫn hạ tầng Android local](../infra/README.md#chạy-tài-khoản-android-qua-usb-trên-windows). Cấu hình riêng máy bằng `USE_FAKE_BACKEND=false` và `API_BASE_URL` trong local.properties, giữ nguyên các key VietMap. Build lại sau khi thay đổi. Không đưa local.properties hoặc mật khẩu/token vào Git.
+
+## Quy tắc cấu trúc mã mobile
+
+Chi tiết package và trách nhiệm xem [ARCHITECTURE.md](ARCHITECTURE.md). HTTP backend nằm tại `data/remote/backend/{api,dto,client,interceptor,error}`; VietMap dùng `data/remote/vietmap` riêng. Compose preview và dữ liệu thiết kế nằm trong `app/src/debug/java/com/signa/app/preview`, không có route hồ sơ mẫu trong app chính. Fake repository vẫn được giữ để phát triển/kiểm thử, chọn tại DI; chỉ tạo use case khi có nghiệp vụ cần thiết; giữ các thư mục vision đã chuẩn bị cho giai đoạn AI.
+
+## Bản đồ và danh mục từ PR 59
+
+Đã ghép API danh mục, biển theo vùng, chi tiết, đánh giá và báo cáo vào cấu trúc HTTP backend hiện tại. Chọn USE_FAKE_BACKEND=false để dùng API thật. Danh mục được lưu riêng trong sign-catalog.db và có bộ ban đầu đóng gói; cache này không thay dữ liệu biển được duyệt hoặc tile bản đồ. Xem [ARCHITECTURE.md](ARCHITECTURE.md#tích-hợp-pr-59-bản-đồ-và-danh-mục) để biết các thành phần mới và giới hạn kiểm chứng.

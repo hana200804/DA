@@ -6,8 +6,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
-import com.signa.app.data.remote.dto.PhotoBox
-import com.signa.app.data.remote.dto.PhotoSize
+import com.signa.app.data.remote.backend.dto.PhotoBox
+import com.signa.app.data.remote.backend.dto.PhotoSize
 import com.signa.app.data.repository.MAX_CROP_BYTES
 import java.io.ByteArrayOutputStream
 import java.io.InputStream

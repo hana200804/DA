@@ -17,6 +17,10 @@ Toàn bộ tài liệu thiết kế của dự án. Tài liệu được viết 
 | 09 | [Hạng mục công việc](09-hang-muc-cong-viec.md) | Kế hoạch 16 tuần theo thành viên, milestone, rủi ro tiến độ |
 | — | [ADR](adr/) | Các quyết định kiến trúc và lý do |
 
+## Bàn giao triển khai
+
+- [Ngữ cảnh Android từ dự án cũ](ban-giao-android-tu-du-an-cu.md): tiến độ lịch sử, khác biệt bản đã chuyển và điểm nối backend/AI.
+
 ## Quy ước
 
 - Viết bằng tiếng Việt; thuật ngữ kỹ thuật giữ tiếng Anh khi không có từ thông dụng.

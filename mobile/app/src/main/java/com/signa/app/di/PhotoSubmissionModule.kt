@@ -4,9 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import com.signa.app.data.local.session.SessionManager
 import com.signa.app.data.local.submissions.PhotoQueueDatabase
-import com.signa.app.data.remote.api.PhotoSubmissionApi
-import com.signa.app.data.remote.api.RecognitionApi
-import com.signa.app.data.remote.api.SubmissionOwner
+import com.signa.app.data.remote.backend.api.PhotoSubmissionApi
+import com.signa.app.data.remote.backend.api.RecognitionApi
+import com.signa.app.data.remote.backend.api.SubmissionOwner
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

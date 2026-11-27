@@ -1,8 +1,8 @@
 package com.signa.app.data.repository
 
-import com.signa.app.data.remote.api.SignaMapApi
-import com.signa.app.data.remote.apiCall
-import com.signa.app.data.remote.dto.*
+import com.signa.app.data.remote.backend.api.SignaMapApi
+import com.signa.app.data.remote.backend.error.apiCall
+import com.signa.app.data.remote.backend.dto.*
 import com.signa.app.domain.model.GeoPoint
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType

@@ -1,10 +1,10 @@
 package com.signa.app.di
 
 import com.signa.app.BuildConfig
-import com.signa.app.data.remote.ApiClientFactory
-import com.signa.app.data.remote.ApiConfig
-import com.signa.app.data.remote.api.AuthApi
-import com.signa.app.data.remote.interceptor.SessionInterceptor
+import com.signa.app.data.remote.backend.client.ApiClientFactory
+import com.signa.app.data.remote.backend.client.ApiConfig
+import com.signa.app.data.remote.backend.api.AuthApi
+import com.signa.app.data.remote.backend.interceptor.SessionInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

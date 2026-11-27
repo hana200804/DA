@@ -16,8 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.signa.app.R
-import com.signa.app.data.remote.dto.ReportResolution
-import com.signa.app.data.remote.dto.ReportStatus
+import com.signa.app.data.remote.backend.dto.ReportResolution
+import com.signa.app.data.remote.backend.dto.ReportStatus
 import com.signa.app.ui.components.SignaPage
 
 @Composable

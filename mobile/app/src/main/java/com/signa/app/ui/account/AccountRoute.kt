@@ -8,7 +8,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun AccountRoute(
     onLogin: () -> Unit,
-    onProfilePreview: () -> Unit,
     onContributions: () -> Unit,
     onChangePassword: () -> Unit,
     viewModel: AccountViewModel = hiltViewModel()
@@ -17,7 +16,6 @@ fun AccountRoute(
     AccountScreen(
         state = state,
         onLogin = onLogin,
-        onProfile = onProfilePreview,
         onLogout = viewModel::logout,
         onContributions = onContributions,
         onChangePassword = onChangePassword,

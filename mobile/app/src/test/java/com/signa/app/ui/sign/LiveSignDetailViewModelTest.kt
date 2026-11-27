@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.signa.app.R
 import com.signa.app.data.fake.FakeSignCatalogRepository
 import com.signa.app.data.fake.FakeSignMapRepository
-import com.signa.app.data.remote.dto.ReportReason
-import com.signa.app.data.remote.dto.SignRating
-import com.signa.app.data.remote.dto.SignReportDto
+import com.signa.app.data.remote.backend.dto.ReportReason
+import com.signa.app.data.remote.backend.dto.SignRating
+import com.signa.app.data.remote.backend.dto.SignReportDto
 import com.signa.app.data.repository.ReportPhoto
 import com.signa.app.data.repository.SignMapRepository
 import com.signa.app.domain.model.Session

@@ -2,7 +2,7 @@ package com.signa.app.ui.sign
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.signa.app.data.remote.dto.MySignReportDto
+import com.signa.app.data.remote.backend.dto.MySignReportDto
 import com.signa.app.data.repository.SignMapRepository
 import com.signa.app.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel

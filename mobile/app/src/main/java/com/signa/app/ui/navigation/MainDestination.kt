@@ -17,7 +17,6 @@ internal enum class MainDestination(
 
     companion object {
         fun forRoute(route: String?): MainDestination? {
-            if (route == AppRoutes.PROFILE_PREVIEW) return Account
             return entries.firstOrNull { it.route == route }
         }
     }

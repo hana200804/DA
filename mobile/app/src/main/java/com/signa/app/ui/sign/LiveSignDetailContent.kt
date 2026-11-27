@@ -37,8 +37,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.signa.app.BuildConfig
 import com.signa.app.R
-import com.signa.app.data.remote.dto.ReportReason
-import com.signa.app.data.remote.dto.SignRating
+import com.signa.app.data.remote.backend.dto.ReportReason
+import com.signa.app.data.remote.backend.dto.SignRating
 import com.signa.app.ui.components.SignaPage
 import com.signa.app.ui.components.SignaStatusLabel
 import java.time.Instant

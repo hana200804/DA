@@ -1,5 +1,7 @@
 package com.signa.app.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -10,10 +12,10 @@ import androidx.navigation.navArgument
 import com.signa.app.ui.account.AccountRoute
 import com.signa.app.ui.auth.AuthMode
 import com.signa.app.ui.auth.AuthRoute
-import com.signa.app.ui.preview.ProfilePreviewRoute
 import com.signa.app.ui.contributions.ContributionsRoute
 import com.signa.app.ui.drive.ActiveDriveRoute
 import com.signa.app.ui.drive.DriveScreen
+import com.signa.app.ui.map.components.rememberVietMapSession
 import com.signa.app.ui.map.MapRoute
 import com.signa.app.ui.settings.SettingsRoute
 import com.signa.app.ui.sign.SignDetailRoute
@@ -43,13 +45,18 @@ internal fun SignaNavHost(
     onSignInRequired: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val mapSession = rememberVietMapSession()
     val openSign: (String) -> Unit = { id -> controller.navigate(AppRoutes.signDetail(id)) }
     val goBack: () -> Unit = { controller.popBackStack() }
 
 
-    NavHost(controller, startDestination = AppRoutes.MAP, modifier = modifier) {
+    // Avoid blending native OpenGL map surfaces during tab changes.
+    NavHost(controller, startDestination = AppRoutes.MAP, modifier = modifier,
+        enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }
+    ) {
         composable(AppRoutes.MAP) {
-            MapRoute(onOpenSign = openSign)
+            MapRoute(onOpenSign = openSign, mapSession = mapSession)
         }
         composable(AppRoutes.DRIVE) {
             DriveScreen(onStart = { controller.navigate(AppRoutes.DRIVE_ACTIVE) { launchSingleTop = true } })
@@ -59,7 +66,7 @@ internal fun SignaNavHost(
         }
         composable(AppRoutes.SIGN_LOOKUP) {
             val onPreviewAction = onSignInRequired // Callback của luồng ảnh khi khách bấm gửi.
-            SignLookupRoute(onAction = onPreviewAction, onOpenSign = openSign)
+            SignLookupRoute(onAction = onSignInRequired, onOpenSign = openSign)
         }
         composable(AppRoutes.SETTINGS) {
             SettingsRoute()
@@ -67,16 +74,8 @@ internal fun SignaNavHost(
         composable(AppRoutes.ACCOUNT) {
             AccountRoute(
                 onLogin = onSignInRequired,
-                onProfilePreview = { controller.navigate(AppRoutes.PROFILE_PREVIEW) },
                 onContributions = { controller.navigate(AppRoutes.CONTRIBUTIONS) },
                 onChangePassword = { controller.navigate(AppRoutes.CHANGE_PASSWORD) }
-            )
-        }
-        composable(AppRoutes.PROFILE_PREVIEW) {
-            ProfilePreviewRoute(
-                onClose = goBack,
-                onContributions = { controller.navigate(AppRoutes.CONTRIBUTIONS) },
-                onChangePassword = onPreviewAction
             )
         }
         composable(AppRoutes.CONTRIBUTIONS) {

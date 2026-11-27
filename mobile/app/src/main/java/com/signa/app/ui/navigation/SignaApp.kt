@@ -19,12 +19,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.signa.app.R
-import com.signa.app.ui.theme.SignaTheme
 import kotlinx.coroutines.launch
 
 @Composable
@@ -83,7 +81,7 @@ private fun MainApp(
                 SignaBottomBar(
                     selected = selected,
                     onDestinationSelected = { destination ->
-                        controller.navigate(destination.route) {
+                        if (selected != destination) controller.navigate(destination.route) {
                             popUpTo(controller.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
@@ -101,11 +99,4 @@ private fun MainApp(
             modifier = Modifier.padding(padding)
         )
     }
-}
-
-@Preview(showBackground = true, name = "Sign in first")
-@Preview(showBackground = true, name = "Dark", uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun SignaAppPreview() {
-    SignaTheme { SignaAppContent(AppAccess.SignedOut, {}, {}) }
 }

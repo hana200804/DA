@@ -1,15 +1,15 @@
 package com.signa.app.data.submissions
 
-import com.signa.app.data.remote.ApiClientFactory
-import com.signa.app.data.remote.ApiConfig
-import com.signa.app.data.remote.api.PhotoSubmissionApi
-import com.signa.app.data.remote.api.RecognitionApi
-import com.signa.app.data.remote.api.SubmissionOwner
-import com.signa.app.data.remote.dto.PhotoBox
-import com.signa.app.data.remote.dto.PhotoModel
-import com.signa.app.data.remote.dto.PhotoSize
-import com.signa.app.data.remote.dto.SubmissionLocation
-import com.signa.app.data.remote.dto.SubmissionMetadata
+import com.signa.app.data.remote.backend.client.ApiClientFactory
+import com.signa.app.data.remote.backend.client.ApiConfig
+import com.signa.app.data.remote.backend.api.PhotoSubmissionApi
+import com.signa.app.data.remote.backend.api.RecognitionApi
+import com.signa.app.data.remote.backend.api.SubmissionOwner
+import com.signa.app.data.remote.backend.dto.PhotoBox
+import com.signa.app.data.remote.backend.dto.PhotoModel
+import com.signa.app.data.remote.backend.dto.PhotoSize
+import com.signa.app.data.remote.backend.dto.SubmissionLocation
+import com.signa.app.data.remote.backend.dto.SubmissionMetadata
 import com.signa.app.data.repository.MAX_CROP_BYTES
 import com.signa.app.data.repository.PhotoRecognitionRepository
 import com.signa.app.data.repository.PhotoSubmissionRepository

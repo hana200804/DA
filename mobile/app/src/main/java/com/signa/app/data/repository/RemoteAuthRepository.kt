@@ -1,16 +1,16 @@
 package com.signa.app.data.repository
 
 import com.signa.app.data.local.session.SessionManager
-import com.signa.app.data.remote.ApiException
-import com.signa.app.data.remote.api.AuthApi
-import com.signa.app.data.remote.apiCall
-import com.signa.app.data.remote.dto.ChangePasswordRequest
-import com.signa.app.data.remote.dto.ForgotPasswordRequest
-import com.signa.app.data.remote.dto.LoginRequest
-import com.signa.app.data.remote.dto.RegisterRequest
-import com.signa.app.data.remote.dto.ResetPasswordRequest
-import com.signa.app.data.remote.dto.UpdateProfileRequest
-import com.signa.app.data.remote.dto.UserDto
+import com.signa.app.data.remote.backend.error.ApiException
+import com.signa.app.data.remote.backend.api.AuthApi
+import com.signa.app.data.remote.backend.error.apiCall
+import com.signa.app.data.remote.backend.dto.ChangePasswordRequest
+import com.signa.app.data.remote.backend.dto.ForgotPasswordRequest
+import com.signa.app.data.remote.backend.dto.LoginRequest
+import com.signa.app.data.remote.backend.dto.RegisterRequest
+import com.signa.app.data.remote.backend.dto.ResetPasswordRequest
+import com.signa.app.data.remote.backend.dto.UpdateProfileRequest
+import com.signa.app.data.remote.backend.dto.UserDto
 import com.signa.app.domain.model.AuthError
 import com.signa.app.domain.model.AuthException
 import com.signa.app.domain.model.PasswordResetChallenge

@@ -140,3 +140,39 @@ theo `unless-stopped`. Flyway chạy một lần và thoát trước khi backend
 
 Xem [kịch bản k6](../backend/src/test/k6/README.md) để kiểm thử sau khi
 nạp dữ liệu mẫu và khi nhận diện đã sẵn sàng.
+
+## Chạy tài khoản Android qua USB trên Windows
+
+Dùng override local để thử tài khoản thật mà không cần nạp checkpoint AI hay build web quản trị. Các container dùng project riêng `signa-android-local`; không dùng chung volume với project mặc định. Backend nghe tại `127.0.0.1:18080`.
+
+```powershell
+docker compose -p signa-android-local -f infra/compose.yaml -f infra/compose.android.yaml --profile app build backend
+docker compose -p signa-android-local -f infra/compose.yaml -f infra/compose.android.yaml --profile app up -d --no-build backend
+adb reverse tcp:18080 tcp:18080
+```
+
+Cần có `infra/.env` với mật khẩu riêng và `SIGNA_OTP_SECRET`. Không commit file này. Override dùng các cổng local: MySQL 13306, Redis 16379, MinIO 19000/19001, SMTP Mailpit 11025 và hộp thư 18025. Đăng ký không cần gửi email; quên mật khẩu dùng Mailpit tại `http://127.0.0.1:18025`.
+
+Trong `mobile/local.properties`, giữ nguyên sdk.dir và các key bản đồ, thêm:
+
+```properties
+USE_FAKE_BACKEND=false
+API_BASE_URL=http://127.0.0.1:18080/api/v1/
+```
+
+Build lại debug. `-Psigna.useFakeBackend` vẫn có ưu tiên cao hơn cấu hình local. Chỉ cấu hình này của máy đang thử được đổi sang backend thật; không đổi mặc định fake cho các máy khác. Cần chạy lại adb reverse sau khi ngắt/cắm USB hoặc đổi thiết bị; thêm `adb -s SERIAL` khi có nhiều thiết bị.
+
+Tài khoản fake cũ không tự chuyển vào MySQL. Tạo tài khoản qua API/app thật. Việc cài APK dùng install -r, không xóa dữ liệu ứng dụng. Luồng hiện tại chỉ nghiệm thu tài khoản; nhận diện AI và đường dẫn ảnh/gateway cần cấu hình, kiểm tra riêng trước khi dùng.
+
+Dừng riêng bộ container local, giữ dữ liệu:
+
+```powershell
+docker compose -p signa-android-local -f infra/compose.yaml -f infra/compose.android.yaml --profile app stop
+```
+
+### Nghiệm thu tài khoản Android local
+
+- API: health 200, đăng ký 201, đăng nhập 200, lấy hồ sơ 200, đăng xuất 204; dùng lại token đã thu hồi nhận 401. Phiên MOBILE có TTL Redis 2.592.000 giây.
+- Trên điện thoại Android 14 kết nối USB: đăng ký và đăng nhập bằng app, hiển thị đúng hồ sơ, mở lại ứng dụng khôi phục phiên, đăng xuất về màn xác thực. Đã đối chiếu tài khoản tồn tại trong MySQL và phiên Redis bị xóa khi app đăng xuất.
+- APK dùng USE_FAKE_BACKEND=false; build debug, 54 unit test và lint không có lỗi. Đây là kết quả cho tài khoản; bản đồ, nhận diện AI và đồng bộ đề xuất chưa được nghiệm thu trong lượt này.
+- Sau nghiệm thu, app được để ở màn đăng nhập để người dùng tạo tài khoản riêng. Mật khẩu/token kiểm thử không được ghi vào tài liệu hoặc Git.

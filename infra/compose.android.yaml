@@ -1,0 +1,25 @@
+# Local account integration; isolates ports from other projects.
+# Build backend once, then up --no-build backend with project signa-android-local.
+services:
+  mysql:
+    ports: !override ["127.0.0.1:13306:3306"]
+  redis:
+    ports: !override ["127.0.0.1:16379:6379"]
+  minio:
+    ports: !override ["127.0.0.1:19000:9000", "127.0.0.1:19001:9001"]
+  mailpit:
+    ports: !override ["127.0.0.1:11025:1025", "127.0.0.1:18025:8025"]
+  migrate:
+    image: signa-android-backend:local
+  backend:
+    image: signa-android-backend:local
+    ports: ["127.0.0.1:18080:8080"]
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mailpit:
+        condition: service_started

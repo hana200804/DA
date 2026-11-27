@@ -1,53 +1,63 @@
-# Kiến trúc Android Signa — nghiệm thu tuần 2
+# Kiến trúc Android Signa
 
 Ứng dụng dùng một module `app`, MVVM + Clean Architecture, Hilt và Coroutines/Flow.
-Mặc định chạy độc lập bằng backend giả lập cục bộ. Bản đồ VietMap, GPS, camera,
-nhận diện và đồng bộ quan sát thuộc các giai đoạn tiếp theo.
+Mặc định hỗ trợ backend giả lập để phát triển độc lập; cấu hình local hiện có thể chọn API thật. Tài khoản đã được kiểm chứng với MySQL/Redis qua backend. Camera và VietMap đã có triển khai; nhận diện AI và đồng bộ đề xuất còn cần tích hợp.
 
 ## Cấu trúc hiện tại
 
 ```text
-com.signa.app/
-├── SignaApplication.kt          # Hilt application
-├── MainActivity.kt              # Activity, kiểm tra lại phiên khi vào foreground
-├── ui/
-│   ├── navigation/              # Cổng xác thực, AuthNavHost, graph chính và bottom bar
-│   ├── theme/                   # Màu, typography, hình dạng
-│   ├── components/              # Thành phần dùng chung
-│   ├── preview/                 # Dữ liệu thiết kế, không khởi tạo ViewModel
-│   ├── auth/                    # Form, validation, UiState, ViewModel, sự kiện
-│   ├── account/                 # Khách, hồ sơ, đăng xuất
-│   ├── settings/                # Cài đặt và trạng thái lỗi lưu trữ
-│   ├── map/                     # Tìm kiếm, chọn biển
-│   ├── sign/                    # Tra cứu, chi tiết theo signId
-│   ├── contributions/           # Đóng góp mẫu
-│   └── drive/                   # Giao diện lái xe, minh họa camera
+app/src/main/java/com/signa/app/
+├── MainActivity.kt
+├── SignaApplication.kt
+├── ui/                         # Screen, Route, ViewModel, UiState theo tính năng
+│   ├── auth/                   # Form và thao tác xác thực
+│   ├── account/                # Khách, hồ sơ thật, cập nhật, đăng xuất
+│   ├── drive/                  # Camera lái xe, xin quyền qua Route
+│   ├── map/                    # Biển cache, bản đồ và tìm tuyến
+│   ├── sign/                   # Tra cứu/chi tiết biển
+│   ├── contributions/          # Thống kê từ repository
+│   ├── settings/               # Cài đặt
+│   ├── navigation/             # Graph xác thực, graph chính, tab
+│   ├── components/             # UI dùng chung
+│   └── theme/                  # Màu, kiểu chữ, hình dạng
 ├── domain/
-│   ├── model/                   # Cài đặt, người dùng, phiên, biển, lỗi xác thực
-│   └── repository/              # Interface Kotlin thuần
+│   ├── model/                  # Model Kotlin, không phụ thuộc UI/Retrofit/Room
+│   └── repository/             # Interface nghiệp vụ
 ├── data/
-│   ├── fake/                    # Auth giả lập và dữ liệu minh họa
-│   ├── location/                # FusedLocationProvider, tách khỏi UI
-│   ├── local/
-│   │   ├── preferences/         # DataStore cài đặt
-│   │   ├── database/            # Room, entity, DAO
-│   │   └── session/             # Lưu mã hóa, khôi phục, hết hạn phiên; băm mật khẩu
 │   ├── remote/
-│   │   ├── api/                 # Retrofit AuthApi
-│   │   ├── dto/                 # Request/response, lỗi HTTP
-│   │   └── interceptor/         # Bearer, request ID, xử lý 401
-│   ├── mapper/                  # Entity ↔ model
-│   └── repository/              # Auth API, cài đặt, cache biển
-└── di/
-    ├── ApplicationScope.kt      # Coroutine scope cấp ứng dụng
-    ├── NetworkModule.kt         # JSON, OkHttp, Retrofit, AuthApi
-    ├── StorageModule.kt         # Room, DataStore, Clock, scope
-    └── RepositoryModule.kt      # Binding repository và lựa chọn fake/API
+│   │   ├── backend/
+│   │   │   ├── api/            # Retrofit AuthApi và các API backend bổ sung sau
+│   │   │   ├── dto/            # Request/response backend
+│   │   │   ├── client/         # ApiClientFactory, ApiConfig
+│   │   │   ├── interceptor/    # Bearer, request ID, xử lý 401
+│   │   │   └── error/          # apiCall và ApiException
+│   │   └── vietmap/            # Client/API/DTO/polyline riêng của VietMap
+│   ├── local/
+│   │   ├── database/           # Room, migration, dao/, entity/
+│   │   ├── preferences/        # DataStore
+│   │   └── session/            # Phiên mã hóa, Keystore và lưu/khôi phục
+│   ├── location/               # Dịch vụ vị trí Android
+│   ├── mapper/                 # Entity ↔ domain model
+│   ├── repository/             # Triển khai hợp đồng domain
+│   └── fake/                   # Nguồn giả lập, lựa chọn qua DI
+├── vision/
+│   ├── camera/                 # CameraX, lifecycle và trạng thái thiết bị
+│   ├── analyzer/               # Khung nhận frame cho xử lý sau này
+│   ├── detector/               # Khung tích hợp mô hình nhận diện
+│   ├── classifier/             # Khung đã chuẩn bị; chỉ dùng nếu pipeline cần
+│   ├── tracker/                # Khung theo dõi biển qua các frame
+│   └── geo/                    # Khung gắn vị trí cho quan sát
+└── di/                         # Hilt: network, storage, repository, GPS, VietMap
+
+app/src/debug/java/com/signa/app/preview/
+├── PreviewSamples.kt           # Dữ liệu thiết kế, chỉ build debug
+└── ScreenPreviews.kt           # Compose @Preview, không có route runtime
+
+app/src/test/                   # JVM test, HTTP giả lập và E2E khi được cấu hình
+app/src/androidTest/            # Room, DataStore và camera trên Android
 ```
 
-`domain/usecase`, `domain/warning` và `vision` được dành cho nghiệp vụ tiếp theo.
-Chưa cần use case chỉ để chuyển tiếp một lời gọi repository. Xử lý camera, GPS,
-AI thực tế sẽ được tách khỏi `ui/drive`.
+Chỉ tạo use case khi có nghiệp vụ cần phối hợp; không tạo lớp chỉ để chuyển tiếp một lời gọi repository. Giữ các thư mục vision đã chuẩn bị để triển khai giai đoạn sau; .gitkeep chỉ giữ thư mục trong Git, không phải mã xử lý. Camera nằm trong `vision/camera`, GPS nằm trong `data/location`; AI sẽ bổ sung theo hợp đồng mô hình hiện hành, không mặc định cần classifier riêng.
 
 ## Luồng phụ thuộc
 
@@ -64,7 +74,7 @@ Screen ← UiState ← ViewModel → domain.repository
 - Domain không phụ thuộc Android, Compose, Room, Retrofit hoặc Hilt.
 - DTO/entity và ánh xạ thuộc `data`; Hilt lắp ghép các dependency tại `di`.
 - Component riêng đặt cạnh tính năng; component dùng chung đặt trong `ui/components`.
-- `ui/preview/PreviewSamples.kt` chuyển dữ liệu `FakeData` thành UiState cho Preview.
+- `src/debug/java/com/signa/app/preview/PreviewSamples.kt` chuyển dữ liệu `FakeData` thành UiState cho Preview.
   Preview chỉ giúp xem thiết kế; dữ liệu giả lập chạy trong app nằm ở `data/fake`.
 
 ## Khung xác thực và khung chính
@@ -92,7 +102,7 @@ Room `signa.db` có `traffic_signs`, `fake_accounts`, `password_resets` và
 `current_session`. Schema 1 và 2 được xuất tại `app/schemas/`. Migration 1 → 2 thêm tọa độ nullable, giữ dữ liệu đã lưu. Chưa có
 cache biển theo vùng hoặc hàng đợi upload; phần đó nối tiếp khi làm bản đồ và gửi quan sát.
 
-Camera vẫn là hình minh họa. Bản đồ đã dùng VietMap SDK, GeoJSON và định vị một lần qua LocationRepository; khi thiếu key chỉ có nền trống/marker mẫu, chưa có đường phố. Tìm kiếm lọc biển đã lưu theo tên, mã, vị trí;
+Camera dùng CameraX thật ở màn lái xe đang hoạt động; hình minh họa chỉ ở trang chuẩn bị. Bản đồ đã dùng VietMap SDK, GeoJSON, tìm địa chỉ/tuyến và định vị một lần qua LocationRepository; khi thiếu key chỉ có nền trống/marker mẫu, chưa có đường phố. Tìm kiếm lọc biển đã lưu theo tên, mã, vị trí;
 chi tiết nhận `signId` ổn định và có trạng thái không tìm thấy. Cache mẫu chỉ phục vụ
 kiểm thử khung ứng dụng, không dùng làm dữ liệu cảnh báo ngoài thực tế.
 
@@ -147,7 +157,7 @@ Chạy mặc định không cần backend. Để build chế độ API:
 URL lấy theo thứ tự: `-Psigna.apiBaseUrl`, biến môi trường `SIGNA_API_BASE_URL`,
 `API_BASE_URL` trong `local.properties`, rồi mặc định emulator ở trên.
 URL chỉ có host được bổ sung `/api/v1/`; URL đã có path được chuẩn hóa dấu `/` cuối.
-Chế độ fake/API là cấu hình lúc build. Build lại không truyền cờ sẽ trở về fake.
+Chế độ fake/API là cấu hình lúc build: cờ `-Psigna.useFakeBackend` ưu tiên, sau đó `USE_FAKE_BACKEND` trong local.properties, mặc định true nếu cả hai đều thiếu. Cấu hình local hiện dùng backend thật.
 Debug cho HTTP để kiểm thử nội bộ; release yêu cầu HTTPS.
 
 AuthApi gọi các endpoint tài khoản theo `docs/07-api.md`. Đăng nhập gửi
@@ -185,3 +195,56 @@ Mốc bản đồ đầu tiên và phần cần key/API theo vùng được ghi 
 vòng đời màn hình. `ui/drive/ActiveDriveRoute` xin quyền và điều khiển tạm dừng;
 `ActiveDriveScreen` chỉ hiển thị. Chưa có ImageAnalysis hoặc mô hình nhận diện.
 Thiết kế và hướng dẫn kiểm tra nằm trong [CAMERA_SETUP.md](CAMERA_SETUP.md).
+
+## Quy tắc tổ chức và nguồn dữ liệu
+
+- Screen chỉ hiển thị và phát callback. Route nối state, điều hướng và quyền Android. ViewModel gọi hợp đồng domain, không giữ Activity/View/camera session.
+- Domain không import Compose, Android framework, Retrofit hoặc Room. Data chịu trách nhiệm API, lưu trữ và mapper. Không đưa DTO backend hoặc Room entity thành state trực tiếp của Screen.
+- Backend và VietMap dùng client riêng; không gắn token tài khoản vào request VietMap.
+- Các màn thiết kế nằm trong src/debug, không được tham chiếu từ navigation hoặc main. Khách có giao diện riêng; hồ sơ đăng nhập lấy từ phiên, giữ các thao tác làm mới/sửa tên/đổi mật khẩu thật.
+- Tài khoản chọn RemoteAuthRepository khi USE_FAKE_BACKEND=false. Cache biển và đóng góp vẫn có dữ liệu mẫu; refactor package không đồng nghĩa đã nối mọi API.
+- Không thay schema Room, không xóa tài khoản local và không di chuyển key/token trong lần tổ chức lại này.
+
+Cấu hình và kiểm chứng tài khoản thật xem [hướng dẫn Android local](../infra/README.md#chạy-tài-khoản-android-qua-usb-trên-windows). Các kết quả tuần 2 được ghi theo mốc lịch sử trong WEEK2_ACCEPTANCE.md, không thay thế kiểm thử checkout mới.
+
+## Kiểm chứng sau khi tổ chức lại package
+
+- 151 file Kotlin trong main/debug/test/androidTest có package khớp đường dẫn; domain không import Android, UI, Retrofit hoặc data.
+- Build debug và compile Kotlin release thành công; release không có lớp PreviewSamples/ScreenPreviews.
+- 54 kiểm thử đạt, không bỏ qua: gồm 53 unit test và 1 E2E qua backend local thật. E2E kiểm tra đăng ký, đăng nhập, lấy/sửa hồ sơ, đổi mật khẩu giữ phiên, đăng xuất và đăng nhập bằng mật khẩu mới.
+- Lint Android không có lỗi; Markdown được kiểm tra theo lệnh của repo.
+- Không chạy lại kiểm thử UI trên điện thoại trong lần đổi cấu trúc này. APK debug mới cần cài hoặc chạy lại từ Android Studio để thấy thay đổi giao diện khách.
+
+## Khung vision cho giai đoạn tiếp theo
+
+Giữ analyzer, detector, classifier, tracker và geo theo cấu trúc người dùng đã chuẩn bị. Hiện chỉ camera có triển khai; các thư mục còn lại chưa được nối bằng code.
+
+Luồng dự kiến: camera → analyzer → detector → tracker → kết quả cho ViewModel/Screen. geo kết hợp kết quả ổn định với vị trí từ LocationRepository để tạo quan sát. classifier chỉ tham gia nếu hợp đồng mô hình yêu cầu bước phân loại riêng; thiết kế YOLO nhận diện trực tiếp mã biển hiện tại không mặc định cần bước đó. Không gộp các phần này vào camera hoặc UI.
+
+IDE có thể gộp đường dẫn thành vision.camera khi chỉ có một package con; đó là cách hiển thị package, không có nghĩa vision đã đổi tên thành camera.
+
+Chi tiết cách chia từng package vision và luồng kết nối dự kiến xem [hướng dẫn vision](app/src/main/java/com/signa/app/vision/README.md). README từng package thay .gitkeep để giữ khung và mô tả nhiệm vụ; hiện mới camera có code chạy.
+
+## Tích hợp PR 59: bản đồ và danh mục
+
+Đã merge commit d950add (PR 59, mobile/2-ban-do-danh-muc) vào nhánh Android hiện tại, sau đó áp lại các thay đổi local về cấu trúc và cấu hình. API/DTO mới được chuyển sang `data/remote/backend/api/SignaMapApi.kt` và `data/remote/backend/dto/SignaMapDtos.kt`; các import và test được cập nhật cùng thay đổi.
+
+| Phần mới | Trách nhiệm |
+| --- | --- |
+| SignMapModule | Chọn remote/fake theo USE_FAKE_BACKEND, cấp Retrofit API và kho danh mục |
+| RemoteSignCatalogRepository | Lấy nhóm/loại biển, ETag/304, tra cứu bằng cache khi lỗi mạng phù hợp |
+| SignCatalogDatabase | Database Room riêng sign-catalog.db, schema 1, không thay schema signa.db |
+| SignMapFilters | Lưu bộ lọc bản đồ bằng DataStore |
+| RemoteSignMapRepository | Biển/cluster theo viewport, chi tiết, đánh giá, báo cáo và báo cáo của tôi |
+| SignViewportViewModel | Quản lý vùng nhìn và bộ lọc, hủy kết quả yêu cầu cũ |
+| SignCatalogViewModel/Content | Tra cứu danh mục thật và danh mục được lưu offline |
+| LiveSignDetailViewModel/Content | Chi tiết biển backend, đánh giá và gửi báo cáo |
+| MySignReportsViewModel/Route | Danh sách và phân trang báo cáo của tài khoản |
+
+Nguồn đóng gói `assets/sign-catalog-v1.json` phục vụ danh mục tra cứu ban đầu, không phải bộ biển tọa độ đã được server công nhận. Offline danh mục không đồng nghĩa tải bản đồ nền offline. Repository và model mới của PR giữ thiết kế hiện có; việc đưa hợp đồng/model danh mục ra domain nếu cần là bước refactor riêng, không coi việc đổi package HTTP là hoàn tất mọi ranh giới Clean Architecture.
+
+Hồ sơ mẫu không được đưa lại vào graph chính, preview thiết kế tiếp tục chỉ ở debug, các package vision đã chuẩn bị vẫn được giữ. Cấu hình private local và index staged trước merge được bảo toàn; bản sao stash được giữ để khôi phục khi cần.
+
+Kiểm tra đọc trên backend local sau merge: sign-categories trả 200 với 5 nhóm, sign-types trả 200 với 46 loại, truy vấn signs trong một vùng Hà Nội trả 200 và 0 biển. Không thêm biển giả vào database để làm có marker. Bản đồ nền ở cấu hình local hiện chưa có key VietMap; cần cấu hình key riêng để xem nền đường phố.
+
+Kiểm chứng bản ghép PR 59: build debug, compile release và lint thành công; 64 kiểm thử đạt, không bỏ qua (gồm E2E tài khoản thật và 10 ca mới về bản đồ/danh mục). Chưa cài lại hoặc kiểm thử giao diện bản ghép này trên điện thoại trong lượt tích hợp.

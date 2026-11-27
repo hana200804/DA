@@ -7,8 +7,11 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
-import com.signa.app.data.remote.dto.SignCategoryDto
-import com.signa.app.data.remote.dto.SignTypesDto
+import com.signa.app.data.remote.backend.dto.SignCategoryDto
+import com.signa.app.data.remote.backend.dto.SignTypesDto
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -51,8 +54,9 @@ class RoomSignCatalogStore(
 ) : SignCatalogStore {
     override val snapshots = dao.observe(source).map { entity ->
         entity?.let { json.decodeFromString<SignCatalogSnapshot>(it.payload) } ?: bundled
-    }
+    }.flowOn(Dispatchers.Default)
 
-    override suspend fun save(snapshot: SignCatalogSnapshot) =
+    override suspend fun save(snapshot: SignCatalogSnapshot) = withContext(Dispatchers.Default) {
         dao.save(SignCatalogEntity(source, json.encodeToString(snapshot)))
+    }
 }

@@ -1,5 +1,9 @@
 package com.signa.app.ui.sign
 
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,13 +32,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.signa.app.R
-import com.signa.app.data.remote.dto.SignTypeDto
+import com.signa.app.data.remote.backend.dto.SignTypeDto
+import com.signa.app.ui.components.SignaWordmark
 import com.signa.app.ui.components.SignaPage
 import com.signa.app.ui.components.SpeedLimitBadge
 
 @Composable
 internal fun SignCatalogContent(
     onOpenType: (String) -> Unit,
+    header: @Composable () -> Unit = {},
     viewModel: SignCatalogViewModel = hiltViewModel()
 ) {
     val snapshot by viewModel.catalog.collectAsStateWithLifecycle()
@@ -43,16 +49,7 @@ internal fun SignCatalogContent(
     var query by rememberSaveable { mutableStateOf("") }
     var group by rememberSaveable { mutableStateOf<String?>(null) }
 
-    Text(stringResource(R.string.sign_catalog_title), style = MaterialTheme.typography.titleLarge)
-    OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
-        label = { Text(stringResource(R.string.sign_catalog_search)) })
-    val categories = snapshot?.categories.orEmpty().sortedBy { it.sortOrder }
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(group == null, { group = null }, label = { Text(stringResource(R.string.map_all_signs)) })
-        categories.forEach { category ->
-            FilterChip(group == category.code, { group = category.code }, label = { Text(category.name) })
-        }
-    }
+    val categories = remember(snapshot) { snapshot?.categories.orEmpty().sortedBy { it.sortOrder } }
     val effectiveGroup = group?.takeIf { code -> categories.any { it.code == code } }
     val matching = remember(snapshot, effectiveGroup, query) {
         val keyword = normalizeSignSearch(query)
@@ -61,14 +58,37 @@ internal fun SignCatalogContent(
                 (normalizeSignSearch(type.name).contains(keyword) || normalizeSignSearch(type.code).contains(keyword))
         }
     }
-    if (loading && snapshot == null) CircularProgressIndicator()
-    if (failed) {
-        Text(stringResource(if (snapshot != null) R.string.sign_catalog_cached else R.string.data_load_error))
-        TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.retry)) }
-    }
-    if (!loading && matching.isEmpty()) Text(stringResource(R.string.no_signs_found))
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        matching.forEach { type ->
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item(key = "lookup-header") {
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                SignaWordmark()
+                Text(stringResource(R.string.lookup_title), style = MaterialTheme.typography.headlineMedium)
+                header()
+            }
+        }
+        item(key = "catalog-controls") {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.sign_catalog_title), style = MaterialTheme.typography.titleLarge)
+                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text(stringResource(R.string.sign_catalog_search)) })
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(group == null, { group = null }, label = { Text(stringResource(R.string.map_all_signs)) })
+                    categories.forEach { category ->
+                        FilterChip(group == category.code, { group = category.code }, label = { Text(category.name) })
+                    }
+                }
+            }
+        }
+        if (loading && snapshot == null) item(key = "loading") { CircularProgressIndicator() }
+        if (failed) item(key = "error") {
+            Column {
+                Text(stringResource(if (snapshot != null) R.string.sign_catalog_cached else R.string.data_load_error))
+                TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.retry)) }
+            }
+        }
+        if (!loading && matching.isEmpty()) item(key = "empty") { Text(stringResource(R.string.no_signs_found)) }
+        items(matching, key = { "type:${it.code}" }, contentType = { "sign-type" }) { type ->
             Surface(onClick = { onOpenType(CATALOG_TYPE_PREFIX + type.code) }, modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
                 Row(Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),

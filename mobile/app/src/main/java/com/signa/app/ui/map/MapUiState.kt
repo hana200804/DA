@@ -4,8 +4,8 @@ import com.signa.app.domain.model.DeviceLocation
 import com.signa.app.domain.model.GeoPoint
 import com.signa.app.domain.model.LocationProblem
 import com.signa.app.domain.model.TrafficSign
-import com.signa.app.data.remote.dto.MapClusterDto
-import com.signa.app.data.remote.dto.SignCategoryDto
+import com.signa.app.data.remote.backend.dto.MapClusterDto
+import com.signa.app.data.remote.backend.dto.SignCategoryDto
 
 enum class MapLoadStatus { Loading, Ready, MissingKey, Failed }
 

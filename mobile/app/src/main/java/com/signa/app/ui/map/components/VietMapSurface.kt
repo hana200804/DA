@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.view.Gravity
+import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -22,7 +23,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.signa.app.domain.model.DeviceLocation
 import com.signa.app.domain.model.TrafficSign
-import com.signa.app.data.remote.dto.MapClusterDto
+import com.signa.app.data.remote.backend.dto.MapClusterDto
 import com.signa.app.data.repository.SignViewport
 import com.signa.app.ui.map.MapCameraTarget
 import com.signa.app.ui.map.DirectionsUiState
@@ -68,7 +69,8 @@ internal fun VietMapSurface(
     directions: DirectionsUiState = DirectionsUiState(),
     viewportInsets: MapViewportInsets = MapViewportInsets(),
     onChoosePoint: (GeoPoint) -> Unit = {},
-    onCameraIdle: (SignViewport) -> Unit = {}
+    onCameraIdle: (SignViewport) -> Unit = {},
+    session: VietMapSession? = null
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -76,15 +78,18 @@ internal fun VietMapSurface(
     val latestStatus = rememberUpdatedState(onStatus)
     val latestPoint = rememberUpdatedState(onChoosePoint)
     val latestViewport = rememberUpdatedState(onCameraIdle)
-    val result = remember(context, configuration, state.retryMapId) {
-        try {
-            Result.success(VietMapController(context, configuration, { latestSelection.value(it) },
-                { latestStatus.value(it) }, { latestPoint.value(it) }, { latestViewport.value(it) }))
-        } catch (failure: RuntimeException) {
-            Result.failure(failure)
-        } catch (failure: LinkageError) {
-            Result.failure(failure)
+    val result = remember(context, configuration, state.retryMapId, session) {
+        val create = {
+            try {
+                Result.success(VietMapController(context, configuration, { latestSelection.value(it) },
+                    { latestStatus.value(it) }, { latestPoint.value(it) }, { latestViewport.value(it) }))
+            } catch (failure: RuntimeException) {
+                Result.failure(failure)
+            } catch (failure: LinkageError) {
+                Result.failure(failure)
+            }
         }
+        session?.acquire(configuration, state.retryMapId, create) ?: create()
     }
     val controller = result.getOrNull()
     if (controller == null) {
@@ -92,28 +97,84 @@ internal fun VietMapSurface(
         Box(modifier)
         return
     }
-    DisposableEffect(controller, lifecycle) {
+    controller.bind({ latestSelection.value(it) }, { latestStatus.value(it) },
+        { latestPoint.value(it) }, { latestViewport.value(it) })
+    DisposableEffect(controller, lifecycle, session) {
         context.registerComponentCallbacks(controller)
         lifecycle.addObserver(controller)
         onDispose {
             lifecycle.removeObserver(controller)
             context.unregisterComponentCallbacks(controller)
-            controller.close()
+            controller.detach()
+            if (session == null) controller.close()
         }
     }
-    AndroidView(factory = { controller.view }, modifier = modifier, update = { controller.render(state, directions, viewportInsets) })
+    LaunchedEffect(controller, lifecycle) { controller.publishRetainedState() }
+    AndroidView(factory = {
+        (controller.view.parent as? ViewGroup)?.removeView(controller.view)
+        controller.view
+    }, modifier = modifier, update = { controller.render(state, directions, viewportInsets) })
+}
+
+/** Retains one native map within the main navigation UI, never in a ViewModel. */
+internal class VietMapSession {
+    private var controller: VietMapController? = null
+    private var key: Pair<VietMapConfiguration, Int>? = null
+
+    fun acquire(configuration: VietMapConfiguration, retry: Int,
+        create: () -> Result<VietMapController>): Result<VietMapController> {
+        val next = configuration to retry
+        controller?.takeIf { key == next && !it.isClosed }?.let { return Result.success(it) }
+        close()
+        return create().onSuccess { controller = it; key = next }
+    }
+
+    fun close() {
+        controller?.close()
+        controller = null
+        key = null
+    }
+}
+
+@Composable
+internal fun rememberVietMapSession(): VietMapSession {
+    val session = remember { VietMapSession() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session
 }
 
 /** Only this UI adapter owns SDK objects; repositories and ViewModels never hold a MapView. */
-private class VietMapController(
+internal class VietMapController(
     context: Context,
     private val configuration: VietMapConfiguration,
-    private val onSelectSign: (String) -> Unit,
-    private val onStatus: (MapLoadStatus) -> Unit,
-    private val onChoosePoint: (GeoPoint) -> Unit,
-    private val onCameraIdle: (SignViewport) -> Unit
+    private var onSelectSign: (String) -> Unit,
+    private var onStatus: (MapLoadStatus) -> Unit,
+    private var onChoosePoint: (GeoPoint) -> Unit,
+    private var onCameraIdle: (SignViewport) -> Unit
 ) : DefaultLifecycleObserver, ComponentCallbacks {
     val view: MapView
+    val isClosed: Boolean get() = closed
+
+    fun bind(select: (String) -> Unit, status: (MapLoadStatus) -> Unit,
+        point: (GeoPoint) -> Unit, viewport: (SignViewport) -> Unit) {
+        onSelectSign = select
+        onStatus = status
+        onChoosePoint = point
+        onCameraIdle = viewport
+    }
+
+    fun publishRetainedState() {
+        if (ready && !closed) {
+            onStatus(if (configuration.isConfigured) MapLoadStatus.Ready else MapLoadStatus.MissingKey)
+            view.post { map?.let(::publishViewport) }
+        }
+    }
+
+    fun detach() {
+        stop()
+        // Retained native views must not keep callbacks into a disposed destination.
+        bind({}, {}, {}, {})
+    }
     private val density = context.resources.displayMetrics.density
     private val markers = SignMapMarkers(density)
     private var signSource: GeoJsonSource? = null

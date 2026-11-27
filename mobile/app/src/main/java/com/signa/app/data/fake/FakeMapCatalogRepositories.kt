@@ -1,8 +1,8 @@
 package com.signa.app.data.fake
 
 import com.signa.app.data.local.database.SignCatalogSnapshot
-import com.signa.app.data.remote.ApiException
-import com.signa.app.data.remote.dto.*
+import com.signa.app.data.remote.backend.error.ApiException
+import com.signa.app.data.remote.backend.dto.*
 import com.signa.app.data.repository.*
 import com.signa.app.domain.model.TrafficSign
 import java.io.IOException

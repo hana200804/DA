@@ -6,7 +6,7 @@ import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.signa.app.data.remote.dto.PhotoBox
+import com.signa.app.data.remote.backend.dto.PhotoBox
 import com.signa.app.data.repository.MAX_CROP_BYTES
 import java.io.File
 import kotlin.random.Random

@@ -9,8 +9,8 @@ import com.signa.app.data.local.database.RoomSignCatalogStore
 import com.signa.app.data.local.database.SignCatalogDatabase
 import com.signa.app.data.local.database.SignCatalogSnapshot
 import com.signa.app.data.local.session.SessionManager
-import com.signa.app.data.remote.ApiConfig
-import com.signa.app.data.remote.api.SignaMapApi
+import com.signa.app.data.remote.backend.client.ApiConfig
+import com.signa.app.data.remote.backend.api.SignaMapApi
 import com.signa.app.data.repository.RemoteSignCatalogRepository
 import com.signa.app.data.repository.RemoteSignMapRepository
 import com.signa.app.data.repository.SignCatalogRepository

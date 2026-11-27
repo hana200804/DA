@@ -9,12 +9,7 @@ fun SignLookupRoute(
     onOpenSign: (String) -> Unit
 ) {
     PhotoRecognitionRoute(onSignIn = onAction) { takePhoto, choosePhoto ->
-        SignLookupScreen(
-            state = SignLookupUiState(),
-            onAction = takePhoto,
-            onChoosePhoto = choosePhoto
-        ) {
-            SignCatalogContent(onOpenType = onOpenSign)
-        }
+        SignCatalogContent(onOpenType = onOpenSign,
+            header = { SignLookupHeader(takePhoto, choosePhoto) })
     }
 }

@@ -6,8 +6,8 @@ import com.signa.app.data.fake.FakeContributionRepository
 import com.signa.app.data.local.session.SessionManager
 import com.signa.app.data.local.submissions.LocalPhotoStatus
 import com.signa.app.data.local.submissions.PhotoSubmissionQueue
-import com.signa.app.data.remote.api.SubmissionOwner
-import com.signa.app.data.remote.dto.SubmissionItem
+import com.signa.app.data.remote.backend.api.SubmissionOwner
+import com.signa.app.data.remote.backend.dto.SubmissionItem
 import com.signa.app.data.repository.PhotoSubmissionRepository
 import com.signa.app.domain.model.ContributionStatus
 import com.signa.app.domain.model.Session

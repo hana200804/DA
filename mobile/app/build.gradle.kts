@@ -16,7 +16,8 @@ val signaApiBaseUrl = providers.gradleProperty("signa.apiBaseUrl")
     .orElse(providers.environmentVariable("SIGNA_API_BASE_URL"))
     .getOrElse(signaLocalProperties.getProperty("API_BASE_URL", "http://10.0.2.2:8080/api/v1/"))
 val signaUseFakeBackend = providers.gradleProperty("signa.useFakeBackend")
-    .map { it.toBooleanStrict() }.getOrElse(true)
+    .map { it.toBooleanStrict() }
+    .getOrElse(signaLocalProperties.getProperty("USE_FAKE_BACKEND", "true").trim().toBooleanStrict())
 val signaVietMapKey = providers.environmentVariable("VIETMAP_API_KEY")
     .getOrElse(signaLocalProperties.getProperty("VIETMAP_API_KEY", "")).trim()
 
@@ -107,7 +108,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)

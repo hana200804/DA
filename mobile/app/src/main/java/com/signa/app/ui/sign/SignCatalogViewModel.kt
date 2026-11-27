@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.signa.app.data.local.database.SignCatalogSnapshot
-import com.signa.app.data.remote.dto.SignTypeDto
+import com.signa.app.data.remote.backend.dto.SignTypeDto
 import com.signa.app.data.repository.SignCatalogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.Normalizer

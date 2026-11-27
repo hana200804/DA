@@ -37,19 +37,7 @@ fun SignLookupScreen(
     catalog: (@Composable () -> Unit)? = null
 ) {
     SignaPage(stringResource(R.string.lookup_title)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primaryContainer).padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            SpeedLimitBadge(50, Modifier.size(100.dp))
-            Icon(painterResource(R.drawable.ic_camera), null, Modifier.size(52.dp), tint = MaterialTheme.colorScheme.primary)
-            Text(stringResource(R.string.lookup_hero), style = MaterialTheme.typography.bodyLarge)
-        }
-        SignaPrimaryButton(stringResource(R.string.take_photo), onAction, Modifier.fillMaxWidth())
-        OutlinedButton(onClick = onChoosePhoto, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.choose_photo))
-        }
+        SignLookupHeader(onAction, onChoosePhoto)
         if (catalog != null) {
             catalog()
             return@SignaPage
@@ -71,4 +59,19 @@ fun SignLookupScreen(
             }
         }
     }
+}
+
+@Composable
+internal fun SignLookupHeader(onAction: () -> Unit, onChoosePhoto: () -> Unit = onAction) {
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primaryContainer).padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        SpeedLimitBadge(50, Modifier.size(100.dp))
+        Icon(painterResource(R.drawable.ic_camera), null, Modifier.size(52.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.lookup_hero), style = MaterialTheme.typography.bodyLarge)
+    }
+    SignaPrimaryButton(stringResource(R.string.take_photo), onAction, Modifier.fillMaxWidth())
+    OutlinedButton(onClick = onChoosePhoto, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.choose_photo)) }
 }

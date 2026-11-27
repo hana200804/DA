@@ -17,12 +17,11 @@ import com.signa.app.R
 import com.signa.app.domain.model.User
 import com.signa.app.domain.model.VehicleType
 import com.signa.app.ui.components.SignaPage
-import com.signa.app.ui.components.SignaStatusLabel
 
 @Composable
 fun ProfileScreen(
     user: User, onClose: () -> Unit, onContributions: () -> Unit, onChangePassword: () -> Unit,
-    isPreview: Boolean = false, errorMessage: String? = null, isSigningOut: Boolean = false,
+    errorMessage: String? = null, isSigningOut: Boolean = false,
     vehicleType: VehicleType = user.vehicleType,
     onOpenProfile: () -> Unit = {},
     onUpdateProfile: ((String) -> Unit)? = null,
@@ -33,7 +32,6 @@ fun ProfileScreen(
     val initials = user.displayName.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1) }.uppercase()
     SignaPage(stringResource(R.string.nav_account)) {
         AccountHeader(initials, user.displayName, user.email, vehicleType)
-        if (isPreview) SignaStatusLabel(stringResource(R.string.sample_profile_label))
         Spacer(Modifier.height(4.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AccountRow(stringResource(R.string.personal_information), R.drawable.ic_account) {
@@ -48,7 +46,7 @@ fun ProfileScreen(
         TextButton(onClick = onClose, enabled = !isSigningOut && !isUpdatingProfile, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             Icon(painterResource(R.drawable.ic_logout), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error)
             Spacer(Modifier.width(16.dp))
-            Text(stringResource(if (isPreview) R.string.leave_profile_preview else R.string.logout), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
         }
     }
     if (showInformation) {

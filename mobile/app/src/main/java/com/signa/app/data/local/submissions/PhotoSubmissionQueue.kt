@@ -15,8 +15,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.signa.app.data.local.session.SessionManager
-import com.signa.app.data.remote.api.SubmissionOwner
-import com.signa.app.data.remote.dto.SubmissionMetadata
+import com.signa.app.data.remote.backend.api.SubmissionOwner
+import com.signa.app.data.remote.backend.dto.SubmissionMetadata
 import com.signa.app.data.repository.MAX_CROP_BYTES
 import com.signa.app.data.repository.PhotoSubmissionRepository
 import com.signa.app.di.ApplicationScope

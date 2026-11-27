@@ -2,11 +2,11 @@ package com.signa.app.data.repository
 
 import com.signa.app.data.local.database.SignCatalogSnapshot
 import com.signa.app.data.local.database.SignCatalogStore
-import com.signa.app.data.remote.ApiConfig
-import com.signa.app.data.remote.ApiException
-import com.signa.app.data.remote.api.SignaMapApi
-import com.signa.app.data.remote.apiCall
-import com.signa.app.data.remote.dto.SignTypeDto
+import com.signa.app.data.remote.backend.client.ApiConfig
+import com.signa.app.data.remote.backend.error.ApiException
+import com.signa.app.data.remote.backend.api.SignaMapApi
+import com.signa.app.data.remote.backend.error.apiCall
+import com.signa.app.data.remote.backend.dto.SignTypeDto
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first

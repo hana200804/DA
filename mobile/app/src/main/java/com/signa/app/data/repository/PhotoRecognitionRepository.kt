@@ -1,14 +1,14 @@
 package com.signa.app.data.repository
 
 import com.signa.app.BuildConfig
-import com.signa.app.data.remote.api.RecognitionApi
-import com.signa.app.data.remote.dto.DetectedPhoto
-import com.signa.app.data.remote.dto.PhotoBox
-import com.signa.app.data.remote.dto.PhotoDetection
-import com.signa.app.data.remote.dto.PhotoModel
-import com.signa.app.data.remote.dto.PhotoSize
-import com.signa.app.data.remote.dto.RecognitionModel
-import com.signa.app.data.remote.dto.RecognitionModels
+import com.signa.app.data.remote.backend.api.RecognitionApi
+import com.signa.app.data.remote.backend.dto.DetectedPhoto
+import com.signa.app.data.remote.backend.dto.PhotoBox
+import com.signa.app.data.remote.backend.dto.PhotoDetection
+import com.signa.app.data.remote.backend.dto.PhotoModel
+import com.signa.app.data.remote.backend.dto.PhotoSize
+import com.signa.app.data.remote.backend.dto.RecognitionModel
+import com.signa.app.data.remote.backend.dto.RecognitionModels
 import java.time.Clock
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter

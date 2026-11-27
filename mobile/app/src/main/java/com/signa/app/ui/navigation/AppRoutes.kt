@@ -11,7 +11,6 @@ internal object AppRoutes {
     const val SETTINGS = "settings"
     const val ACCOUNT = "account"
     const val DRIVE_ACTIVE = "drive-active"
-    const val PROFILE_PREVIEW = "profile"
     const val CONTRIBUTIONS = "contributions"
     const val LOGIN = "login"
     const val REGISTER = "register"

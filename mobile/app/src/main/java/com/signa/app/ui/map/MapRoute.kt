@@ -1,5 +1,6 @@
 package com.signa.app.ui.map
 
+import com.signa.app.ui.map.components.VietMapSession
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -34,8 +35,9 @@ import com.signa.app.ui.sign.normalizeSignSearch
 import java.util.Locale
 
 @Composable
-fun MapRoute(
+internal fun MapRoute(
     onOpenSign: (String) -> Unit,
+    mapSession: VietMapSession? = null,
     viewModel: MapViewModel = hiltViewModel(),
     directionsViewModel: DirectionsViewModel = hiltViewModel(),
     viewportViewModel: SignViewportViewModel = hiltViewModel(),
@@ -149,7 +151,7 @@ fun MapRoute(
         mapContent = { modifier, insets -> VietMapSurface(displayed, configuration,
             if (BuildConfig.USE_FAKE_BACKEND) selectSign else onOpenSign, viewModel::setMapStatus, modifier,
             directions = trip, viewportInsets = insets, onChoosePoint = { point -> keyboard?.hide(); directionsViewModel.selectMapPoint(point) },
-            onCameraIdle = viewportViewModel::cameraIdle) },
+            onCameraIdle = viewportViewModel::cameraIdle, session = mapSession) },
         onToggleCategory = viewportViewModel::toggleCategory,
         onClearCategories = viewportViewModel::clearCategories,
         onClearSignType = viewportViewModel::removeSignTypeFilter,
