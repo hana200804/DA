@@ -32,6 +32,13 @@
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
+    <provider
+      android:name=".vision.photo.PhotoCaptureFileProvider"
+      android:authorities="${applicationId}.recognition.capture"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/photo_file_paths" />
+    </provider>
   </application>
 
 </manifest>

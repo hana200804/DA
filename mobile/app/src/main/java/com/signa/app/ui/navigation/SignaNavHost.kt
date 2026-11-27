@@ -57,6 +57,7 @@ internal fun SignaNavHost(
             ActiveDriveRoute(onEnd = goBack)
         }
         composable(AppRoutes.SIGN_LOOKUP) {
+            val onPreviewAction = onSignInRequired // Callback của luồng ảnh khi khách bấm gửi.
             SignLookupRoute(onAction = onPreviewAction, onOpenSign = openSign)
         }
         composable(AppRoutes.SETTINGS) {
