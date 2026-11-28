@@ -9,7 +9,6 @@ import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContract
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -29,12 +28,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 28)
 class VideoReplayTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    @RequiresApi(28)
+    @SdkSuppress(minSdkVersion = 28)
     fun replaysFileAndDrawsConfirmedSign() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = compose.activity
