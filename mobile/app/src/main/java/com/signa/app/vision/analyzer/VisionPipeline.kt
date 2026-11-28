@@ -24,7 +24,14 @@ internal data class VisionFrame(
     val timing: FrameTiming
 )
 
-internal data class FrameTiming(val preprocessNs: Long, val inferenceNs: Long, val postprocessNs: Long, val trackerNs: Long)
+internal data class FrameTiming(
+    val preprocessNs: Long,
+    val inferenceNs: Long,
+    val postprocessNs: Long,
+    val trackerNs: Long
+) {
+    val totalNs get() = preprocessNs + inferenceNs + postprocessNs + trackerNs
+}
 
 /** Used in order on one worker by each frame source. The caller owns the source bitmap. */
 internal class VisionPipeline(

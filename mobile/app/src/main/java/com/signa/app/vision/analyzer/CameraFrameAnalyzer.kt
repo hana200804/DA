@@ -14,6 +14,7 @@ import androidx.camera.view.transform.ImageProxyTransformFactory
 import androidx.camera.view.transform.OutputTransform
 import androidx.core.content.ContextCompat
 import com.signa.app.domain.model.VisionModel
+import com.signa.app.vision.detector.ModelHashException
 import com.signa.app.vision.detector.TfliteSignDetector
 import com.signa.app.vision.tracker.FinishedTrack
 import java.util.concurrent.Executors
@@ -25,7 +26,7 @@ internal class CameraFrameAnalyzer(
     private val captureContext: (Long) -> CaptureContext?,
     private val onTrack: (VisionModel, FinishedTrack<TrackEvidence>) -> Unit,
     private val onFrame: (VisionFrame, OutputTransform) -> Unit,
-    private val onError: (String?) -> Unit
+    private val onError: (checksumError: Boolean) -> Unit
 ) : ImageAnalysis.Analyzer, AutoCloseable {
     private val main = ContextCompat.getMainExecutor(context)
     private val assets = context.assets
@@ -39,32 +40,25 @@ internal class CameraFrameAnalyzer(
 
     override fun analyze(image: ImageProxy) {
         val started = SystemClock.elapsedRealtimeNanos()
-        val frame = try {
+        var bitmap: Bitmap? = null
+        var oriented: Bitmap? = null
+        try {
             if (closed.get() || failed || shouldSkip()) return
-            val rotation = image.imageInfo.rotationDegrees
             val transform = transforms.getOutputTransform(image)
             val capture = captureContext(started)
-            val bitmap = image.toBitmap()
-            CameraFrame(bitmap, rotation, transform, capture)
-        } catch (failure: Exception) {
-            fail(failure)
-            return
-        } finally {
-            image.close()
-        }
-        var oriented = frame.bitmap
-        try {
-            oriented = frame.bitmap.rotate(frame.rotation)
+            bitmap = image.toBitmap()
+            oriented = bitmap.rotate(image.imageInfo.rotationDegrees)
             val active = pipeline ?: VisionPipeline(TfliteSignDetector.load(assets), onTrack).also { pipeline = it }
-            val result = active.process(oriented, frame.capture, started)
-            main.execute { if (!closed.get()) onFrame(result, frame.transform) }
+            val result = active.process(oriented, capture, started)
+            main.execute { if (!closed.get()) onFrame(result, transform) }
         } catch (failure: Exception) {
             fail(failure)
         } catch (failure: LinkageError) {
             fail(failure)
         } finally {
-            if (oriented !== frame.bitmap) oriented.recycle()
-            frame.bitmap.recycle()
+            if (oriented !== bitmap) oriented?.recycle()
+            bitmap?.recycle()
+            image.close()
         }
     }
 
@@ -79,8 +73,7 @@ internal class CameraFrameAnalyzer(
     private fun fail(failure: Throwable) {
         failed = true
         Log.e("SignaVision", "Không thể phân tích khung camera", failure)
-        val reason = failure.message?.takeIf { "SHA-256" in it }
-        main.execute { if (!closed.get()) onError(reason) }
+        main.execute { if (!closed.get()) onError(failure is ModelHashException) }
     }
 
     override fun close() {
@@ -89,12 +82,7 @@ internal class CameraFrameAnalyzer(
         worker.shutdown()
     }
 
-    private data class CameraFrame(
-        val bitmap: Bitmap,
-        val rotation: Int,
-        val transform: OutputTransform,
-        val capture: CaptureContext?
-    )
+
 }
 
 internal fun Bitmap.rotate(degrees: Int): Bitmap = if (degrees == 0) this else

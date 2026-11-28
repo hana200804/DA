@@ -4,10 +4,14 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
+import android.os.Looper
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import com.google.android.gms.location.CurrentLocationRequest
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -21,6 +25,8 @@ import java.time.Clock
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 
@@ -45,9 +51,10 @@ class FusedLocationRepository @Inject constructor(
                 .setDurationMillis(15_000)
                 .build()
             val fix = withTimeout(20_000) { client.getCurrentLocation(request, cancellation.token).await() }
-            val point = fix?.let { GeoPoint.fromOrNull(it.latitude, it.longitude) }
-            if (fix == null || point == null || clock.millis() - fix.time !in -5_000..30_000) failure(LocationProblem.Unavailable)
-            else LocationResult.Available(DeviceLocation(point, fix.accuracy, fix.time, !fine))
+            val location = fix?.toDeviceLocation(!fine)
+            if (location == null || clock.millis() - location.capturedAtEpochMillis !in -5_000..30_000) {
+                failure(LocationProblem.Unavailable)
+            } else LocationResult.Available(location)
         } catch (_: TimeoutCancellationException) {
             failure(LocationProblem.TimedOut)
         } catch (cancelled: CancellationException) {
@@ -61,6 +68,35 @@ class FusedLocationRepository @Inject constructor(
         } finally {
             cancellation.cancel()
         }
+    }
+
+    @SuppressLint("MissingPermission") // Checked for every new foreground subscription.
+    override fun observeLocations() = callbackFlow {
+        if (!granted(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            close()
+            return@callbackFlow
+        }
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                result.lastLocation?.toDeviceLocation(approximate = false)?.let { trySend(it) }
+            }
+        }
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000)
+            .setMaxUpdateAgeMillis(0)
+            .build()
+        try {
+            client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+                .addOnFailureListener { close() }
+        } catch (_: SecurityException) {
+            close()
+        }
+        awaitClose { client.removeLocationUpdates(callback) }
+    }
+
+    private fun Location.toDeviceLocation(approximate: Boolean): DeviceLocation? {
+        val point = GeoPoint.fromOrNull(latitude, longitude) ?: return null
+        return DeviceLocation(point, accuracy, time, approximate,
+            speed.takeIf { hasSpeed() }, bearing.takeIf { hasBearing() }, elapsedRealtimeNanos)
     }
 
     private fun failure(problem: LocationProblem) = LocationResult.Unavailable(problem)

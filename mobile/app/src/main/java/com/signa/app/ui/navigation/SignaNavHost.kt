@@ -23,6 +23,8 @@ import com.signa.app.ui.sign.SignLookupRoute
 import com.signa.app.BuildConfig
 import com.signa.app.R
 import android.net.Uri
+import android.os.Build
+import com.signa.app.ui.drive.VideoReplayRoute
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.signa.app.ui.sign.CATALOG_MAP_ARGUMENT
 import com.signa.app.ui.sign.MySignReportsRoute
 
+private const val VIDEO_REPLAY = "video-replay"
 private const val MY_SIGN_REPORTS = "my-sign-reports"
 private const val CATALOG_MAP = "catalog-map/{$CATALOG_MAP_ARGUMENT}"
 
@@ -59,10 +62,18 @@ internal fun SignaNavHost(
             MapRoute(onOpenSign = openSign, mapSession = mapSession)
         }
         composable(AppRoutes.DRIVE) {
-            DriveScreen(onStart = { controller.navigate(AppRoutes.DRIVE_ACTIVE) { launchSingleTop = true } })
+            DriveScreen(
+                onStart = { controller.navigate(AppRoutes.DRIVE_ACTIVE) { launchSingleTop = true } },
+                onReplay = if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= 28) {
+                    { controller.navigate(VIDEO_REPLAY) { launchSingleTop = true } }
+                } else null
+            )
         }
         composable(AppRoutes.DRIVE_ACTIVE) {
             ActiveDriveRoute(onEnd = goBack)
+        }
+        if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= 28) {
+            composable(VIDEO_REPLAY) { VideoReplayRoute(onBack = goBack) }
         }
         composable(AppRoutes.SIGN_LOOKUP) {
             val onPreviewAction = onSignInRequired // Callback của luồng ảnh khi khách bấm gửi.

@@ -14,6 +14,8 @@ import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import java.security.MessageDigest
 
+internal class ModelHashException : IllegalArgumentException("Mô hình TFLite lỗi kiểm tra SHA-256")
+
 internal class TfliteSignDetector private constructor(
     val model: VisionModel,
     val inputSize: Int,
@@ -80,7 +82,7 @@ internal class TfliteSignDetector private constructor(
         internal fun verifySha256(bytes: ByteBuffer, expected: String) {
             val sha = MessageDigest.getInstance("SHA-256").apply { update(bytes.asReadOnlyBuffer()) }
                 .digest().joinToString("") { "%02x".format(it) }
-            require(sha == expected) { "Mô hình TFLite lỗi kiểm tra SHA-256" }
+            if (sha != expected) throw ModelHashException()
         }
 
         private fun AssetManager.json(name: String) =

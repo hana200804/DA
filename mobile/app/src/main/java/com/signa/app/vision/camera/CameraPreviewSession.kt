@@ -12,7 +12,9 @@ import androidx.annotation.MainThread
 import androidx.camera.core.CameraInfo
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -22,18 +24,20 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
+import com.signa.app.vision.analyzer.CameraFrameAnalyzer
 
 /**
- * Owns only this screen's Preview use case. No recording, file storage or AI here.
+ * Owns this screen's Preview and optional ImageAnalysis use cases.
  * Unbind on PAUSE as well as disposal: a navigation entry can remain STARTED
  * during transitions, but camera access is restricted to the foreground screen.
  * All methods/callbacks run on the main thread.
  */
 @MainThread
-class CameraPreviewSession(
+internal class CameraPreviewSession(
     context: Context,
     private val view: PreviewView,
     private val owner: LifecycleOwner,
+    private val createAnalyzer: (() -> CameraFrameAnalyzer)? = null,
     private val onStatus: (CameraPreviewStatus) -> Unit
 ) : DefaultLifecycleObserver, AutoCloseable {
     private val appContext = context.applicationContext
@@ -42,6 +46,8 @@ class CameraPreviewSession(
     private var provider: ProcessCameraProvider? = null
     private var providerPending = false
     private var preview: Preview? = null
+    private var analysis: ImageAnalysis? = null
+    private var analyzer: CameraFrameAnalyzer? = null
     private var cameraInfo: CameraInfo? = null
     private var closed = false
     private var hasError = false
@@ -92,12 +98,18 @@ class CameraPreviewSession(
         override fun onDisplayAdded(displayId: Int) = Unit
         override fun onDisplayRemoved(displayId: Int) = Unit
         override fun onDisplayChanged(displayId: Int) {
-            if (view.display?.displayId == displayId) preview?.targetRotation = view.display.rotation
+            if (view.display?.displayId == displayId) {
+                val rotation = view.display.rotation
+                preview?.targetRotation = rotation
+                analysis?.targetRotation = rotation
+            }
         }
     }
+    private val layoutListener = android.view.View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> start() }
 
     init {
         view.previewStreamState.observe(owner, streamObserver)
+        view.addOnLayoutChangeListener(layoutListener)
         displayManager.registerDisplayListener(displayListener, handler)
         owner.lifecycle.addObserver(this)
     }
@@ -112,7 +124,7 @@ class CameraPreviewSession(
     private fun isForeground() = !closed && owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
 
     private fun start() {
-        if (!isForeground() || preview != null) return
+        if (!isForeground() || preview != null || (createAnalyzer != null && view.viewPort == null)) return
         if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             onStatus(CameraPreviewStatus.PermissionRequired)
             return
@@ -161,7 +173,23 @@ class CameraPreviewSession(
                 .build()
             preview = useCase
             useCase.setSurfaceProvider(view.surfaceProvider)
-            val camera = cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, useCase)
+            val camera = if (createAnalyzer == null) {
+                cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, useCase)
+            } else {
+                val frameAnalyzer = createAnalyzer().also { analyzer = it }
+                val frames = ImageAnalysis.Builder()
+                    .setTargetRotation(useCase.targetRotation)
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    .setResolutionSelector(ResolutionSelector.Builder().setResolutionStrategy(
+                        ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)
+                    ).build())
+                    .build().also { analysis = it }
+                frames.setAnalyzer(frameAnalyzer.worker, frameAnalyzer)
+                val group = UseCaseGroup.Builder().setViewPort(checkNotNull(view.viewPort))
+                    .addUseCase(useCase).addUseCase(frames).build()
+                cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, group)
+            }
             cameraInfo = camera.cameraInfo
             camera.cameraInfo.cameraState.observe(owner, cameraObserver)
             handler.postDelayed(openingTimeout, OPEN_TIMEOUT_MS)
@@ -179,19 +207,27 @@ class CameraPreviewSession(
         cameraInfo?.cameraState?.removeObserver(cameraObserver)
         cameraInfo = null
         val ownedPreview = preview
+        analysis?.let { frames ->
+            frames.clearAnalyzer()
+            if (ownedPreview != null) provider?.unbind(ownedPreview, frames)
+        }
+        analyzer?.close()
+        analyzer = null
         preview = null
         streaming = false
         view.keepScreenOn = false
         if (ownedPreview != null) {
-            provider?.unbind(ownedPreview)
+            if (analysis == null) provider?.unbind(ownedPreview)
             ownedPreview.setSurfaceProvider(null)
         }
+        analysis = null
     }
 
     override fun close() {
         if (closed) return
         closed = true
         owner.lifecycle.removeObserver(this)
+        view.removeOnLayoutChangeListener(layoutListener)
         view.previewStreamState.removeObserver(streamObserver)
         displayManager.unregisterDisplayListener(displayListener)
         releasePreview()

@@ -4,7 +4,10 @@ data class DeviceLocation(
     val point: GeoPoint,
     val accuracyMeters: Float,
     val capturedAtEpochMillis: Long,
-    val isApproximate: Boolean
+    val isApproximate: Boolean,
+    val speedMetersPerSecond: Float? = null,
+    val bearingDegrees: Float? = null,
+    val elapsedRealtimeNanos: Long? = null
 )
 
 enum class LocationProblem { PermissionDenied, Disabled, Unavailable, TimedOut }

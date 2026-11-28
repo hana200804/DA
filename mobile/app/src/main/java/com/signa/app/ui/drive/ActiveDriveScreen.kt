@@ -33,6 +33,7 @@ fun ActiveDriveScreen(
     onResume: () -> Unit,
     onRequestPermission: () -> Unit,
     onOpenSettings: () -> Unit,
+    onRequestLocation: (() -> Unit)? = null,
     preview: @Composable (Modifier) -> Unit
 ) {
     val status = state.status
@@ -56,10 +57,6 @@ fun ActiveDriveScreen(
                         Text(stringResource(cameraStatusText(status)), color = Color.White,
                             style = MaterialTheme.typography.bodyLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
-                } else {
-                    Surface(Modifier.align(Alignment.TopStart).padding(12.dp), color = Color(0xCC101820), shape = RoundedCornerShape(8.dp)) {
-                        Text(stringResource(R.string.camera_streaming), Modifier.padding(10.dp), color = Color.White, style = MaterialTheme.typography.labelMedium)
-                    }
                 }
             }
             Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .45f)) {
@@ -74,7 +71,9 @@ fun ActiveDriveScreen(
                     SpeedLimitBadge(null, Modifier.size(64.dp))
                 }
             }
-            Text(stringResource(R.string.camera_ai_pending), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onRequestLocation != null) {
+                TextButton(onClick = onRequestLocation) { Text(stringResource(R.string.camera_contribution_location)) }
+            }
             when (status) {
                 CameraPreviewStatus.PermissionRequired -> {
                     SignaPrimaryButton(
@@ -108,4 +107,6 @@ private fun cameraStatusText(status: CameraPreviewStatus) = when (status) {
     CameraPreviewStatus.Busy -> R.string.camera_busy
     CameraPreviewStatus.Disabled -> R.string.camera_disabled
     CameraPreviewStatus.Unavailable -> R.string.camera_unavailable
+    CameraPreviewStatus.AnalysisError -> R.string.camera_analysis_error
+    CameraPreviewStatus.ModelHashError -> R.string.camera_model_integrity_error
 }
