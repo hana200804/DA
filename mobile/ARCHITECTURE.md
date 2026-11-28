@@ -1,7 +1,7 @@
 # Kiến trúc Android Signa
 
 Ứng dụng dùng một module `app`, MVVM + Clean Architecture, Hilt và Coroutines/Flow.
-Mặc định hỗ trợ backend giả lập để phát triển độc lập; cấu hình local hiện có thể chọn API thật. Tài khoản đã được kiểm chứng với MySQL/Redis qua backend. Camera và VietMap đã có triển khai; nhận diện AI và đồng bộ đề xuất còn cần tích hợp.
+Mặc định hỗ trợ backend giả lập để phát triển độc lập; cấu hình local hiện có thể chọn API thật. Tài khoản đã được kiểm chứng với MySQL/Redis qua backend. Camera chạy nhận diện YOLOv8n trên thiết bị; đề xuất camera và ảnh dùng chung hàng đợi đồng bộ.
 
 ## Cấu trúc hiện tại
 
@@ -42,10 +42,10 @@ app/src/main/java/com/signa/app/
 │   └── fake/                   # Nguồn giả lập, lựa chọn qua DI
 ├── vision/
 │   ├── camera/                 # CameraX, lifecycle và trạng thái thiết bị
-│   ├── analyzer/               # Khung nhận frame cho xử lý sau này
-│   ├── detector/               # Khung tích hợp mô hình nhận diện
+│   ├── analyzer/               # Camera analyzer, letterbox và pipeline
+│   ├── detector/               # LiteRT, giải mã và NMS
 │   ├── classifier/             # Khung đã chuẩn bị; chỉ dùng nếu pipeline cần
-│   ├── tracker/                # Khung theo dõi biển qua các frame
+│   ├── tracker/                # Theo dõi và bỏ phiếu nhãn
 │   └── geo/                    # Khung gắn vị trí cho quan sát
 └── di/                         # Hilt: network, storage, repository, GPS, VietMap
 
@@ -193,7 +193,7 @@ Mốc bản đồ đầu tiên và phần cần key/API theo vùng được ghi 
 
 `vision/camera/CameraPreviewSession` sở hữu CameraX Preview và nhả tài nguyên theo
 vòng đời màn hình. `ui/drive/ActiveDriveRoute` xin quyền và điều khiển tạm dừng;
-`ActiveDriveScreen` chỉ hiển thị. Chưa có ImageAnalysis hoặc mô hình nhận diện.
+`ActiveDriveScreen` hiển thị trạng thái và lớp phủ kết quả từ ImageAnalysis.
 Thiết kế và hướng dẫn kiểm tra nằm trong [CAMERA_SETUP.md](CAMERA_SETUP.md).
 
 ## Quy tắc tổ chức và nguồn dữ liệu
@@ -215,15 +215,11 @@ Cấu hình và kiểm chứng tài khoản thật xem [hướng dẫn Android l
 - Lint Android không có lỗi; Markdown được kiểm tra theo lệnh của repo.
 - Không chạy lại kiểm thử UI trên điện thoại trong lần đổi cấu trúc này. APK debug mới cần cài hoặc chạy lại từ Android Studio để thấy thay đổi giao diện khách.
 
-## Khung vision cho giai đoạn tiếp theo
+## Nhận diện trên thiết bị
 
-Giữ analyzer, detector, classifier, tracker và geo theo cấu trúc người dùng đã chuẩn bị. Hiện chỉ camera có triển khai; các thư mục còn lại chưa được nối bằng code.
+Preview và ImageAnalysis cùng ViewPort. Analyzer nhận khung mới nhất và chạy tiền xử lý, TFLite, NMS và tracker trên cùng luồng. Lớp phủ chiếu box sang PreviewView. Chế độ phát lại debug dùng chung pipeline.
 
-Luồng dự kiến: camera → analyzer → detector → tracker → kết quả cho ViewModel/Screen. geo kết hợp kết quả ổn định với vị trí từ LocationRepository để tạo quan sát. classifier chỉ tham gia nếu hợp đồng mô hình yêu cầu bước phân loại riêng; thiết kế YOLO nhận diện trực tiếp mã biển hiện tại không mặc định cần bước đó. Không gộp các phần này vào camera hoặc UI.
-
-IDE có thể gộp đường dẫn thành vision.camera khi chỉ có một package con; đó là cách hiển thị package, không có nghĩa vision đã đổi tên thành camera.
-
-Chi tiết cách chia từng package vision và luồng kết nối dự kiến xem [hướng dẫn vision](app/src/main/java/com/signa/app/vision/README.md). README từng package thay .gitkeep để giữ khung và mô tả nhiệm vụ; hiện mới camera có code chạy.
+ActiveDriveViewModel lấy vị trí từ LocationRepository. Khi track kết thúc, ViewModel dùng GPS ở khung giữ ảnh cắt và đưa đề xuất vào hàng đợi Room hiện có. [Cấu trúc vision](app/src/main/java/com/signa/app/vision/README.md)
 
 ## Tích hợp PR 59: bản đồ và danh mục
 

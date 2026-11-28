@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +27,7 @@ import com.signa.app.ui.components.SpeedLimitBadge
 import com.signa.app.ui.drive.components.CameraIllustration
 
 @Composable
-fun DriveScreen(modifier: Modifier = Modifier, onStart: () -> Unit = {}) {
+fun DriveScreen(modifier: Modifier = Modifier, onStart: () -> Unit = {}, onReplay: (() -> Unit)? = null) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -46,6 +47,11 @@ fun DriveScreen(modifier: Modifier = Modifier, onStart: () -> Unit = {}) {
         }
         CameraIllustration(Modifier.fillMaxWidth().heightIn(min = 280.dp))
         SignaPrimaryButton(stringResource(R.string.start_drive), onStart, Modifier.fillMaxWidth())
+        if (onReplay != null) {
+            TextButton(onClick = onReplay, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.video_replay))
+            }
+        }
         Text(stringResource(R.string.camera_preview_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

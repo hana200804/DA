@@ -1,0 +1,369 @@
+{
+  "modelSha256": "0af0fcaef4eefd4899c2ec85bd833bec8aa3f586b04f18acb63728dc074df159",
+  "size": 640,
+  "threshold": 0.04258768633008003,
+  "nmsIou": 0.7,
+  "maxDet": 300,
+  "labels": [
+    {
+      "id": 0,
+      "code": "P.102",
+      "name": "Cấm đi ngược chiều"
+    },
+    {
+      "id": 1,
+      "code": "P.103a",
+      "name": "Cấm xe ô tô"
+    },
+    {
+      "id": 2,
+      "code": "P.103c",
+      "name": "Cấm xe ô tô rẽ trái"
+    },
+    {
+      "id": 3,
+      "code": "P.104",
+      "name": "Cấm xe máy"
+    },
+    {
+      "id": 4,
+      "code": "P.105",
+      "name": "Cấm xe ô tô và xe máy"
+    },
+    {
+      "id": 5,
+      "code": "P.106a",
+      "name": "Cấm xe ô tô tải"
+    },
+    {
+      "id": 6,
+      "code": "P.117",
+      "name": "Hạn chế chiều cao"
+    },
+    {
+      "id": 7,
+      "code": "P.123a",
+      "name": "Cấm rẽ trái"
+    },
+    {
+      "id": 8,
+      "code": "P.123b",
+      "name": "Cấm rẽ phải"
+    },
+    {
+      "id": 9,
+      "code": "P.124a",
+      "name": "Cấm quay đầu xe"
+    },
+    {
+      "id": 10,
+      "code": "P.124c",
+      "name": "Cấm rẽ trái và quay đầu xe"
+    },
+    {
+      "id": 11,
+      "code": "P.124d",
+      "name": "Cấm rẽ phải và quay đầu xe"
+    },
+    {
+      "id": 12,
+      "code": "P.127_40",
+      "name": "Tốc độ tối đa cho phép 40 km/h"
+    },
+    {
+      "id": 13,
+      "code": "P.127_50",
+      "name": "Tốc độ tối đa cho phép 50 km/h"
+    },
+    {
+      "id": 14,
+      "code": "P.127_60",
+      "name": "Tốc độ tối đa cho phép 60 km/h"
+    },
+    {
+      "id": 15,
+      "code": "P.127_80",
+      "name": "Tốc độ tối đa cho phép 80 km/h"
+    },
+    {
+      "id": 16,
+      "code": "P.130",
+      "name": "Cấm dừng xe và đỗ xe"
+    },
+    {
+      "id": 17,
+      "code": "P.131a",
+      "name": "Cấm đỗ xe"
+    },
+    {
+      "id": 18,
+      "code": "P.135",
+      "name": "Hết tất cả các lệnh cấm"
+    },
+    {
+      "id": 19,
+      "code": "P.137",
+      "name": "Cấm rẽ trái, rẽ phải"
+    },
+    {
+      "id": 20,
+      "code": "other_prohibitory",
+      "name": "Biển cấm khác"
+    },
+    {
+      "id": 21,
+      "code": "R.302a",
+      "name": "Hướng phải đi vòng chướng ngại vật sang phải"
+    },
+    {
+      "id": 22,
+      "code": "R.303",
+      "name": "Nơi giao nhau chạy theo vòng xuyến"
+    },
+    {
+      "id": 23,
+      "code": "R.415a",
+      "name": "Biển gộp làn đường theo phương tiện"
+    },
+    {
+      "id": 24,
+      "code": "R.420",
+      "name": "Bắt đầu khu đông dân cư"
+    },
+    {
+      "id": 25,
+      "code": "other_mandatory",
+      "name": "Biển hiệu lệnh khác"
+    },
+    {
+      "id": 26,
+      "code": "W.201a",
+      "name": "Chỗ ngoặt nguy hiểm vòng bên trái"
+    },
+    {
+      "id": 27,
+      "code": "W.201b",
+      "name": "Chỗ ngoặt nguy hiểm vòng bên phải"
+    },
+    {
+      "id": 28,
+      "code": "W.202",
+      "name": "Nhiều chỗ ngoặt nguy hiểm liên tiếp"
+    },
+    {
+      "id": 29,
+      "code": "W.203a",
+      "name": "Đường bị thu hẹp cả hai bên"
+    },
+    {
+      "id": 30,
+      "code": "W.203c",
+      "name": "Đường bị thu hẹp về phía phải"
+    },
+    {
+      "id": 31,
+      "code": "W.205",
+      "name": "Đường giao nhau"
+    },
+    {
+      "id": 32,
+      "code": "W.207",
+      "name": "Giao nhau với đường không ưu tiên"
+    },
+    {
+      "id": 33,
+      "code": "W.208",
+      "name": "Giao nhau với đường ưu tiên"
+    },
+    {
+      "id": 34,
+      "code": "W.210",
+      "name": "Giao nhau với đường sắt có rào chắn"
+    },
+    {
+      "id": 35,
+      "code": "W.220",
+      "name": "Dốc lên nguy hiểm"
+    },
+    {
+      "id": 36,
+      "code": "W.224",
+      "name": "Đường người đi bộ cắt ngang"
+    },
+    {
+      "id": 37,
+      "code": "W.225",
+      "name": "Trẻ em"
+    },
+    {
+      "id": 38,
+      "code": "W.239b",
+      "name": "Chiều cao tĩnh không thực tế"
+    },
+    {
+      "id": 39,
+      "code": "W.245a",
+      "name": "Đi chậm"
+    },
+    {
+      "id": 40,
+      "code": "other_warning",
+      "name": "Biển cảnh báo khác"
+    },
+    {
+      "id": 41,
+      "code": "I.407a",
+      "name": "Đường một chiều"
+    },
+    {
+      "id": 42,
+      "code": "I.409",
+      "name": "Chỗ quay xe"
+    },
+    {
+      "id": 43,
+      "code": "I.423",
+      "name": "Vị trí người đi bộ sang ngang"
+    },
+    {
+      "id": 44,
+      "code": "I.434a",
+      "name": "Bến xe buýt"
+    },
+    {
+      "id": 45,
+      "code": "other_indication",
+      "name": "Biển chỉ dẫn khác"
+    }
+  ],
+  "cases": [
+    {
+      "image": "vts_002564.png",
+      "raw": "vts_002564.f32.gz",
+      "anchors": 11,
+      "letterbox": {
+        "size": 640,
+        "width": 511,
+        "height": 287,
+        "resized_width": 640,
+        "resized_height": 359,
+        "left": 0,
+        "top": 140
+      },
+      "inputSha256": "f99a923e7a8a4f6fefe0d432de32256dd2399bc80cdc811611748cc7400bc71e",
+      "detections": [
+        {
+          "code": "P.130",
+          "confidence": 0.904865562915802,
+          "box": [
+            128.59522094726563,
+            19.14644756689045,
+            193.09309868812562,
+            92.30274296072534
+          ]
+        }
+      ]
+    },
+    {
+      "image": "vts_002610.png",
+      "raw": "vts_002610.f32.gz",
+      "anchors": 21,
+      "letterbox": {
+        "size": 640,
+        "width": 511,
+        "height": 287,
+        "resized_width": 640,
+        "resized_height": 359,
+        "left": 0,
+        "top": 140
+      },
+      "inputSha256": "f4a2bb42a0946d392d88dc090fc2dd2f197f4bd24e20052eede2690ead4b9a6b",
+      "detections": [
+        {
+          "code": "P.130",
+          "confidence": 0.9166946411132812,
+          "box": [
+            415.64549045562745,
+            7.89449860724234,
+            464.91109199523925,
+            63.96714234418524
+          ]
+        },
+        {
+          "code": "P.106a",
+          "confidence": 0.2602386772632599,
+          "box": [
+            414.6282916069031,
+            62.644211708005095,
+            464.4911618232727,
+            120.18138662354197
+          ]
+        }
+      ]
+    },
+    {
+      "image": "vts_002711.png",
+      "raw": "vts_002711.f32.gz",
+      "anchors": 29,
+      "letterbox": {
+        "size": 640,
+        "width": 287,
+        "height": 511,
+        "resized_width": 359,
+        "resized_height": 640,
+        "left": 140,
+        "top": 0
+      },
+      "inputSha256": "372a6f3e5d0859547b50b143010f45f1cf8bf2d6842f219e58f1fba439f71951",
+      "detections": [
+        {
+          "code": "other_prohibitory",
+          "confidence": 0.8993971347808838,
+          "box": [
+            199.22615667571597,
+            207.8590023994446,
+            239.16043728374174,
+            246.40388460159303
+          ]
+        },
+        {
+          "code": "R.415a",
+          "confidence": 0.5034677386283875,
+          "box": [
+            93.9782843204594,
+            440.5981243133545,
+            121.52637220292371,
+            487.25116271972655
+          ]
+        }
+      ]
+    },
+    {
+      "image": "vts_002712.png",
+      "raw": "vts_002712.f32.gz",
+      "anchors": 18,
+      "letterbox": {
+        "size": 640,
+        "width": 511,
+        "height": 287,
+        "resized_width": 640,
+        "resized_height": 359,
+        "left": 0,
+        "top": 140
+      },
+      "inputSha256": "7a0775da2d98e1c4c80e2dda164cb1d8da90b5224e5342de92173fa108fa47ba",
+      "detections": [
+        {
+          "code": "other_indication",
+          "confidence": 0.8679507970809937,
+          "box": [
+            225.35369687080384,
+            50.20749266898068,
+            308.72798895835876,
+            105.30039922772676
+          ]
+        }
+      ]
+    }
+  ]
+}

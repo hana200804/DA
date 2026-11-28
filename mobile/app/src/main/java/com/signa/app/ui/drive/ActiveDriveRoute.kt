@@ -17,15 +17,28 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.signa.app.ui.drive.components.CameraPreview
 import com.signa.app.vision.camera.CameraPreviewStatus
 
 @Composable
-fun ActiveDriveRoute(onEnd: () -> Unit) {
+internal fun ActiveDriveRoute(
+    onEnd: () -> Unit,
+    viewModel: ActiveDriveViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     fun hasPermission() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    fun hasPreciseLocation() =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val canContribute by viewModel.canContribute.collectAsStateWithLifecycle()
+    var preciseLocation by remember { mutableStateOf(hasPreciseLocation()) }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        preciseLocation = hasPreciseLocation()
+    }
     var granted by remember { mutableStateOf(hasPermission()) }
     var requested by rememberSaveable { mutableStateOf(false) }
     var blocked by rememberSaveable { mutableStateOf(false) }
@@ -39,6 +52,11 @@ fun ActiveDriveRoute(onEnd: () -> Unit) {
         } == true
         status = if (granted) CameraPreviewStatus.Opening else CameraPreviewStatus.PermissionRequired
     }
+    LaunchedEffect(lifecycle, granted, enabled, canContribute, preciseLocation) {
+        if (granted && enabled && canContribute && preciseLocation) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { viewModel.observeLocation() }
+        }
+    }
     // Entry follows Start driving; opening the landing tab never requests camera access.
     LaunchedEffect(Unit) {
         if (!granted && !requested) {
@@ -50,6 +68,7 @@ fun ActiveDriveRoute(onEnd: () -> Unit) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 granted = hasPermission()
+                preciseLocation = hasPreciseLocation()
                 if (granted) blocked = false
             }
         }
@@ -73,8 +92,20 @@ fun ActiveDriveRoute(onEnd: () -> Unit) {
         onOpenSettings = {
             context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()))
         },
+        onRequestLocation = if (granted && canContribute && !preciseLocation) {
+            {
+                locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
+        } else null,
         preview = { modifier ->
-            CameraPreview(enabled = granted && enabled, attempt = attempt, onStatus = { status = it }, modifier = modifier)
+            CameraPreview(
+                enabled = granted && enabled,
+                attempt = attempt,
+                onStatus = { status = it },
+                captureContext = viewModel::captureContext,
+                onTrack = viewModel::submitTrack,
+                modifier = modifier
+            )
         }
     )
 }

@@ -1,12 +1,9 @@
 # Analyzer
 
-Trách nhiệm: tiếp nhận frame từ camera, điều phối xử lý ảnh và chuyển frame phù hợp sang detector. Chuẩn bị xoay/chuyển màu, resize và letterbox theo hợp đồng mô hình; giữ thông tin biến đổi để đưa box về ảnh gốc.
-
-| File dự kiến, chưa tạo | Nhiệm vụ |
+| Tệp | Trách nhiệm |
 | --- | --- |
-| CameraFrameAnalyzer.kt | Nhận frame, xử lý lần lượt hoặc bỏ frame cũ, giải phóng frame sau xử lý |
-| FramePreprocessor.kt | Tiền xử lý đúng định dạng, kích thước và chuẩn hóa mà mô hình yêu cầu |
+| `CameraFrameAnalyzer.kt` | Nhận RGBA từ CameraX, lấy ngữ cảnh ở đầu khung, xoay bitmap theo camera và luôn đóng ImageProxy. Khi máy báo nhiệt từ MODERATE trở lên, bỏ cách một khung (API 29+). |
+| `FramePreprocessor.kt` | Letterbox bilinear theo tâm pixel, làm tròn về số chẵn, đệm 114 và chuẩn hóa RGB thành float32 NHWC. |
+| `VisionPipeline.kt` | Điều phối tiền xử lý, detector, NMS và tracker theo thứ tự khung trên một luồng. Tính FPS và thời gian từng giai đoạn. |
 
-Đầu vào: frame camera và thông tin xoay/thời điểm. Đầu ra: dữ liệu ảnh phù hợp detector và thông tin biến đổi tọa độ.
-
-Không cập nhật Compose, gửi API hoặc lưu database ở đây. Không tự chọn chuẩn hóa ảnh khác mã tham chiếu ai/src/signa_ai/mobile.py. Hiện package này mới giữ khung, chưa có analyzer chạy.
+CameraX chuyển YUV sang RGBA trước khi trao khung cho analyzer. Pipeline nhận bitmap RGB đã đúng chiều, dùng chung cho camera và phát lại video. Khi track có GPS hợp lệ, pipeline giữ JPEG vùng biển, nới box 10% mỗi cạnh, cạnh dài tối đa 256 px và chất lượng 85.

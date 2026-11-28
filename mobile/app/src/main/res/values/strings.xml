@@ -51,7 +51,7 @@
   <string name="close">Đóng</string>
   <string name="gps_waiting">Chưa có GPS</string>
   <string name="camera_preview_label">Minh họa camera</string>
-  <string name="camera_preview_hint">Bấm Bắt đầu lái xe để bật camera sau. Nhận diện biển báo và tốc độ khi lái xe sẽ được tích hợp ở bước tiếp theo.</string>
+  <string name="camera_preview_hint">Bấm Bắt đầu lái xe để nhận diện biển báo bằng camera sau, kể cả khi mất mạng.</string>
   <string name="drive_active_title">Camera lái xe</string>
   <string name="end_drive">Kết thúc lái xe</string>
   <string name="camera_live_description">Hình ảnh trực tiếp từ camera sau</string>
@@ -67,7 +67,15 @@
   <string name="camera_busy">Camera đang bận. Đóng ứng dụng khác đang dùng camera rồi thử lại.</string>
   <string name="camera_disabled">Camera bị hệ thống chặn. Kiểm tra quyền truy cập camera trong cài đặt thiết bị rồi thử lại.</string>
   <string name="camera_unavailable">Không mở được hình ảnh camera. Kiểm tra camera của thiết bị rồi thử lại.</string>
-  <string name="camera_ai_pending">Chưa bật nhận diện AI hoặc cảnh báo biển báo. Hình ảnh camera chưa được ghi hoặc gửi lên máy chủ.</string>
+  <string name="camera_analysis_error">Không chạy được mô hình nhận diện biển báo. Hãy thử lại.</string>
+  <string name="camera_model_integrity_error">Mô hình nhận diện không qua kiểm tra SHA-256. Hãy cài lại ứng dụng.</string>
+  <string name="camera_contribution_location">Cấp vị trí chính xác để gửi đề xuất</string>
+  <string name="vision_fps">%1$.1f FPS</string>
+  <string name="video_replay">Phát lại video</string>
+  <string name="video_pick">Chọn video</string>
+  <string name="video_processing">Đang phân tích video…</string>
+  <string name="video_open_failed">Không thể phân tích video đã chọn.</string>
+  <string name="video_frame_count">Đã xử lý %1$d khung hình</string>
   <string name="drive_speed_not_connected">Chưa tích hợp tốc độ GPS khi lái xe</string>
   <string name="settings_preview_short">Cài đặt đang dùng để xem thử giao diện.</string>
   <string name="create_account">Tạo tài khoản</string>

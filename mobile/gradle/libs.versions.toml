@@ -21,6 +21,7 @@ serialization = "1.9.0"
 vietmap = "4.1.1"
 playServicesLocation = "21.3.0"
 camera = "1.6.1"
+litert = "1.4.2"
 exifInterface = "1.4.2"
 workManager = "2.10.4"
 
@@ -29,6 +30,7 @@ androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camera" }
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camera" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camera" }
+litert = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
 vietmap-sdk = { module = "com.github.vietmap-company:maps-sdk-android", version.ref = "vietmap" }
 vietmap-geojson = { module = "com.github.vietmap-company:vietmap-services-geojson-android", version = "1.0.0" }
 vietmap-turf = { module = "com.github.vietmap-company:vietmap-services-turf-android", version = "1.0.2" }
