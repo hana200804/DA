@@ -81,8 +81,6 @@ internal class CameraFrameAnalyzer(
         worker.execute { pipeline?.close() }
         worker.shutdown()
     }
-
-
 }
 
 internal fun Bitmap.rotate(degrees: Int): Bitmap = if (degrees == 0) this else

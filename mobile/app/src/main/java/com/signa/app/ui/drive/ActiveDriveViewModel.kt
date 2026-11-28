@@ -36,7 +36,7 @@ internal class ActiveDriveViewModel @Inject constructor(
     private val locations: LocationRepository,
     private val submissions: PhotoSubmissionQueue,
     private val clock: Clock,
-    @ApplicationScope private val appScope: CoroutineScope
+    @param:ApplicationScope private val appScope: CoroutineScope
 ) : ViewModel() {
     private val latestFix = AtomicReference<DeviceLocation?>()
     val canContribute = combine(sessions.session, settings.settings) { session, preferences ->

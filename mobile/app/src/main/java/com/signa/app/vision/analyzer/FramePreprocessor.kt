@@ -82,7 +82,8 @@ internal class FramePreprocessor(private val size: Int) {
             tensor.put(padding, 0, (size - fit.left - fit.resizedWidth) * 3)
         }
         repeat(size - fit.top - fit.resizedHeight) { tensor.put(padding) }
-        return PreparedFrame(buffer.rewind(), fit)
+        buffer.rewind()
+        return PreparedFrame(buffer, fit)
     }
 
     private class Axis(length: Int, resized: Int) {
