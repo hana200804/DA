@@ -1,13 +1,8 @@
 # Detector
 
-Trách nhiệm: nạp/chạy mô hình nhận diện điện thoại và giải mã đầu ra, lọc theo ngưỡng/NMS đúng hợp đồng AI.
-
-| File dự kiến, chưa tạo | Nhiệm vụ |
+| Tệp | Trách nhiệm |
 | --- | --- |
-| SignDetector.kt | Hợp đồng nhận diện ảnh, không gắn với một implementation cụ thể |
-| TfliteSignDetector.kt | Thực thi mô hình TFLite, quản lý runtime và tài nguyên |
-| DetectionDecoder.kt | Giải mã output và đưa box về hệ tọa độ ảnh thống nhất |
+| `TfliteSignDetector.kt` | Đọc metadata, nhãn và mô hình từ assets, kiểm tra SHA-256, kiểm tra kiểu và kích thước tensor, chạy LiteRT CPU XNNPACK với 2 luồng. |
+| `DetectionDecoder.kt` | Lấy lớp có điểm cao nhất mỗi anchor, lọc ngưỡng, chiếu box về ảnh gốc và loại box nằm toàn bộ ngoài ảnh. NMS theo lớp dùng box chưa cắt, sau đó trả box đã cắt. |
 
-Đầu vào: ảnh đã tiền xử lý. Đầu ra: mã biển, confidence, box và thời điểm; kèm phiên bản nhãn/mô hình ở mức phù hợp. Không trả tensor thô lên UI.
-
-Nguồn hợp đồng là ai/src/signa_ai/mobile.py, ai/data/labels.yaml và metadata đúng model.tflite. Model YOLO hiện tại nhận diện trực tiếp mã biển; detector không mặc định bắt buộc đi qua classifier riêng. Hiện chưa tích hợp TFLite trong package này.
+YOLOv8n 640 FP16 có đầu vào float32 `[1,640,640,3]` và đầu ra float32 `[1,50,8400]`. Metadata ghi ngưỡng `0.04258768633008003`, NMS IoU `0.7`, tối đa 300 box và `labelMapVersion = 1`. `labels.json` được sinh từ `ai/data/labels.yaml`. Ngưỡng và thứ tự xử lý khớp mã tham chiếu `ai/src/signa_ai/mobile.py`.

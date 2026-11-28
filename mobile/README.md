@@ -16,7 +16,7 @@ Kết quả build và kiểm thử: [Nghiệm thu tuần 2](WEEK2_ACCEPTANCE.md)
 - Room lưu cache biển mẫu; API client có DTO, Bearer, timeout và xử lý lỗi HTTP. Có thể chọn RemoteAuthRepository qua cấu hình build.
 - Cài đặt lưu bốn lựa chọn bằng DataStore, có trạng thái tải, lỗi lưu trữ và thử lại.
 - Giao diện áp dụng bản thiết kế xanh/trắng: bản đồ phủ màn hình có thẻ biển nổi, bảng tốc độ nằm ngang, cài đặt theo nhóm và form tài khoản gọn. Có phiên lái xe, hồ sơ và đóng góp để xem trước; dữ liệu mẫu được ghi rõ.
-- Camera, tốc độ và cảnh báo lái xe vẫn ở mức khung. Bản đồ đã dùng VietMap SDK với marker GeoJSON và nút định vị GPS; chưa có key nên chưa tải được bản đồ nền thật. Chưa nối backend biển theo vùng, AI hoặc gửi quan sát. Xem [thiết lập bản đồ](MAP_SETUP.md).
+- Camera nhận diện biển offline bằng TFLite. Màn lái xe có lớp phủ và FPS, bản debug có phát lại video cục bộ. Đề xuất camera dùng hàng đợi hiện có. [Thiết lập camera](CAMERA_SETUP.md) · [Thiết lập bản đồ](MAP_SETUP.md).
 - Các màn xác thực, Tài khoản và Đóng góp đã áp dụng bố cục ảnh mẫu: icon ô nhập, OTP 6 ô/gửi lại, hồ sơ có loại xe và các hàng chức năng dạng thẻ. Giữ nút “Tiếp tục với khách”.
 - Xem thử bằng cách chạy cấu hình `app` trên thiết bị. `SignaApp` có Preview sáng/tối; `DriveScreen` có thêm Preview cỡ chữ lớn.
 
@@ -51,7 +51,7 @@ Kết quả build và kiểm thử: [Nghiệm thu tuần 2](WEEK2_ACCEPTANCE.md)
 | Ngôn ngữ | Kotlin |
 | Giao diện | Jetpack Compose, Material 3 |
 | Camera | CameraX (`ImageAnalysis`) |
-| Suy luận AI | TensorFlow Lite (GPU delegate, dự phòng CPU qua XNNPACK) |
+| Suy luận AI | LiteRT CPU XNNPACK, YOLOv8n 640 FP16 |
 | Bản đồ | VietMap SDK |
 | Mạng | Retrofit + OkHttp, Kotlinx Serialization |
 | Lưu trữ cục bộ | Room (biển báo tải trước, hàng đợi gửi), DataStore (cài đặt) |
@@ -72,7 +72,6 @@ flowchart TB
         SettingsScreen
     end
     subgraph Domain["domain/"]
-        WarningEngine["WarningEngine<br/>máy trạng thái cảnh báo"]
         UseCases
     end
     subgraph Data["data/"]
@@ -81,11 +80,10 @@ flowchart TB
         Api[Retrofit API]
     end
     subgraph Vision["vision/"]
-        Analyzer[FrameAnalyzer<br/>CameraX] --> Detector --> Classifier --> Tracker
+        Analyzer[FrameAnalyzer<br/>CameraX] --> Detector --> Tracker
     end
 
-    Tracker --> WarningEngine
-    WarningEngine --> DriveScreen
+    Tracker --> DriveScreen
     Tracker --> Repo
     Repo --> Room
     Repo --> Api
@@ -105,9 +103,9 @@ mobile/
 │       │   │   ├── ui/            # Compose: drive, map, sign, settings, auth
 │       │   │   ├── domain/        # model, repository; thêm usecase khi cần nghiệp vụ
 │       │   │   ├── data/          # repository, local (Room), remote (Retrofit)
-│       │   │   ├── vision/        # camera hiện tại; bổ sung AI theo hợp đồng mô hình
+│       │   │   ├── vision/        # camera, nhận diện, tracker và phát lại
 │       │   │   └── di/            # Hilt modules
-│       │   ├── assets/models/     # mô hình .tflite nhúng sẵn (không commit)
+│       │   ├── assets/models/     # mô hình .tflite nhúng sẵn và metadata
 │       │   └── res/
 │       ├── test/                  # unit test (JVM)
 │       └── androidTest/           # instrumented + Compose UI test
@@ -157,7 +155,6 @@ cd mobile
 | `VIETMAP_SEARCH_API_KEY` | Key Autocomplete/Place; mặc định dùng key bản đồ khi bỏ trống |
 | `VIETMAP_ROUTE_API_KEY` | Key Route tùy chọn; mặc định dùng key search |
 | `API_BASE_URL` | Địa chỉ nginx của backend: `http://10.0.2.2:8080` trên emulator, `http://<IP máy tính>:8080` trên điện thoại thật cùng mạng |
-| `MODEL_VERSION` | Dự kiến dùng khi tích hợp mô hình; hiện chưa có task `fetchModels` |
 
 Mặc định dùng fake auth. Chọn backend thật cho luồng tài khoản bằng `-Psigna.useFakeBackend=false`. Truyền URL qua `-Psigna.apiBaseUrl` hoặc `SIGNA_API_BASE_URL`. Chi tiết hợp đồng và cách xử lý phiên nằm trong [ARCHITECTURE.md](ARCHITECTURE.md).
 
