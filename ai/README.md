@@ -311,6 +311,63 @@ Notebook YOLOv8 đọc kích thước ảnh, cỡ mô hình, batch và bộ dữ
 `%env SIGNA_NOTEBOOK_COMMIT=<SHA>`, chọn L4 (hoặc A100) rồi **Run all**. Xem
 [`yolov8s-960-v1.1-main-s0`](experiments/yolov8s-960-v1.1-main-s0/README.md).
 
+### Chạy YOLOv8s 960 trên Kaggle
+
+Lượt `yolov8s-960-v1.1-main-s0` dùng v1.1 và cùng giao thức với lượt 640. Batch mặc định là
+16, seed 0, tối đa 200 epoch và patience 30. Kaggle cấp gói T4 ×2 với
+`NvidiaTeslaT4` và notebook dùng GPU 0. Kaggle đã ngừng cung cấp P100.
+[Thông báo của Kaggle](https://www.kaggle.com/product-announcements/735239)
+
+Ngày 28/11/2026, phiên bản 1 của kernel T4 ghim commit `13072f6` ở hàng đợi 20 phút
+(16:05–16:25, giờ Việt Nam). Kaggle xác nhận hủy sau 0 giây thực thi. Lượt này chưa có
+checkpoint hoặc số đo huấn luyện trên Kaggle.
+
+1. Tạo dataset Kaggle **Private** từ `signa-v1.1.zip` của v1.1. SHA-256 của ZIP đã đối chiếu
+   là `60f4564aed84aa128953307901109a8898f44c37e96916939c50e4a52dfb53a3`. Trước khi tải, đối chiếu
+   ảnh với [manifest v1.1](data/manifests/v1.1.csv) và GT val, test với
+   [hồ sơ chấm](experiments/test-v1.1.md).
+2. Từ thư mục gốc repo, đóng gói một commit đã có trên GitHub. Thay `ten-kaggle` bằng tên
+   tài khoản Kaggle, rồi gửi kernel private.
+
+   ```sh
+   owner=ten-kaggle
+   dataset="$owner/signa-v1-1"
+   kernel="$owner/yolov8s-960-v1-1-main-s0"
+   commit=$(git rev-parse HEAD)
+   stage=$(mktemp -d)
+   timeout=43200
+   python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" \
+     --run 960 --commit "$commit" --timeout "$timeout"
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout "$timeout"
+   kaggle kernels status "$kernel"
+   kaggle kernels logs "$kernel" --follow
+   kaggle quota
+   ```
+
+   Notebook ghi số phút/epoch và đỉnh VRAM do PyTorch giữ trong log và `meta.json`.
+   Thời gian ước tính ban đầu trên T4 là 25–30 giờ, cần khoảng ba phiên. Cập nhật ước tính
+   sau ít nhất ba epoch và kiểm tra quota trước mỗi phiên.
+3. Gần hết giờ, notebook dừng sau một epoch đã lưu checkpoint. Khi Kaggle kết thúc phiên, tải
+   output bằng `kaggle kernels output "$kernel" -p "$PWD/kaggle-output"`. Tạo một dataset
+   **Private** từ thư mục `yolov8s-960-v1.1-main-s0/`. Giữ cả `weights/last.pt`,
+   `weights/best.pt`, `early-stopping.json`, `results.csv`, `meta.json` và `config.yaml`
+   của cùng phiên. Nếu dùng ZIP, đặt tên `yolov8s-960-v1.1-main-s0.zip` và giữ nguyên thư
+   mục run tại gốc ZIP.
+4. Gắn dataset checkpoint mới nhất và dùng lại commit cùng dataset train. Dùng cùng giá trị
+   `timeout` trong hai lệnh. Nếu quota còn dưới 12 giờ, giảm `timeout` theo quota còn lại.
+
+   ```sh
+   resume_dataset="$owner/signa-yolov8s-960-checkpoint"
+   python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" \
+     --run 960 --commit "$commit" --timeout "$timeout" --resume-dataset "$resume_dataset"
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout "$timeout"
+   ```
+
+   Nếu batch 16 hết VRAM, thêm `--batch 8` hoặc giá trị nhỏ hơn khi đóng gói. Khi tiếp tục
+   từ checkpoint có batch khác, thêm `--allow-batch-change` cho phiên đổi batch. Giữ batch
+   mới cho các phiên sau và đối chiếu `batch_note` trong `config.yaml` cùng batch theo phiên
+   trong `meta.json`.
+
 ## Thí nghiệm có và không có dữ liệu tổng hợp · v1.1-syn
 
 Thí nghiệm AI-07 đo tác động của [bộ v1.1-syn](data/README.md#bộ-dữ-liệu-tổng-hợp-v11-syn) lên
@@ -318,6 +375,8 @@ recall lớp hiếm ([Dữ liệu §7](../docs/05-du-lieu.md#7-dữ-liệu-tổn
 `yolov8n-640-v1.1-main-s0` đã có. Lượt mới `yolov8n-640-v1.1-syn-main-s0` chỉ đổi bộ dữ liệu.
 Hai lượt dùng cùng YOLOv8n, ảnh 640, batch 16, seed 0 và
 [bảng tăng cường chung](configs/augment.md). Chưa có kết quả.
+
+### Chạy trên Colab
 
 1. Tải `signa-v1.1-syn.zip` lên thư mục gốc My Drive, cạnh `signa-v1.1.zip`. Đối chiếu SHA-256
    với [bảng của lượt dựng](data/README.md#kết-quả-seed-0) trước khi tải lên.
@@ -374,6 +433,70 @@ như [bảng box chép thêm](data/README.md#kết-quả-seed-0).
 v1.1-syn có 7.297 ảnh train, nhiều hơn 9%, nên lượt mới cần khoảng 5,5–6 giờ L4 tùy epoch dừng
 sớm. Số compute unit bằng số giờ nhân đơn giá L4 mà Colab hiển thị lúc chạy. Bước so sánh chạy
 trên CPU trong vài giây.
+
+### Chạy trên Kaggle
+
+Chuẩn bị Kaggle CLI có lệnh `kernels logs` và `quota` (ví dụ 2.2.5), đăng nhập và xác minh điện
+thoại trên Kaggle để bật GPU và Internet. Với lượt mới, chọn `NvidiaTeslaT4`. Gói T4 ×2 cấp hai
+GPU và notebook chỉ dùng GPU 0. Notebook ghi GPU thực tế, phiên bản PyTorch, Ultralytics và
+Albumentations theo phiên trong `meta.json`. Ghi rõ khi phần cứng hoặc môi trường khác lượt đối
+chứng L4. Kaggle đã ngừng cung cấp P100. [Thông báo của Kaggle][kaggle-p100]
+
+Ngày 28/11/2026, kernel v1 yêu cầu một L4 (`NvidiaL4X1`) và chờ khoảng 92 phút
+(13:56–15:28, giờ Việt Nam). Kaggle xác nhận hủy khi phiên vẫn ở hàng đợi, với 0 giây
+thực thi và 0 epoch. Nhóm tiếp tục lượt v1.1-syn đang chạy trên Colab.
+
+1. Đối chiếu `signa-v1.1-syn.zip` với `signa-v1.1-syn.sha256` trong thư mục dựng dữ liệu. SHA-256 của
+   ZIP là `49e086b85446db1006d25c3824f6a72449cd93d98854c62408529b4439a7fcba`. Tạo dataset
+   `<owner>/signa-v1-1-syn` với chế độ **Private** bằng `kaggle datasets create` (mặc định private)
+   hoặc giao diện Kaggle. Chọn giấy phép `unknown` trong metadata vì Q3 về VN82 còn mở.
+   Notebook nhận ZIP nguyên gốc và dữ liệu Kaggle đã giải nén.
+2. Từ thư mục gốc repo, đóng gói notebook tại một commit đã có trên GitHub, rồi chạy nền. Điền slug
+   tài khoản Kaggle thay cho `ten-kaggle`.
+
+   ```sh
+   owner=ten-kaggle
+   kernel="$owner/yolov8n-640-v1-1-syn-main-s0"
+   dataset="$owner/signa-v1-1-syn"
+   commit=$(git rev-parse HEAD)
+   stage=$(mktemp -d)
+   python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" --commit "$commit"
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout 43200
+   kaggle kernels status "$kernel"
+   kaggle kernels logs "$kernel" --follow
+   kaggle quota
+   ```
+
+   Gói kernel đặt `is_private=true` và bật Internet để lấy đúng commit cùng các gói đã ghim.
+   Notebook áp dụng cùng kiểm tra dữ liệu và giao thức chấm val như trên Colab. Tốc độ tính từ thời
+   gian giữa các lần lưu checkpoint, bỏ thời gian khởi tạo từ khi có ít nhất hai epoch.
+3. Sau khi Kaggle lưu output, lấy thư mục
+   `yolov8n-640-v1.1-syn-main-s0/` từ `/kaggle/working`:
+
+   ```sh
+   kaggle kernels output "$kernel" -p "$PWD/kaggle-output"
+   ```
+
+   Khi thấy `done.json`, có thể dùng `evaluation/predictions-val.json` và `metrics.json` cho bước
+   so sánh. Khi gần hết thời gian phiên, notebook dừng ở cuối epoch, giữ `weights/last.pt` với
+   optimizer và lưu output khi phiên kết thúc. `meta.json` đánh dấu `paused_for_time_limit`.
+4. Để chạy tiếp, tạo dataset **Private** từ cả thư mục run đã lấy ở bước 3. Nếu tải lên một ZIP,
+   đặt tên `yolov8n-640-v1.1-syn-main-s0.zip` và giữ nguyên thư mục run ở gốc ZIP. Tập tệp cần
+   có `weights/last.pt`, `weights/best.pt`, `early-stopping.json`, `config.yaml`, `meta.json`
+   và `results.csv` của cùng phiên. Gắn đúng một dataset checkpoint do nhóm tạo, giữ commit và
+   dataset train từ bước 2:
+
+   ```sh
+   resume_dataset="$owner/signa-v1-1-syn-checkpoint"
+   python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" \
+     --commit "$commit" --resume-dataset "$resume_dataset"
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout 43200
+   ```
+
+   Notebook chép bộ checkpoint sang vùng ghi của Kaggle, kiểm cấu hình, rồi tiếp tục epoch kế
+   tiếp với trạng thái dừng sớm đã lưu. Giữ batch 16, seed 0, trần 200 epoch và patience 30.
+
+[kaggle-p100]: https://www.kaggle.com/product-announcements/735239
 
 ## Chấm test và đo thời gian · v1.1
 

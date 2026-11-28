@@ -1,0 +1,94 @@
+"""Tạo gói kernel Kaggle private từ bản notebook đã commit."""
+
+import argparse
+import json
+import re
+import subprocess
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+NOTEBOOK = Path("ai/notebooks/train_yolov8_main_v1.1.ipynb")
+RUNS = {
+    "syn": ("n", 640, "v1.1-syn"),
+    "960": ("s", 960, "v1.1"),
+}
+
+
+def dataset_ref(value):
+    if not re.fullmatch(r"[a-z0-9_-]+/[a-z0-9_-]+", value):
+        raise argparse.ArgumentTypeError("Dùng slug dạng owner/dataset.")
+    return value
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output", type=Path, help="Thư mục gửi bằng kaggle kernels push")
+    parser.add_argument("dataset", type=dataset_ref, help="Slug dataset huấn luyện private")
+    parser.add_argument("--run", choices=RUNS, default="syn", help="Cấu hình AI-07")
+    parser.add_argument("--batch", type=int, default=16, help="Batch khi giảm VRAM cho lượt 960")
+    parser.add_argument(
+        "--resume-dataset", type=dataset_ref, help="Slug dataset checkpoint private"
+    )
+    parser.add_argument("--commit", default="HEAD", help="Commit có notebook, mặc định HEAD")
+    parser.add_argument("--allow-batch-change", action="store_true", help="Đổi batch khi resume")
+    parser.add_argument("--timeout", type=int, default=43200, help="Số giây phiên Kaggle")
+    args = parser.parse_args()
+    if not 3600 <= args.timeout <= 43200:
+        parser.error("--timeout phải từ 3600 đến 43200 giây.")
+    if args.run == "syn" and args.batch != 16:
+        parser.error("Lượt syn dùng batch 16.")
+    if not 1 <= args.batch <= 16:
+        parser.error("--batch phải từ 1 đến 16.")
+    if args.allow_batch_change and (args.run != "960" or not args.resume_dataset):
+        parser.error("--allow-batch-change chỉ dùng khi gắn checkpoint cho lượt 960.")
+
+    git = ["git", "-C", str(REPO)]
+    commit = subprocess.check_output(
+        [*git, "rev-parse", "--verify", "--end-of-options", f"{args.commit}^{{commit}}"],
+        text=True,
+    ).strip()
+    notebook = json.loads(subprocess.check_output([*git, "show", f"{commit}:{NOTEBOOK}"]))
+    size, imgsz, dataset_version = RUNS[args.run]
+    settings = {
+        "SIGNA_NOTEBOOK_COMMIT": commit,
+        "SIGNA_KAGGLE_DATASET": args.dataset,
+        "SIGNA_DATASET_VERSION": dataset_version,
+        "SIGNA_SIZES": size,
+        "SIGNA_IMGSZ": str(imgsz),
+        "SIGNA_BATCH": str(args.batch),
+        "SIGNA_ALLOW_BATCH_CHANGE": str(int(args.allow_batch_change)),
+        "SIGNA_KAGGLE_TIMEOUT": str(args.timeout),
+    }
+    source = ["import os\n"]
+    source.extend(f"os.environ[{key!r}] = {value!r}\n" for key, value in settings.items())
+    notebook["cells"].insert(0, {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": source,
+    })
+    owner = args.dataset.split("/")[0]
+    dataset_label = dataset_version.replace(".", "-")
+    kernel = f"yolov8{size}-{imgsz}-{dataset_label}-main-s0"
+    metadata = {
+        "id": f"{owner}/{kernel}",
+        "title": f"YOLOv8{size} {imgsz} {dataset_label.replace('-syn', ' syn')} main s0",
+        "code_file": NOTEBOOK.name,
+        "language": "python",
+        "kernel_type": "notebook",
+        "is_private": True,
+        "enable_gpu": True,
+        "enable_internet": True,
+        "dataset_sources": [args.dataset],
+    }
+    if args.resume_dataset:
+        metadata["dataset_sources"].append(args.resume_dataset)
+
+    args.output.mkdir(parents=True, exist_ok=True)
+    for name, content in ((NOTEBOOK.name, notebook), ("kernel-metadata.json", metadata)):
+        (args.output / name).write_text(json.dumps(content, ensure_ascii=False, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()

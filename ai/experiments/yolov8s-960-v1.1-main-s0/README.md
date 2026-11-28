@@ -81,6 +81,9 @@ Giữ nguyên: dữ liệu v1.1, [tăng cường chung](../../configs/augment.md
 
 ## Cách chạy
 
+Với Kaggle, dùng hướng dẫn gửi kernel private và tiếp tục từ checkpoint theo từng phiên.
+[Chạy YOLOv8s 960 trên Kaggle](../../README.md#chạy-yolov8s-960-trên-kaggle)
+
 Mở [`train_yolov8_main_v1.1.ipynb`](../../notebooks/train_yolov8_main_v1.1.ipynb) trên Colab và chọn GPU L4 (hoặc A100). Thêm một ô mã ở đầu notebook, không sửa ô mã nào khác:
 
 ```text
