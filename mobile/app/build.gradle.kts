@@ -67,6 +67,7 @@ android {
         buildConfig = true
         compose = true
     }
+    androidResources.noCompress += "tflite"
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 }
 
@@ -79,6 +80,7 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+    implementation(libs.litert)
     implementation(libs.vietmap.sdk)
     implementation(libs.vietmap.geojson)
     implementation(libs.vietmap.turf)
