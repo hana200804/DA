@@ -380,10 +380,14 @@ trên CPU trong vài giây.
 ### Chạy trên Kaggle
 
 Chuẩn bị Kaggle CLI có lệnh `kernels logs` và `quota` (ví dụ 2.2.5), đăng nhập và xác minh điện
-thoại trên Kaggle để bật GPU và Internet. Kaggle [đã ngừng P100][kaggle-p100]. Chọn một L4
-(`NvidiaL4X1`) nếu tài khoản có loại này, hoặc `NvidiaTeslaT4` trong gói T4 ×2. Notebook chỉ dùng
-GPU 0 và ghi GPU thực tế, phiên bản PyTorch, Ultralytics và Albumentations theo phiên trong
-`meta.json`. Ghi rõ khi phần cứng hoặc môi trường khác lượt đối chứng L4.
+thoại trên Kaggle để bật GPU và Internet. Với lượt mới, chọn `NvidiaTeslaT4`. Gói T4 ×2 cấp hai
+GPU và notebook chỉ dùng GPU 0. Notebook ghi GPU thực tế, phiên bản PyTorch, Ultralytics và
+Albumentations theo phiên trong `meta.json`. Ghi rõ khi phần cứng hoặc môi trường khác lượt đối
+chứng L4. Kaggle đã ngừng cung cấp P100. [Thông báo của Kaggle][kaggle-p100]
+
+Ngày 28/11/2026, kernel v1 yêu cầu một L4 (`NvidiaL4X1`) và chờ khoảng 92 phút
+(13:56–15:28, giờ Việt Nam). Kaggle xác nhận hủy khi phiên vẫn ở hàng đợi, với 0 giây
+thực thi và 0 epoch. Nhóm tiếp tục lượt v1.1-syn đang chạy trên Colab.
 
 1. Đối chiếu `signa-v1.1-syn.zip` với `signa-v1.1-syn.sha256` trong thư mục dựng dữ liệu. SHA-256 của
    ZIP là `49e086b85446db1006d25c3824f6a72449cd93d98854c62408529b4439a7fcba`. Tạo dataset
@@ -391,7 +395,7 @@ GPU 0 và ghi GPU thực tế, phiên bản PyTorch, Ultralytics và Albumentati
    hoặc giao diện Kaggle. Chọn giấy phép `unknown` trong metadata vì Q3 về VN82 còn mở.
    Notebook nhận ZIP nguyên gốc và dữ liệu Kaggle đã giải nén.
 2. Từ thư mục gốc repo, đóng gói notebook tại một commit đã có trên GitHub, rồi chạy nền. Điền slug
-   tài khoản Kaggle thay cho `ten-kaggle`, và chọn accelerator theo tài khoản:
+   tài khoản Kaggle thay cho `ten-kaggle`.
 
    ```sh
    owner=ten-kaggle
@@ -400,7 +404,7 @@ GPU 0 và ghi GPU thực tế, phiên bản PyTorch, Ultralytics và Albumentati
    commit=$(git rev-parse HEAD)
    stage=$(mktemp -d)
    python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" --commit "$commit"
-   kaggle kernels push -p "$stage" --accelerator NvidiaL4X1 --timeout 43200
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout 43200
    kaggle kernels status "$kernel"
    kaggle kernels logs "$kernel" --follow
    kaggle quota
@@ -429,7 +433,7 @@ GPU 0 và ghi GPU thực tế, phiên bản PyTorch, Ultralytics và Albumentati
    resume_dataset="$owner/signa-v1-1-syn-checkpoint"
    python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" \
      --commit "$commit" --resume-dataset "$resume_dataset"
-   kaggle kernels push -p "$stage" --accelerator NvidiaL4X1 --timeout 43200
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout 43200
    ```
 
    Notebook chép bộ checkpoint sang vùng ghi của Kaggle, kiểm cấu hình, rồi tiếp tục epoch kế
