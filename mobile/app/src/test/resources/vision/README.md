@@ -11,3 +11,5 @@ python ai/scripts/export_android_vision_fixture.py \
   "$SIGNA_TEST_IMAGES/vts_002564.jpg" "$SIGNA_TEST_IMAGES/vts_002610.jpg" \
   "$SIGNA_TEST_IMAGES/vts_002711.jpg" "$SIGNA_TEST_IMAGES/vts_002712.jpg"
 ```
+
+Video `vision-replay.mp4` trong assets kiểm thử Android lặp ảnh `vts_002564` 48 lần. Video H.264, 512 × 288 px, 12 FPS, dài 4 giây. Điều khoản ghi công của ảnh cũng áp dụng cho video.

@@ -51,7 +51,14 @@ class CameraPreviewLifecycleTest {
         val shown = mutableStateOf(true)
         try {
             compose.setContent {
-                if (shown.value) CameraPreview(enabled.value, 0, cameraStatus::set, Modifier.fillMaxSize())
+                if (shown.value) CameraPreview(
+                    enabled = enabled.value,
+                    attempt = 0,
+                    onStatus = cameraStatus::set,
+                    captureContext = { null },
+                    onTrack = { _, _ -> },
+                    modifier = Modifier.fillMaxSize()
+                )
             }
             fun awaitStreaming() = compose.waitUntil(30_000) {
                 cameraStatus.get() == CameraPreviewStatus.Streaming && available.get() == false
