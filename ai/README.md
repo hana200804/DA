@@ -318,6 +318,10 @@ Lượt `yolov8s-960-v1.1-main-s0` dùng v1.1 và cùng giao thức với lượ
 `NvidiaTeslaT4` và notebook dùng GPU 0. Kaggle đã ngừng cung cấp P100.
 [Thông báo của Kaggle](https://www.kaggle.com/product-announcements/735239)
 
+Ngày 28/11/2026, phiên bản 1 của kernel T4 ghim commit `13072f6` ở hàng đợi 20 phút
+(16:05–16:25, giờ Việt Nam). Kaggle xác nhận hủy sau 0 giây thực thi. Lượt này chưa có
+checkpoint hoặc số đo huấn luyện trên Kaggle.
+
 1. Tạo dataset Kaggle **Private** từ `signa-v1.1.zip` của v1.1. SHA-256 của ZIP đã đối chiếu
    là `60f4564aed84aa128953307901109a8898f44c37e96916939c50e4a52dfb53a3`. Trước khi tải, đối chiếu
    ảnh với [manifest v1.1](data/manifests/v1.1.csv) và GT val, test với
