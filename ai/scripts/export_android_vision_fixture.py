@@ -64,7 +64,9 @@ def make_case(interpreter, source, output, labels, config, max_edge):
             {
                 "code": det.sign_type_code,
                 "confidence": det.confidence,
-                "box": [det.box.x, det.box.y, det.box.x + det.box.width, det.box.y + det.box.height],
+                "box": [
+                    det.box.x, det.box.y, det.box.x + det.box.width, det.box.y + det.box.height
+                ],
             }
             for det in detections
         ],
@@ -78,7 +80,8 @@ def main():
     parser.add_argument("--output", type=Path, default=FIXTURES)
     parser.add_argument("--max-edge", type=int, default=511)
     args = parser.parse_args()
-    if not 3 <= len(args.images) <= 5 or len({image.stem for image in args.images}) != len(args.images):
+    names = {image.stem for image in args.images}
+    if not 3 <= len(args.images) <= 5 or len(names) != len(args.images):
         parser.error("Chọn từ 3 đến 5 ảnh có tên riêng biệt.")
 
     config = json.loads(args.config.read_text(encoding="utf-8"))

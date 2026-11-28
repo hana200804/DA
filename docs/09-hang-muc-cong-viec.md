@@ -56,7 +56,7 @@ Cuối tuần 12 **đóng băng tính năng**.
 - [x] Migration Flyway cho toàn bộ lược đồ [CSDL](06-co-so-du-lieu.md)
 - [x] Tài khoản, phiên, phân quyền (FR-01, FR-30) phía backend. Ứng dụng di động chưa tích hợp.
 - [ ] Docker Compose: MySQL, Redis, MinIO, nginx, backend, dịch vụ nhận diện, web. Đã viết [`infra/compose.yaml`](../infra/compose.yaml), chưa chạy thử `docker compose up` trên máy thật.
-- [ ] CI build, lint, test cho mọi thành phần. Đã có cho backend (unit và tích hợp Testcontainers), AI và tài liệu; còn thiếu web quản trị và di động.
+- [x] CI build, lint, test cho backend (unit và tích hợp Testcontainers), AI, tài liệu, web quản trị và Android. CI Android chạy kiểm thử JVM, Android lint, instrumented test trên emulator và lưu kết quả phát lại. [Workflow Android](../.github/workflows/mobile.yml)
 
 **Hoàn thành khi:** `docker compose up` chạy đủ hệ thống; đăng ký, đăng nhập được từ ứng dụng và web; CI xanh.
 
