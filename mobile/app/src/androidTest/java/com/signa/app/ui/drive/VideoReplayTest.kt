@@ -5,9 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.ActivityResultRegistryOwner
-import androidx.activity.result.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
