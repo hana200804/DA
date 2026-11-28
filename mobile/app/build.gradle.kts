@@ -68,7 +68,9 @@ android {
         compose = true
     }
     androidResources.noCompress += "tflite"
-    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    sourceSets.getByName("androidTest").assets.directories.addAll(
+        listOf("$projectDir/schemas", "$projectDir/src/test/resources/vision")
+    )
 }
 
 ksp {
