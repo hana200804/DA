@@ -4,17 +4,21 @@ import ast
 import csv
 import hashlib
 import json
+import shutil
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from zipfile import ZipFile
 
 import numpy as np
 import pytest
 import yaml
 
 from signa_ai.augment import ULTRALYTICS_ARGS
+from signa_ai.dataset import relative_path
 from signa_ai.detection import Box, Detection, to_coco_predictions
 from signa_ai.labels import load_label_map
 from signa_ai.yolo_training import (
@@ -214,6 +218,114 @@ def test_yolov8_synthetic_changes_only_dataset_version():
     assert differences == {"dataset_version", "name"}
     assert config.keys() == committed.keys()
     assert baseline["run_config"](baseline["train_args"]("n")) == committed
+
+
+@pytest.mark.parametrize("layout", ["extracted-flat", "extracted-nested", "zip"])
+def test_kaggle_dataset_mounts(tmp_path, layout):
+    input_root, scratch = tmp_path / "input", tmp_path / "scratch"
+    ref = "owner/signa-v1-1-syn"
+    mount = input_root / ("signa-v1-1-syn" if layout == "extracted-flat" else f"datasets/{ref}")
+    mount.mkdir(parents=True)
+    functions = load_main_notebook("v8")
+    functions.update(DATASET_VERSION="v1.1-syn", ZipFile=ZipFile)
+    if layout == "zip":
+        archive_path = mount / "signa-v1.1-syn.zip"
+        with ZipFile(archive_path, "w") as archive:
+            archive.writestr("v1.1-syn/manifest.csv", "manifest")
+            archive.writestr("v1.1-syn/data.yaml", "data")
+        functions["SYN_ZIP_SHA256"] = "invalid"
+        with pytest.raises(ValueError, match="SHA-256"):
+            functions["kaggle_dataset"](input_root, scratch, ref)
+        assert not scratch.exists()
+        functions["SYN_ZIP_SHA256"] = file_sha256(archive_path)
+        root = scratch / "v1.1-syn"
+    else:
+        root = mount / "v1.1-syn" if layout == "extracted-nested" else mount
+        root.mkdir(exist_ok=True)
+        (root / "manifest.csv").write_text("manifest")
+        (root / "data.yaml").write_text("data")
+
+    assert functions["kaggle_dataset"](input_root, scratch, ref) == root
+    assert (root / "manifest.csv").read_text() == "manifest"
+
+
+@pytest.mark.parametrize("layout", ["extracted", "zip", "missing-stopper"])
+def test_kaggle_copies_resume_bundle_atomically(tmp_path, layout):
+    run_name = "yolov8n-640-v1.1-syn-main-s0"
+    input_root, working = tmp_path / "input", tmp_path / "working"
+    mount = input_root / "datasets/owner/checkpoint"
+    source = mount / run_name
+    mount.mkdir(parents=True)
+    working.mkdir()
+    run_dir = working / run_name
+    files = {
+        "config.yaml": f"name: {run_name}\ndataset_version: v1.1-syn\n",
+        "meta.json": "{}",
+        "results.csv": "epoch\n12",
+        "weights/last.pt": "last",
+        "weights/best.pt": "best",
+    }
+    if layout != "missing-stopper":
+        files["early-stopping.json"] = "{}"
+    if layout == "zip":
+        with ZipFile(mount / f"{run_name}.zip", "w") as archive:
+            for name, content in files.items():
+                archive.writestr(f"{run_name}/{name}", content)
+    else:
+        for name, content in files.items():
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+    functions = load_main_notebook("v8")
+    functions.update(
+        DATASET_VERSION="v1.1-syn", TemporaryDirectory=TemporaryDirectory,
+        shutil=shutil, ZipFile=ZipFile, relative_path=relative_path,
+    )
+    restore = functions["restore_kaggle_run"]
+    if layout == "missing-stopper":
+        with pytest.raises(FileNotFoundError, match="early-stopping.json"):
+            restore(input_root, run_dir)
+        assert not list(working.iterdir())
+        return
+
+    restore(input_root, run_dir)
+    for name, content in files.items():
+        assert (run_dir / name).read_text() == content
+    (run_dir / "results.csv").write_text("progress")
+    restore(input_root, run_dir)
+    assert (run_dir / "results.csv").read_text() == "progress"
+
+
+@pytest.mark.parametrize("finished", [False, True])
+def test_kaggle_session_deadline_preserves_resumable_checkpoint(tmp_path, finished):
+    functions = load_main_notebook("v8")
+    functions["time"] = SimpleNamespace(monotonic=Mock(side_effect=[0, 240, 240, 250]))
+    functions["ultralytics"] = SimpleNamespace(__version__="8.3.203")
+    callbacks = {}
+    model = SimpleNamespace(add_callback=callbacks.__setitem__)
+    session = functions["track"](model, tmp_path, {}, deadline=240 + 5 * 60)
+    final_eval = Mock()
+    trainer = SimpleNamespace(
+        epoch=2,
+        stopper=StopperProbe(30),
+        save_model=Mock(),
+        final_eval=final_eval,
+        fitness=0.5,
+        best_fitness=0.5,
+        metrics={},
+        stop=finished,
+        plot_metrics=Mock(),
+    )
+    callbacks["on_train_start"](trainer)
+    trainer.save_model()
+    callbacks["on_model_save"](trainer)
+    trainer.final_eval()
+    callbacks["on_train_end"](trainer)
+
+    assert trainer.stop
+    assert session.get("paused_for_time_limit", False) is (not finished)
+    assert final_eval.call_count == int(finished)
+    assert json.loads((tmp_path / "meta.json").read_text())["sessions"][0]["epoch"] == 3
 
 
 def test_yolov8_960_names_run_and_records_imgsz():
