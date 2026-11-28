@@ -221,26 +221,28 @@ def test_yolov8_synthetic_changes_only_dataset_version():
 
 
 @pytest.mark.parametrize("layout", ["extracted-flat", "extracted-nested", "zip"])
-def test_kaggle_dataset_mounts(tmp_path, layout):
+@pytest.mark.parametrize("version", ["v1.1", "v1.1-syn"])
+def test_kaggle_dataset_mounts(tmp_path, layout, version):
     input_root, scratch = tmp_path / "input", tmp_path / "scratch"
-    ref = "owner/signa-v1-1-syn"
-    mount = input_root / ("signa-v1-1-syn" if layout == "extracted-flat" else f"datasets/{ref}")
+    slug = f"signa-{version.replace('.', '-')}"
+    ref = f"owner/{slug}"
+    mount = input_root / (slug if layout == "extracted-flat" else f"datasets/{ref}")
     mount.mkdir(parents=True)
     functions = load_main_notebook("v8")
-    functions.update(DATASET_VERSION="v1.1-syn", ZipFile=ZipFile)
+    functions.update(DATASET_VERSION=version, ZipFile=ZipFile)
     if layout == "zip":
-        archive_path = mount / "signa-v1.1-syn.zip"
+        archive_path = mount / f"signa-{version}.zip"
         with ZipFile(archive_path, "w") as archive:
-            archive.writestr("v1.1-syn/manifest.csv", "manifest")
-            archive.writestr("v1.1-syn/data.yaml", "data")
-        functions["SYN_ZIP_SHA256"] = "invalid"
+            archive.writestr(f"{version}/manifest.csv", "manifest")
+            archive.writestr(f"{version}/data.yaml", "data")
+        functions["KAGGLE_ZIP_SHA256"] = {version: "invalid"}
         with pytest.raises(ValueError, match="SHA-256"):
             functions["kaggle_dataset"](input_root, scratch, ref)
         assert not scratch.exists()
-        functions["SYN_ZIP_SHA256"] = file_sha256(archive_path)
-        root = scratch / "v1.1-syn"
+        functions["KAGGLE_ZIP_SHA256"][version] = file_sha256(archive_path)
+        root = scratch / version
     else:
-        root = mount / "v1.1-syn" if layout == "extracted-nested" else mount
+        root = mount / version if layout == "extracted-nested" else mount
         root.mkdir(exist_ok=True)
         (root / "manifest.csv").write_text("manifest")
         (root / "data.yaml").write_text("data")
@@ -301,6 +303,7 @@ def test_kaggle_session_deadline_preserves_resumable_checkpoint(tmp_path, finish
     functions = load_main_notebook("v8")
     functions["time"] = SimpleNamespace(monotonic=Mock(side_effect=[0, 240, 240, 250]))
     functions["ultralytics"] = SimpleNamespace(__version__="8.3.203")
+    functions["torch"].cuda = SimpleNamespace(max_memory_reserved=Mock(return_value=6 * 1024**3))
     callbacks = {}
     model = SimpleNamespace(add_callback=callbacks.__setitem__)
     session = functions["track"](model, tmp_path, {}, deadline=240 + 5 * 60)
@@ -325,7 +328,10 @@ def test_kaggle_session_deadline_preserves_resumable_checkpoint(tmp_path, finish
     assert trainer.stop
     assert session.get("paused_for_time_limit", False) is (not finished)
     assert final_eval.call_count == int(finished)
-    assert json.loads((tmp_path / "meta.json").read_text())["sessions"][0]["epoch"] == 3
+    recorded = json.loads((tmp_path / "meta.json").read_text())["sessions"][0]
+    assert recorded["epoch"] == 3
+    assert recorded["minutes_per_epoch"] == 4
+    assert recorded["peak_reserved_vram_gib"] == 6
 
 
 def test_yolov8_960_names_run_and_records_imgsz():

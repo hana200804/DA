@@ -311,6 +311,59 @@ Notebook YOLOv8 đọc kích thước ảnh, cỡ mô hình, batch và bộ dữ
 `%env SIGNA_NOTEBOOK_COMMIT=<SHA>`, chọn L4 (hoặc A100) rồi **Run all**. Xem
 [`yolov8s-960-v1.1-main-s0`](experiments/yolov8s-960-v1.1-main-s0/README.md).
 
+### Chạy YOLOv8s 960 trên Kaggle
+
+Lượt `yolov8s-960-v1.1-main-s0` dùng v1.1 và cùng giao thức với lượt 640. Batch mặc định là
+16, seed 0, tối đa 200 epoch và patience 30. Kaggle cấp gói T4 ×2 với
+`NvidiaTeslaT4` và notebook dùng GPU 0. Kaggle đã ngừng cung cấp P100.
+[Thông báo của Kaggle](https://www.kaggle.com/product-announcements/735239)
+
+1. Tạo dataset Kaggle **Private** từ `signa-v1.1.zip` của v1.1. SHA-256 của ZIP đã đối chiếu
+   là `60f4564aed84aa128953307901109a8898f44c37e96916939c50e4a52dfb53a3`. Trước khi tải, đối chiếu
+   ảnh với [manifest v1.1](data/manifests/v1.1.csv) và GT val, test với
+   [hồ sơ chấm](experiments/test-v1.1.md).
+2. Từ thư mục gốc repo, đóng gói một commit đã có trên GitHub. Thay `ten-kaggle` bằng tên
+   tài khoản Kaggle, rồi gửi kernel private.
+
+   ```sh
+   owner=ten-kaggle
+   dataset="$owner/signa-v1-1"
+   kernel="$owner/yolov8s-960-v1-1-main-s0"
+   commit=$(git rev-parse HEAD)
+   stage=$(mktemp -d)
+   timeout=43200
+   python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" \
+     --run 960 --commit "$commit" --timeout "$timeout"
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout "$timeout"
+   kaggle kernels status "$kernel"
+   kaggle kernels logs "$kernel" --follow
+   kaggle quota
+   ```
+
+   Notebook ghi số phút/epoch và đỉnh VRAM do PyTorch giữ trong log và `meta.json`.
+   Thời gian ước tính ban đầu trên T4 là 25–30 giờ, cần khoảng ba phiên. Cập nhật ước tính
+   sau ít nhất ba epoch và kiểm tra quota trước mỗi phiên.
+3. Gần hết giờ, notebook dừng sau một epoch đã lưu checkpoint. Khi Kaggle kết thúc phiên, tải
+   output bằng `kaggle kernels output "$kernel" -p "$PWD/kaggle-output"`. Tạo một dataset
+   **Private** từ thư mục `yolov8s-960-v1.1-main-s0/`. Giữ cả `weights/last.pt`,
+   `weights/best.pt`, `early-stopping.json`, `results.csv`, `meta.json` và `config.yaml`
+   của cùng phiên. Nếu dùng ZIP, đặt tên `yolov8s-960-v1.1-main-s0.zip` và giữ nguyên thư
+   mục run tại gốc ZIP.
+4. Gắn dataset checkpoint mới nhất và dùng lại commit cùng dataset train. Dùng cùng giá trị
+   `timeout` trong hai lệnh. Nếu quota còn dưới 12 giờ, giảm `timeout` theo quota còn lại.
+
+   ```sh
+   resume_dataset="$owner/signa-yolov8s-960-checkpoint"
+   python3 ai/scripts/prepare_kaggle_yolov8.py "$stage" "$dataset" \
+     --run 960 --commit "$commit" --timeout "$timeout" --resume-dataset "$resume_dataset"
+   kaggle kernels push -p "$stage" --accelerator NvidiaTeslaT4 --timeout "$timeout"
+   ```
+
+   Nếu batch 16 hết VRAM, thêm `--batch 8` hoặc giá trị nhỏ hơn khi đóng gói. Khi tiếp tục
+   từ checkpoint có batch khác, thêm `--allow-batch-change` cho phiên đổi batch. Giữ batch
+   mới cho các phiên sau và đối chiếu `batch_note` trong `config.yaml` cùng batch theo phiên
+   trong `meta.json`.
+
 ## Thí nghiệm có và không có dữ liệu tổng hợp · v1.1-syn
 
 Thí nghiệm AI-07 đo tác động của [bộ v1.1-syn](data/README.md#bộ-dữ-liệu-tổng-hợp-v11-syn) lên
